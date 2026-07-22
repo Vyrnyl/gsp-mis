@@ -1,0 +1,69 @@
+'use client';
+
+import { useId, useState, type FormEvent } from 'react';
+
+import { Button, FormField, Input, Modal, useToast } from '@/shared/components/ui';
+
+export interface ForgotPasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+/**
+ * Replaces the prototype's `showForgot()`, which used a native `prompt()` then
+ * `alert()` — both block the thread, ignore the design system, and are
+ * unreachable by assistive tech in a predictable way. A modal keeps the flow on
+ * the same design tokens and inside the app's focus-trap/`aria-live` machinery.
+ */
+export function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordModalProps) {
+  const formId = useId();
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+
+    window.setTimeout(() => {
+      setIsSubmitting(false);
+      showToast(`If ${email} is registered, a reset link was sent.`, 'success');
+      setEmail('');
+      onClose();
+    }, 500);
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Reset your password"
+      size="sm"
+      footer={
+        <>
+          <Button type="button" variant="gray" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} variant="green" isLoading={isSubmitting}>
+            Send Reset Link
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} noValidate>
+        <p className="mb-4 text-[0.88rem] text-muted">
+          Enter the email on your account and we&apos;ll send a link to reset your password.
+        </p>
+        <FormField label="Email Address" required>
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="your@gmail.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </FormField>
+      </form>
+    </Modal>
+  );
+}
