@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Token mirror. Source of truth is `src/shared/design/tokens.ts` (imported by
+ * tailwind.config.ts). These custom properties exist for the handful of places
+ * that need raw CSS — scrollbars, inline chart fills, future theming.
+ * Keep them in sync with tokens.ts.
+ */
+:root {
+  --green: #1a6b3c;
+  --green2: #2e8b57;
+  --green3: #d4edda;
+  --green4: #1a5c34;
+  --gold: #c8a900;
+  --gold2: #f0d000;
+  --gold-ink: #8a7500;
+  --red: #c0392b;
+  --blue: #1565c0;
+  --bg: #f4f6f0;
+  --surface: #fff;
+  --muted: #6c757d;
+  --ink: #212529;
+  --sidebar: 220px;
+  --radius: 12px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-canvas font-sans text-ink antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-bold text-ink;
+  }
+
+  /**
+   * Accessibility (ui-rules.md §9): the prototype used `outline: none` in three
+   * places with no replacement. Every focusable element gets a visible ring here,
+   * and nothing may remove it without providing its own.
+   */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-green2 ring-offset-2 ring-offset-canvas;
+  }
+
+  /* Custom scrollbar — ui-rules.md §8. Thumb hover darkened from the
+     prototype's #aaa to #9a9a9a so it stays visible against the track. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9a9a9a;
+  }
+}
+
+@layer components {
+  /* Skip link — first tab stop, visible only when focused. */
+  .skip-link {
+    @apply absolute left-4 top-4 z-[999] -translate-y-24 rounded-control bg-brand-green px-4 py-2
+      text-sm font-semibold text-white transition-transform focus-visible:translate-y-0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

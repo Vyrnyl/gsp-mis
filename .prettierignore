@@ -1,0 +1,8 @@
+node_modules
+.next
+dist
+build
+coverage
+package-lock.json
+context/Gsp.html
+apps/api/prisma/migrations

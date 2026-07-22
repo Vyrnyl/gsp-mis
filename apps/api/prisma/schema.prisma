@@ -1,0 +1,699 @@
+// GSP Management Information System — Prisma schema
+//
+// Covers every domain in context/database-design.md §3. Table names are snake_case
+// via @@map, columns via @map; Prisma models and fields stay PascalCase/camelCase
+// per code-standards.md §4.
+//
+// Role model is RELATIONAL and authoritative: a user's role comes from `user_roles`
+// and capabilities from `role_permissions`. There is deliberately NO role column on
+// `users` (build-plan.md §7). The join table allows many-to-many, but v1 enforces
+// exactly one role per user at the service layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: the connection URL is deliberately NOT here.
+//   - Migrate/introspection read it from `prisma.config.ts` (datasource.url).
+//   - The runtime client gets it via the node-postgres driver adapter in
+//     `src/config/prisma.ts`.
+// Adding `url` back here is a validation error on v7.
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.1 Authentication and Users
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  fullName     String    @map("full_name")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  phoneNumber  String?   @map("phone_number")
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  userRoles           UserRole[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  ledTroops           Troop[]              @relation("TroopLeader")
+  organizedEvents     Event[]              @relation("EventOrganizer")
+  registrationsMade   EventRegistration[]  @relation("RegisteredBy")
+  attendanceRecorded  AttendanceRecord[]   @relation("AttendanceRecorder")
+  badgesVerified      MemberBadge[]        @relation("BadgeVerifier")
+  achievementsLogged  AchievementRecord[]  @relation("AchievementRecorder")
+  paymentsReceived    Payment[]            @relation("PaymentReceiver")
+  expensesApproved    Expense[]            @relation("ExpenseApprover")
+  reportsGenerated    Report[]             @relation("ReportGenerator")
+  announcements       AnnouncementPost[]   @relation("AnnouncementAuthor")
+  membersReviewed     Member[]             @relation("MemberReviewer")
+  activityReportsMade ActivityReport[]     @relation("ActivityReportAuthor")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique // admin | executive_council | troop_leader
+  description String?
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique // e.g. members:approve
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.2 Organization and Membership
+// ─────────────────────────────────────────────────────────────
+
+model Council {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  troops  Troop[]
+  members Member[]
+
+  @@map("councils")
+}
+
+model Troop {
+  id        String   @id @default(uuid()) @db.Uuid
+  councilId String   @map("council_id") @db.Uuid
+  name      String
+  troopCode String   @unique @map("troop_code")
+  leaderId  String?  @map("leader_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  council Council @relation(fields: [councilId], references: [id])
+  leader  User?   @relation("TroopLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  members Member[]
+
+  @@index([councilId])
+  @@index([leaderId])
+  @@map("troops")
+}
+
+model ScoutLevel {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+  orderNumber Int     @map("order_number")
+
+  members Member[]
+
+  @@map("scout_levels")
+}
+
+model BadgeCategory {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  badges Badge[]
+
+  @@map("badge_categories")
+}
+
+model ActivityCategory {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+
+  events Event[]
+
+  @@map("activity_categories")
+}
+
+model MemberStatus {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique // pending | active | expiring | expired | archived | rejected
+  description String?
+
+  members Member[]
+
+  @@map("member_statuses")
+}
+
+/// Scout or adult leader. `memberType` distinguishes the two registration flows
+/// (build-plan.md §1.3); both live in one table because they share the lifecycle.
+enum MemberType {
+  scout
+  adult_leader
+
+  @@map("member_type")
+}
+
+enum Gender {
+  female
+  male
+  other
+  undisclosed
+
+  @@map("gender")
+}
+
+model Member {
+  id           String     @id @default(uuid()) @db.Uuid
+  memberType   MemberType @default(scout) @map("member_type")
+  firstName    String     @map("first_name")
+  middleName   String?    @map("middle_name")
+  lastName     String     @map("last_name")
+  birthDate    DateTime?  @map("birth_date") @db.Date
+  gender       Gender     @default(female)
+  email        String?    @unique
+  phoneNumber  String?    @map("phone_number")
+  address      String?
+
+  membershipStatusId String  @map("membership_status_id") @db.Uuid
+  troopId            String? @map("troop_id") @db.Uuid
+  councilId          String? @map("council_id") @db.Uuid
+  scoutLevelId       String? @map("scout_level_id") @db.Uuid
+
+  // Approval workflow (feature 1.4).
+  reviewedById    String?   @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionReason String?   @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  status     MemberStatus   @relation(fields: [membershipStatusId], references: [id])
+  troop      Troop?         @relation(fields: [troopId], references: [id], onDelete: SetNull)
+  council    Council?       @relation(fields: [councilId], references: [id], onDelete: SetNull)
+  scoutLevel ScoutLevel?    @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
+  reviewedBy User?          @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  profile           MemberProfile?
+  memberships       Membership[]
+  eventRegistration EventRegistration[]
+  attendanceRecords AttendanceRecord[]
+  memberBadges      MemberBadge[]
+  achievements      AchievementRecord[]
+  payments          Payment[]
+
+  @@index([troopId])
+  @@index([membershipStatusId])
+  @@index([councilId])
+  @@index([lastName, firstName])
+  @@map("members")
+}
+
+model MemberProfile {
+  id                    String  @id @default(uuid()) @db.Uuid
+  memberId              String  @unique @map("member_id") @db.Uuid
+  profilePhotoUrl       String? @map("profile_photo_url")
+  emergencyContactName  String? @map("emergency_contact_name")
+  emergencyContactPhone String? @map("emergency_contact_phone")
+  notes                 String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_profiles")
+}
+
+enum MembershipState {
+  active
+  expiring
+  expired
+  cancelled
+
+  @@map("membership_state")
+}
+
+/// One row per membership term. Renewal (feature 1.3) writes a new term rather than
+/// mutating the old one, so history stays intact.
+model Membership {
+  id          String          @id @default(uuid()) @db.Uuid
+  memberId    String          @map("member_id") @db.Uuid
+  startDate   DateTime        @map("start_date") @db.Date
+  endDate     DateTime        @map("end_date") @db.Date
+  renewalDate DateTime?       @map("renewal_date") @db.Date
+  status      MembershipState @default(active)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([endDate])
+  @@map("memberships")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.3 Events and Attendance
+// ─────────────────────────────────────────────────────────────
+
+model Event {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  eventDate   DateTime  @map("event_date") @db.Date
+  startTime   DateTime? @map("start_time") @db.Time()
+  endTime     DateTime? @map("end_time") @db.Time()
+  location    String?
+  organizerId String?   @map("organizer_id") @db.Uuid
+  categoryId  String?   @map("category_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  organizer User?             @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  category  ActivityCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  registrations     EventRegistration[]
+  attendanceRecords AttendanceRecord[]
+  attendanceSummary AttendanceSummary?
+  activityReports   ActivityReport[]
+
+  @@index([eventDate])
+  @@index([organizerId])
+  @@map("events")
+}
+
+enum RegistrationStatus {
+  registered
+  waitlisted
+  cancelled
+
+  @@map("registration_status")
+}
+
+model EventRegistration {
+  id               String             @id @default(uuid()) @db.Uuid
+  eventId          String             @map("event_id") @db.Uuid
+  memberId         String             @map("member_id") @db.Uuid
+  registeredById   String?            @map("registered_by") @db.Uuid
+  registrationDate DateTime           @default(now()) @map("registration_date")
+  status           RegistrationStatus @default(registered)
+
+  event        Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member       Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  registeredBy User?  @relation("RegisteredBy", fields: [registeredById], references: [id], onDelete: SetNull)
+
+  // A member registers for an event at most once (database-design.md §7).
+  @@unique([eventId, memberId])
+  @@index([eventId])
+  @@map("event_registrations")
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  excused
+  late
+
+  @@map("attendance_status")
+}
+
+model AttendanceRecord {
+  id               String           @id @default(uuid()) @db.Uuid
+  eventId          String           @map("event_id") @db.Uuid
+  memberId         String           @map("member_id") @db.Uuid
+  attendanceStatus AttendanceStatus @map("attendance_status")
+  recordedById     String?          @map("recorded_by") @db.Uuid
+  recordedAt       DateTime         @default(now()) @map("recorded_at")
+
+  event      Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member     Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedBy User?  @relation("AttendanceRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, memberId])
+  @@index([eventId])
+  @@map("attendance_records")
+}
+
+model AttendanceSummary {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventId        String   @unique @map("event_id") @db.Uuid
+  totalExpected  Int      @map("total_expected")
+  totalPresent   Int      @map("total_present")
+  totalAbsent    Int      @map("total_absent")
+  attendanceRate Decimal  @map("attendance_rate") @db.Decimal(5, 2)
+  generatedAt    DateTime @default(now()) @map("generated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_summaries")
+}
+
+/// Human-written accomplishment report a troop leader submits after an event
+/// (feature 2.3). Distinct from `Report`, which is generated from system data.
+enum ActivityReportStatus {
+  submitted
+  reviewed
+
+  @@map("activity_report_status")
+}
+
+model ActivityReport {
+  id                 String               @id @default(uuid()) @db.Uuid
+  eventId            String               @map("event_id") @db.Uuid
+  submittedById      String               @map("submitted_by") @db.Uuid
+  summary            String
+  participationNotes String?              @map("participation_notes")
+  outcomes           String?
+  status             ActivityReportStatus @default(submitted)
+  submittedAt        DateTime             @default(now()) @map("submitted_at")
+  reviewedAt         DateTime?            @map("reviewed_at")
+
+  event       Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  submittedBy User  @relation("ActivityReportAuthor", fields: [submittedById], references: [id])
+
+  @@index([eventId])
+  @@index([submittedById])
+  @@map("activity_reports")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.4 Badges and Achievements
+// ─────────────────────────────────────────────────────────────
+
+model Badge {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @unique
+  description    String?
+  categoryId     String?  @map("category_id") @db.Uuid
+  requiredPoints Int      @default(0) @map("required_points")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  category     BadgeCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  requirements BadgeRequirement[]
+  memberBadges MemberBadge[]
+
+  @@index([categoryId])
+  @@map("badges")
+}
+
+model BadgeRequirement {
+  id                     String  @id @default(uuid()) @db.Uuid
+  badgeId                String  @map("badge_id") @db.Uuid
+  requirementName        String  @map("requirement_name")
+  requirementDescription String? @map("requirement_description")
+
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@index([badgeId])
+  @@map("badge_requirements")
+}
+
+enum MemberBadgeStatus {
+  in_progress
+  earned
+  verified
+
+  @@map("member_badge_status")
+}
+
+model MemberBadge {
+  id           String            @id @default(uuid()) @db.Uuid
+  memberId     String            @map("member_id") @db.Uuid
+  badgeId      String            @map("badge_id") @db.Uuid
+  earnedAt     DateTime?         @map("earned_at")
+  verifiedById String?           @map("verified_by") @db.Uuid
+  status       MemberBadgeStatus @default(in_progress)
+
+  member     Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  badge      Badge  @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  verifiedBy User?  @relation("BadgeVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([memberId, badgeId])
+  @@index([memberId])
+  @@map("member_badges")
+}
+
+model AchievementRecord {
+  id              String   @id @default(uuid()) @db.Uuid
+  memberId        String   @map("member_id") @db.Uuid
+  achievementName String   @map("achievement_name")
+  description     String?
+  achievedAt      DateTime @map("achieved_at")
+  recordedById    String?  @map("recorded_by") @db.Uuid
+
+  member     Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedBy User?  @relation("AchievementRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([memberId])
+  @@map("achievement_records")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.5 Finance
+// ─────────────────────────────────────────────────────────────
+
+model FeeType {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  amount      Decimal @db.Decimal(12, 2)
+  description String?
+
+  payments Payment[]
+
+  @@map("fee_types")
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  cancelled
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  cash
+  bank_transfer
+  gcash
+  cheque
+
+  @@map("payment_method")
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  memberId      String        @map("member_id") @db.Uuid
+  feeTypeId     String        @map("fee_type_id") @db.Uuid
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentDate   DateTime      @map("payment_date") @db.Date
+  paymentMethod PaymentMethod @default(cash) @map("payment_method")
+  receivedById  String?       @map("received_by") @db.Uuid
+  status        PaymentStatus @default(paid)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  member     Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  feeType    FeeType @relation(fields: [feeTypeId], references: [id])
+  receivedBy User?   @relation("PaymentReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  @@index([memberId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model Expense {
+  id           String   @id @default(uuid()) @db.Uuid
+  description  String
+  amount       Decimal  @db.Decimal(12, 2)
+  expenseDate  DateTime @map("expense_date") @db.Date
+  category     String?
+  approvedById String?  @map("approved_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  approvedBy User? @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+model FinancialPeriod {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  startDate    DateTime @map("start_date") @db.Date
+  endDate      DateTime @map("end_date") @db.Date
+  totalIncome  Decimal  @default(0) @map("total_income") @db.Decimal(14, 2)
+  totalExpense Decimal  @default(0) @map("total_expense") @db.Decimal(14, 2)
+  balance      Decimal  @default(0) @db.Decimal(14, 2)
+
+  summaries FinancialSummary[]
+
+  @@map("financial_periods")
+}
+
+model FinancialSummary {
+  id           String   @id @default(uuid()) @db.Uuid
+  periodId     String   @map("period_id") @db.Uuid
+  summaryType  String   @map("summary_type")
+  summaryValue Decimal  @map("summary_value") @db.Decimal(14, 2)
+  generatedAt  DateTime @default(now()) @map("generated_at")
+
+  period FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+  @@map("financial_summaries")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.6 Reports and Analytics
+// ─────────────────────────────────────────────────────────────
+
+enum ReportFormat {
+  pdf
+  excel
+
+  @@map("report_format")
+}
+
+model Report {
+  id            String       @id @default(uuid()) @db.Uuid
+  title         String
+  reportType    String       @map("report_type")
+  generatedById String?      @map("generated_by") @db.Uuid
+  generatedAt   DateTime     @default(now()) @map("generated_at")
+  filePath      String?      @map("file_path")
+  format        ReportFormat @default(pdf)
+
+  generatedBy User? @relation("ReportGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@index([reportType])
+  @@map("reports")
+}
+
+model ReportTemplate {
+  id           String @id @default(uuid()) @db.Uuid
+  name         String @unique
+  reportType   String @map("report_type")
+  templateJson Json   @map("template_json")
+
+  @@map("report_templates")
+}
+
+model AnalyticsSnapshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  metricName   String   @map("metric_name")
+  metricValue  Decimal  @map("metric_value") @db.Decimal(14, 2)
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+  generatedAt  DateTime @default(now()) @map("generated_at")
+
+  @@unique([metricName, snapshotDate])
+  @@index([snapshotDate])
+  @@map("analytics_snapshots")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3.7 Notifications and Settings
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model AnnouncementPost {
+  id         String    @id @default(uuid()) @db.Uuid
+  title      String
+  content    String
+  postedById String?   @map("posted_by") @db.Uuid
+  postedAt   DateTime  @default(now()) @map("posted_at")
+  expiresAt  DateTime? @map("expires_at")
+
+  postedBy User? @relation("AnnouncementAuthor", fields: [postedById], references: [id], onDelete: SetNull)
+
+  @@index([postedAt])
+  @@map("announcement_posts")
+}
+
+model SystemSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  settingKey   String   @unique @map("setting_key")
+  settingValue String   @map("setting_value")
+  description  String?
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
