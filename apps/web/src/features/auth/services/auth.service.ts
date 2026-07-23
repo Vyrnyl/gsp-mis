@@ -1,4 +1,12 @@
-import type { LoginRequest, LoginResponse } from '../types';
+import type {
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  LoginResponse,
+  LogoutResponse,
+  SignupRequest,
+  SignupResponse,
+} from '../types';
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -34,4 +42,18 @@ async function postJson<TResponse>(path: string, body: unknown): Promise<TRespon
 /** Calls the BFF route (`/api/auth/login`), not the Express API — code-standards.md §7.4. */
 export function login(payload: LoginRequest): Promise<LoginResponse> {
   return postJson<LoginResponse>('/api/auth/login', payload);
+}
+
+/** Same cookie-issuing pattern as `login` — a new account is signed in immediately. */
+export function signup(payload: SignupRequest): Promise<SignupResponse> {
+  return postJson<SignupResponse>('/api/auth/signup', payload);
+}
+
+/** Best-effort server-side revoke; the BFF clears cookies even if this throws. */
+export function logout(): Promise<LogoutResponse> {
+  return postJson<LogoutResponse>('/api/auth/logout', {});
+}
+
+export function forgotPassword(payload: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+  return postJson<ForgotPasswordResponse>('/api/auth/forgot-password', payload);
 }

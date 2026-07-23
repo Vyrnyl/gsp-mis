@@ -31,6 +31,9 @@ const envSchema = z.object({
 
   /** Comma-separated list of origins allowed to call the API (the BFF, in practice). */
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
+
+  /** Gate on self-service admin signup — matches the prototype's "Admin Secret Key" field. */
+  ADMIN_SIGNUP_KEY: z.string().min(1, 'ADMIN_SIGNUP_KEY is required'),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsOrigins: string[] };

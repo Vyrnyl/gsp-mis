@@ -4,6 +4,8 @@ import { useId, useState, type FormEvent } from 'react';
 
 import { Button, FormField, Input, Modal, useToast } from '@/shared/components/ui';
 
+import { forgotPassword } from '../services/auth.service';
+
 export interface ForgotPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,16 +23,25 @@ export function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordModalProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /**
+   * The backend's response is deliberately identical whether or not the email
+   * exists (no user enumeration), so a thrown `AuthRequestError` here only ever
+   * means a genuine network/server fault, not "email not found."
+   */
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
 
-    window.setTimeout(() => {
-      setIsSubmitting(false);
-      showToast(`If ${email} is registered, a reset link was sent.`, 'success');
+    try {
+      const { message } = await forgotPassword({ email: email.trim() });
+      showToast(message, 'success');
       setEmail('');
       onClose();
-    }, 500);
+    } catch {
+      showToast('Something went wrong. Please try again.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (

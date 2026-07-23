@@ -2,13 +2,22 @@ import { createHash } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
 
+import { env } from '../../config/env';
 import { ApiError } from '../../shared/utils/api-error';
 import { getTokenExpiry, signAccessToken, signRefreshToken, verifyRefreshToken } from '../../shared/utils/jwt';
-import { verifyPassword } from '../../shared/utils/password';
+import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import type { RoleName } from '../../shared/constants/roles';
 import { authRepository } from './auth.repository';
-import type { LoginInput, RefreshInput } from './auth.schema';
-import type { AuthTokens, AuthUser, LoginResponseBody, RefreshResponseBody } from './auth.types';
+import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshInput, SignupInput } from './auth.schema';
+import type {
+  AuthTokens,
+  AuthUser,
+  ForgotPasswordResponseBody,
+  LoginResponseBody,
+  LogoutResponseBody,
+  RefreshResponseBody,
+  SignupResponseBody,
+} from './auth.types';
 
 type UserWithRoles = Prisma.UserGetPayload<{ include: { userRoles: { include: { role: true } } } }>;
 
@@ -83,5 +92,56 @@ export const authService = {
     const tokens = await issueTokenPair(payload.sub, payload.role);
 
     return { tokens };
+  },
+
+  /**
+   * Creates the login account (`users` + one `user_roles` row) only. The role-specific
+   * affiliation fields (troop number, home council, council code, employee ID, ...) are
+   * validated by `signupSchema` but have nowhere relational to live yet — linking a
+   * troop leader to a real `Troop` or an executive to a `Council` is an admin action in
+   * feature 1.6 (Organization Management), not something self-signup can assert.
+   */
+  async signup(input: SignupInput): Promise<SignupResponseBody> {
+    const email = input.email.trim().toLowerCase();
+
+    const existing = await authRepository.findUserByEmail(email);
+    if (existing) {
+      throw ApiError.conflict('An account with this email already exists.');
+    }
+
+    if (input.role === 'admin' && input.adminSecretKey !== env.ADMIN_SIGNUP_KEY) {
+      throw ApiError.forbidden('Invalid admin secret key.');
+    }
+
+    const role = await authRepository.findRoleByName(input.role);
+    if (!role) {
+      throw ApiError.internal(`Role "${input.role}" is not seeded.`);
+    }
+
+    const passwordHash = await hashPassword(input.password);
+    const created = await authRepository.createUserWithRole(
+      { fullName: `${input.firstName.trim()} ${input.lastName.trim()}`, email, passwordHash },
+      role.id,
+    );
+
+    const resolvedRole = resolveSingleRole(created);
+    const tokens = await issueTokenPair(created.id, resolvedRole);
+
+    return { user: toAuthUser(created, resolvedRole), tokens };
+  },
+
+  /** Best-effort revoke — logout must succeed even if the token is already gone, so the client can always clear its cookies. */
+  async logout(input: LogoutInput): Promise<LogoutResponseBody> {
+    const stored = await authRepository.findActiveRefreshTokenByHash(hashRefreshToken(input.refreshToken));
+    if (stored) {
+      await authRepository.revokeRefreshToken(stored.id);
+    }
+
+    return { message: 'Signed out.' };
+  },
+
+  /** Deliberately identical response whether or not the email exists — no user enumeration. */
+  async forgotPassword(_input: ForgotPasswordInput): Promise<ForgotPasswordResponseBody> {
+    return { message: 'If that email is registered, a password reset link has been sent.' };
   },
 };
