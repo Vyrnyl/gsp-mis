@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { activityReportsRoutes } from '../modules/activity-reports';
 import { attendanceRoutes } from '../modules/attendance';
 import { authRoutes } from '../modules/auth';
 import { dashboardRoutes } from '../modules/dashboard';
@@ -24,5 +25,6 @@ router.use('/members', membersRoutes);
 router.use('/organizations', organizationsRoutes);
 router.use('/events', eventsRoutes);
 router.use('/attendance', attendanceRoutes);
+router.use('/activity-reports', activityReportsRoutes);
 
 export const v1Routes = router;

@@ -114,6 +114,7 @@ export const ROUTE_PERMISSIONS: Partial<Record<string, PermissionName>> = {
   '/approvals': 'members:approve',
   '/events': 'events:read',
   '/attendance': 'attendance:read',
+  '/activity-reports': 'activity-reports:read',
   '/badges': 'badges:read',
   '/finance': 'finance:read',
   '/reports': 'reports:read',

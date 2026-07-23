@@ -5,6 +5,7 @@ import {
   BadgeIcon,
   ConfigIcon,
   DashboardIcon,
+  DocumentIcon,
   EventIcon,
   FinanceIcon,
   MembersIcon,
@@ -66,6 +67,12 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/events', label: 'Event Management', icon: EventIcon, permission: 'events:read' },
       { href: '/attendance', label: 'Attendance', icon: AttendanceIcon, permission: 'attendance:read' },
+      {
+        href: '/activity-reports',
+        label: 'Activity Reports',
+        icon: DocumentIcon,
+        permission: 'activity-reports:read',
+      },
       { href: '/badges', label: 'Badges', icon: BadgeIcon, permission: 'badges:read' },
     ],
   },
