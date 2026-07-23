@@ -1,15 +1,23 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { MemberDirectory } from '@/features/members/components/member-directory';
+import { PageHeader } from '@/shared/components/layout/page-header';
+import { roleHasPermission } from '@/shared/constants/roles';
 
 export const metadata: Metadata = { title: 'Membership Registry' };
 
-export default function MembersPage() {
+export default async function MembersPage() {
+  const user = await getSession();
+  const canArchive = user ? roleHasPermission(user.role, 'members:archive') : false;
+
   return (
-    <PlaceholderPage
-      title="Membership Registry"
-      description="Scout and adult leader records, renewals, archive and restore."
-      feature="1.3"
-    />
+    <>
+      <PageHeader
+        title="Membership Registry"
+        description="Scout and adult leader records, renewals, archive and restore."
+      />
+      <MemberDirectory canArchive={canArchive} />
+    </>
   );
 }
