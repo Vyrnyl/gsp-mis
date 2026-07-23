@@ -1,15 +1,20 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { EventsView } from '@/features/events/components/events-view';
+import { PageHeader } from '@/shared/components/layout/page-header';
+import { roleHasPermission } from '@/shared/constants/roles';
 
-export const metadata: Metadata = { title: 'Event Management' };
+export const metadata: Metadata = { title: 'Events' };
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  const user = await getSession();
+  const canManage = user ? roleHasPermission(user.role, 'events:write') : false;
+
   return (
-    <PlaceholderPage
-      title="Event Management"
-      description="Event calendar, scheduling and troop assignment."
-      feature="2.1"
-    />
+    <>
+      <PageHeader title="Events" description="Council and troop activities — schedule, edit and browse." />
+      <EventsView canManage={canManage} />
+    </>
   );
 }

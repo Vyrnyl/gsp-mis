@@ -71,7 +71,6 @@ export const ROLE_PERMISSIONS: Record<AuthRoleId, PermissionName[]> = {
     'members:archive',
     'organizations:read',
     'events:read',
-    'events:write',
     'attendance:read',
     'badges:read',
     'activity-reports:read',
