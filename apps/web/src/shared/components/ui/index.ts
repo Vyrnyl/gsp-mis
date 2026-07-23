@@ -1,5 +1,6 @@
 /** Barrel for the shared UI kit. Import from `@/shared/components/ui`. */
 
+export { ActivityDot, ActivityItem, type ActivityDotTone, type ActivityItemProps } from './activity-item';
 export { Alert, type AlertProps, type AlertTone } from './alert';
 export { Badge, type BadgeProps, type BadgeTone } from './badge';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './button';
@@ -11,6 +12,7 @@ export { FormField, useFieldContext, type FormFieldProps } from './form-field';
 export { Input, PasswordInput, type InputProps, type PasswordInputProps } from './input';
 export { Modal, type ModalProps, type ModalSize } from './modal';
 export { Pagination, buildPageRange, type PaginationProps } from './pagination';
+export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export { SearchInput, type SearchInputProps } from './search-input';
 export { Select, type SelectOption, type SelectProps } from './select';
 export {
@@ -18,9 +20,11 @@ export {
   ChartSkeleton,
   Skeleton,
   SkeletonRegion,
+  StatCardSkeleton,
   TableSkeleton,
   type SkeletonProps,
 } from './skeleton';
+export { StatCard, type StatCardProps, type StatCardTone } from './stat-card';
 export {
   Table,
   TableAvatar,

@@ -94,6 +94,19 @@ export function CardSkeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
+/** Stat card loading state — mirrors `StatCard`'s icon + value + label layout. */
+export function StatCardSkeleton() {
+  return (
+    <SkeletonRegion label="Loading stat…" className="flex items-center gap-4 rounded-card bg-surface p-[22px] shadow-card">
+      <Skeleton className="size-[50px] shrink-0 rounded-xl" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-7 w-16" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </SkeletonRegion>
+  );
+}
+
 /** Chart loading state — a plot area plus legend placeholder. */
 export function ChartSkeleton({ height = 160 }: { height?: number }) {
   return (
