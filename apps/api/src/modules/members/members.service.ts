@@ -1,8 +1,15 @@
+import { writeAuditLog } from '../../shared/utils/audit-log';
 import { ApiError } from '../../shared/utils/api-error';
 import { buildPaginationMeta, type PaginationMeta } from '../../shared/utils/api-response';
 import type { MemberWithRelations } from './members.repository';
 import { membersRepository } from './members.repository';
-import type { CreateMemberInput, ListMembersQuery, RenewMembershipInput, UpdateMemberInput } from './members.schema';
+import type {
+  CreateMemberInput,
+  ListMembersQuery,
+  PendingMembersQuery,
+  RenewMembershipInput,
+  UpdateMemberInput,
+} from './members.schema';
 import type { MemberDetail, MemberSummary } from './members.types';
 
 function toSummary(member: MemberWithRelations): MemberSummary {
@@ -108,6 +115,43 @@ export const membersService = {
     await membersRepository.renew(id, input.startDate, input.endDate);
     const activeStatusId = await requireStatusId('active');
     await membersRepository.setStatus(id, activeStatusId);
+    return membersService.getById(id);
+  },
+
+  /** Queue for feature 1.4 — same paginated shape as `list`, status forced to `pending`. */
+  async listPending(query: PendingMembersQuery): Promise<{ members: MemberSummary[]; meta: PaginationMeta }> {
+    const { rows, total } = await membersRepository.list({ ...query, status: 'pending' } as ListMembersQuery);
+    return {
+      members: rows.map(toSummary),
+      meta: buildPaginationMeta(query.page, query.pageSize, total),
+    };
+  },
+
+  async approve(id: string, reviewerId: string): Promise<MemberDetail> {
+    const member = await requireMember(id);
+    if (member.status.name !== 'pending') {
+      throw ApiError.badRequest('Only pending registrations can be approved.');
+    }
+    const statusId = await requireStatusId('active');
+    await membersRepository.approve(id, statusId, reviewerId);
+    await writeAuditLog({ userId: reviewerId, action: 'member.approve', entityType: 'member', entityId: id });
+    return membersService.getById(id);
+  },
+
+  async reject(id: string, reviewerId: string, reason: string): Promise<MemberDetail> {
+    const member = await requireMember(id);
+    if (member.status.name !== 'pending') {
+      throw ApiError.badRequest('Only pending registrations can be rejected.');
+    }
+    const statusId = await requireStatusId('rejected');
+    await membersRepository.reject(id, statusId, reviewerId, reason);
+    await writeAuditLog({
+      userId: reviewerId,
+      action: 'member.reject',
+      entityType: 'member',
+      entityId: id,
+      details: { reason },
+    });
     return membersService.getById(id);
   },
 };

@@ -145,6 +145,39 @@ export async function renewMembership(id: string, values: RenewMembershipValues)
   return data.member;
 }
 
+export interface ListPendingMembersParams {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Queue for Feature 1.4 — same paginated `MemberSummary` shape as `listMembers`, status forced to `pending` server-side. */
+export async function listPendingMembers(params: ListPendingMembersParams): Promise<ListMembersResult> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.pageSize) query.set('pageSize', String(params.pageSize));
+  const search = query.toString();
+
+  const { data, meta } = await request<{ members: MemberSummary[] }>(`/api/members/pending${search ? `?${search}` : ''}`);
+  return {
+    members: data.members,
+    totalItems: meta?.totalItems ?? data.members.length,
+    totalPages: meta?.totalPages ?? 1,
+  };
+}
+
+export async function approveMember(id: string): Promise<Member> {
+  const { data } = await request<{ member: Member }>(`/api/members/${id}/approve`, { method: 'PATCH' });
+  return data.member;
+}
+
+export async function rejectMember(id: string, reason: string): Promise<Member> {
+  const { data } = await request<{ member: Member }>(`/api/members/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+  return data.member;
+}
+
 export async function listTroops(): Promise<TroopOption[]> {
   const { data } = await request<{ troops: TroopOption[] }>('/api/organizations/troops');
   return data.troops;

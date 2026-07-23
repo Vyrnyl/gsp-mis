@@ -2,7 +2,14 @@ import type { Request, Response } from 'express';
 
 import { sendSuccess } from '../../shared/utils/api-response';
 import { membersService } from './members.service';
-import { createMemberSchema, listMembersQuerySchema, renewMembershipSchema, updateMemberSchema } from './members.schema';
+import {
+  createMemberSchema,
+  listMembersQuerySchema,
+  pendingMembersQuerySchema,
+  rejectMemberSchema,
+  renewMembershipSchema,
+  updateMemberSchema,
+} from './members.schema';
 
 /** Thin controller — request/response mapping only (code-standards.md §6.2). */
 export const membersController = {
@@ -42,6 +49,23 @@ export const membersController = {
   async renew(req: Request, res: Response): Promise<void> {
     const input = renewMembershipSchema.parse(req.body);
     const member = await membersService.renew(req.params['id']!, input);
+    sendSuccess(res, { member });
+  },
+
+  async listPending(req: Request, res: Response): Promise<void> {
+    const query = pendingMembersQuerySchema.parse(req.query);
+    const { members, meta } = await membersService.listPending(query);
+    sendSuccess(res, { members }, 200, meta);
+  },
+
+  async approve(req: Request, res: Response): Promise<void> {
+    const member = await membersService.approve(req.params['id']!, req.user!.id);
+    sendSuccess(res, { member });
+  },
+
+  async reject(req: Request, res: Response): Promise<void> {
+    const input = rejectMemberSchema.parse(req.body);
+    const member = await membersService.reject(req.params['id']!, req.user!.id, input.reason);
     sendSuccess(res, { member });
   },
 };

@@ -125,6 +125,21 @@ export const membersRepository = {
     return prisma.member.update({ where: { id }, data: { membershipStatusId: statusId } });
   },
 
+  /** Approval (feature 1.4) — stamps the reviewer alongside the status change. */
+  approve(id: string, statusId: string, reviewerId: string) {
+    return prisma.member.update({
+      where: { id },
+      data: { membershipStatusId: statusId, reviewedById: reviewerId, reviewedAt: new Date(), rejectionReason: null },
+    });
+  },
+
+  reject(id: string, statusId: string, reviewerId: string, reason: string) {
+    return prisma.member.update({
+      where: { id },
+      data: { membershipStatusId: statusId, reviewedById: reviewerId, reviewedAt: new Date(), rejectionReason: reason },
+    });
+  },
+
   async renew(id: string, startDate: string, endDate: string) {
     await prisma.membership.create({
       data: {

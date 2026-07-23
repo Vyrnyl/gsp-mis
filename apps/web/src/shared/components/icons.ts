@@ -48,6 +48,7 @@ export {
   FiUserCheck as ApprovalIcon,
   FiUsers as MembersIcon,
   FiX as CloseIcon,
+  FiXCircle as RejectIcon,
 } from 'react-icons/fi';
 
 export { FaCampground as TroopLeaderIcon, FaLandmark as CouncilIcon } from 'react-icons/fa6';

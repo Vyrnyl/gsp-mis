@@ -14,6 +14,11 @@ import { z } from 'zod';
  *   PATCH  /:id/archive    — no body
  *   PATCH  /:id/restore    — no body
  *   POST   /:id/renew      — renewMembershipSchema
+ *
+ * Feature 1.4 (Membership Approval) additions:
+ *   GET    /pending        — pendingMembersQuerySchema
+ *   PATCH  /:id/approve     — no body
+ *   PATCH  /:id/reject      — rejectMemberSchema
  */
 
 export const memberTypeSchema = z.enum(['scout', 'adult_leader']);
@@ -79,6 +84,15 @@ export const renewMembershipSchema = z
     path: ['endDate'],
   });
 
+export const pendingMembersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const rejectMemberSchema = z.object({
+  reason: z.string().trim().min(5, 'Give at least a short reason so the applicant knows what to fix.'),
+});
+
 export type MemberType = z.infer<typeof memberTypeSchema>;
 export type Gender = z.infer<typeof genderSchema>;
 export type MemberStatusName = z.infer<typeof memberStatusSchema>;
@@ -86,3 +100,5 @@ export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type ListMembersQuery = z.infer<typeof listMembersQuerySchema>;
 export type RenewMembershipInput = z.infer<typeof renewMembershipSchema>;
+export type PendingMembersQuery = z.infer<typeof pendingMembersQuerySchema>;
+export type RejectMemberInput = z.infer<typeof rejectMemberSchema>;

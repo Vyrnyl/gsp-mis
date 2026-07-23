@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/shared/utils/audit-log', () => ({ writeAuditLog: vi.fn() }));
+
 import { membersRepository, type MemberWithRelations } from '../src/modules/members/members.repository';
 import { membersService } from '../src/modules/members/members.service';
+import { writeAuditLog } from '../src/shared/utils/audit-log';
 import type { CreateMemberInput, ListMembersQuery, UpdateMemberInput } from '../src/modules/members/members.schema';
 
 const STATUS_PENDING = { id: 'status-pending', name: 'pending', description: null };
 const STATUS_ACTIVE = { id: 'status-active', name: 'active', description: null };
 const STATUS_ARCHIVED = { id: 'status-archived', name: 'archived', description: null };
+const STATUS_REJECTED = { id: 'status-rejected', name: 'rejected', description: null };
 
 const TROOP = {
   id: 'troop-1',
@@ -150,6 +154,90 @@ describe('membersService.archive / restore', () => {
     vi.spyOn(membersRepository, 'findById').mockResolvedValue(null);
 
     await expect(membersService.restore('missing')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('membersService.listPending', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('forces the status filter to pending', async () => {
+    const listSpy = vi
+      .spyOn(membersRepository, 'list')
+      .mockResolvedValue({ rows: [buildMember({ status: STATUS_PENDING })], total: 1 });
+
+    const result = await membersService.listPending({ page: 1, pageSize: 20 });
+
+    expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', page: 1, pageSize: 20 }));
+    expect(result.members).toHaveLength(1);
+    expect(result.members[0]).toMatchObject({ status: 'pending' });
+  });
+});
+
+describe('membersService.approve', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('activates a pending member and writes an audit log entry', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_PENDING }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ACTIVE }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ACTIVE);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    const approveSpy = vi.spyOn(membersRepository, 'approve').mockResolvedValue({} as never);
+
+    const result = await membersService.approve('member-1', 'reviewer-1');
+
+    expect(approveSpy).toHaveBeenCalledWith('member-1', STATUS_ACTIVE.id, 'reviewer-1');
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'reviewer-1', action: 'member.approve', entityId: 'member-1' }),
+    );
+    expect(result.status).toBe('active');
+  });
+
+  it('rejects approving a member that is not pending', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember({ status: STATUS_ACTIVE }));
+
+    await expect(membersService.approve('member-1', 'reviewer-1')).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects an unknown member', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(null);
+
+    await expect(membersService.approve('missing', 'reviewer-1')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('membersService.reject', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('rejects a pending member with a reason and writes an audit log entry', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_PENDING }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_REJECTED, rejectionReason: 'Duplicate record.' }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_REJECTED);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    const rejectSpy = vi.spyOn(membersRepository, 'reject').mockResolvedValue({} as never);
+
+    const result = await membersService.reject('member-1', 'reviewer-1', 'Duplicate record.');
+
+    expect(rejectSpy).toHaveBeenCalledWith('member-1', STATUS_REJECTED.id, 'reviewer-1', 'Duplicate record.');
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'reviewer-1',
+        action: 'member.reject',
+        entityId: 'member-1',
+        details: { reason: 'Duplicate record.' },
+      }),
+    );
+    expect(result.status).toBe('rejected');
+    expect(result.rejectionReason).toBe('Duplicate record.');
+  });
+
+  it('rejects a member that is not pending', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember({ status: STATUS_ARCHIVED }));
+
+    await expect(membersService.reject('member-1', 'reviewer-1', 'Duplicate record.')).rejects.toMatchObject({
+      statusCode: 400,
+    });
   });
 });
 

@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { ApprovalQueue } from '@/features/approvals/components/approval-queue';
+import { PageHeader } from '@/shared/components/layout/page-header';
 
 export const metadata: Metadata = { title: 'Pending Approvals' };
 
 export default function ApprovalsPage() {
   return (
-    <PlaceholderPage
-      title="Pending Approvals"
-      description="Executive Council review queue for new membership registrations."
-      feature="1.4"
-    />
+    <>
+      <PageHeader
+        title="Pending Approvals"
+        description="Review new scout and adult leader registrations from the Membership Registry — approve or reject with a reason."
+      />
+      <ApprovalQueue />
+    </>
   );
 }
