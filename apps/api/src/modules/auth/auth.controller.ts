@@ -35,4 +35,10 @@ export const authController = {
     const result = await authService.forgotPassword(input);
     sendSuccess(res, result);
   },
+
+  /** Protected by `requireAuth` — `req.user` is guaranteed present (auth.routes.ts). */
+  async me(req: Request, res: Response): Promise<void> {
+    const result = await authService.getCurrentUser(req.user!.id);
+    sendSuccess(res, result);
+  },
 };

@@ -192,3 +192,29 @@ describe('authService.forgotPassword', () => {
     expect(result.message).toEqual(expect.any(String));
   });
 });
+
+describe('authService.getCurrentUser', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('resolves the real signed-in user by id (backs GET /auth/me, feature 1.2)', async () => {
+    vi.spyOn(authRepository, 'findUserById').mockResolvedValue(
+      buildUser({ id: 'user-1', email: 'maria@example.com', role: ROLE_TROOP_LEADER }),
+    );
+
+    const result = await authService.getCurrentUser('user-1');
+
+    expect(result.user).toMatchObject({ id: 'user-1', email: 'maria@example.com', role: 'troop_leader' });
+  });
+
+  it('rejects when the user no longer exists (deleted after the token was issued)', async () => {
+    vi.spyOn(authRepository, 'findUserById').mockResolvedValue(null);
+
+    await expect(authService.getCurrentUser('gone')).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('rejects a deactivated account even with a still-valid access token', async () => {
+    vi.spyOn(authRepository, 'findUserById').mockResolvedValue(buildUser({ isActive: false }));
+
+    await expect(authService.getCurrentUser('user-1')).rejects.toMatchObject({ statusCode: 401 });
+  });
+});

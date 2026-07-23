@@ -14,6 +14,14 @@ export const authRepository = {
     return prisma.role.findUnique({ where: { name } });
   },
 
+  /** Used by `GET /auth/me` — `requireAuth` already verified the token, this resolves the identity. */
+  findUserById(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: { userRoles: { include: { role: true } } },
+    });
+  },
+
   /** Creates the user and its single role assignment atomically — never one without the other. */
   createUserWithRole(
     data: { fullName: string; email: string; passwordHash: string },

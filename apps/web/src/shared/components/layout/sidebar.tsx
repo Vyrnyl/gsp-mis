@@ -5,14 +5,22 @@ import { usePathname } from 'next/navigation';
 import { useRef } from 'react';
 
 import { CloseIcon, LogoutIcon } from '@/shared/components/icons';
-import { NAV_SECTIONS } from '@/shared/components/layout/nav-items';
+import { getNavSectionsForRole } from '@/shared/components/layout/nav-items';
+import { ROLE_LABELS } from '@/shared/constants/roles';
 import { useFocusTrap } from '@/shared/hooks/use-focus-trap';
 import { useIsMobileViewport } from '@/shared/hooks/use-media-query';
+import { TableAvatar } from '@/shared/components/ui/table';
 import { cn } from '@/shared/utils/cn';
+
+import type { AuthUser } from '@/features/auth/types';
 
 export interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  user: AuthUser;
+  onSignOut: () => void;
+  /** True while a real sign-out request is in flight (Loop step 5). */
+  isSigningOut?: boolean;
 }
 
 /**
@@ -23,9 +31,10 @@ export interface SidebarProps {
  * an interactive backdrop closes the panel, and focus is trapped while it is open.
  * Scroll lock lives in `AppShell`, which owns the open state.
  */
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, user, onSignOut, isSigningOut }: SidebarProps) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLElement>(null);
+  const navSections = getNavSectionsForRole(user.role);
 
   // Only trap focus while the panel is a modal overlay (mobile). On desktop it is
   // part of the page and must not capture Tab.
@@ -76,7 +85,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
-          {NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.label}>
               <p className="px-[18px] pb-1 pt-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] opacity-60">
                 {section.label}
@@ -117,27 +126,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <div className="border-t border-white/15 px-[18px] py-4">
           <div className="mb-2.5 flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-white/25 text-base font-bold"
-            >
-              —
-            </span>
+            <TableAvatar name={user.fullName} className="size-[38px] bg-white/25 text-base text-white" />
             <div className="min-w-0 overflow-hidden">
-              {/* Real identity arrives with feature 1.1 (session). */}
-              <p className="truncate text-[0.88rem] font-semibold">Not signed in</p>
-              <p className="truncate text-[0.72rem] opacity-70">Authentication — Phase 1.1</p>
+              <p className="truncate text-[0.88rem] font-semibold">{user.fullName}</p>
+              <p className="truncate text-[0.72rem] opacity-70">{ROLE_LABELS[user.role]}</p>
             </div>
           </div>
           <button
             type="button"
-            disabled
-            title="Available once authentication ships (feature 1.1)"
-            className="w-full rounded-control border border-white/20 bg-white/10 py-2.5 text-[0.85rem] text-white/60 disabled:cursor-not-allowed"
+            onClick={onSignOut}
+            disabled={isSigningOut}
+            className="w-full rounded-control border border-white/20 bg-white/10 py-2.5 text-[0.85rem] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-2">
               <LogoutIcon aria-hidden />
-              Sign out
+              {isSigningOut ? 'Signing out…' : 'Sign out'}
             </span>
           </button>
         </div>

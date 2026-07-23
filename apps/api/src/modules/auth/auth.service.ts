@@ -15,6 +15,7 @@ import type {
   ForgotPasswordResponseBody,
   LoginResponseBody,
   LogoutResponseBody,
+  MeResponseBody,
   RefreshResponseBody,
   SignupResponseBody,
 } from './auth.types';
@@ -143,5 +144,16 @@ export const authService = {
   /** Deliberately identical response whether or not the email exists — no user enumeration. */
   async forgotPassword(_input: ForgotPasswordInput): Promise<ForgotPasswordResponseBody> {
     return { message: 'If that email is registered, a password reset link has been sent.' };
+  },
+
+  /** Backs `GET /auth/me` — `requireAuth` guarantees `userId` came from a valid access token. */
+  async getCurrentUser(userId: string): Promise<MeResponseBody> {
+    const user = await authRepository.findUserById(userId);
+    if (!user || !user.isActive) {
+      throw ApiError.unauthorized('Session is no longer valid.');
+    }
+
+    const role = resolveSingleRole(user);
+    return { user: toAuthUser(user, role) };
   },
 };

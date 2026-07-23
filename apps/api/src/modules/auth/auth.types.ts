@@ -51,3 +51,8 @@ export interface ForgotPasswordResponseBody {
 export interface LogoutResponseBody {
   message: string;
 }
+
+/** `GET /auth/me` — the shell's real session read (feature 1.2). */
+export interface MeResponseBody {
+  user: AuthUser;
+}
