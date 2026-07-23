@@ -1,15 +1,23 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { OrganizationManagement } from '@/features/organizations/components/organization-management';
+import { PageHeader } from '@/shared/components/layout/page-header';
+import { roleHasPermission } from '@/shared/constants/roles';
 
 export const metadata: Metadata = { title: 'Councils & Troops' };
 
-export default function OrganizationsPage() {
+export default async function OrganizationsPage() {
+  const user = await getSession();
+  const canManage = user ? roleHasPermission(user.role, 'organizations:write') : false;
+
   return (
-    <PlaceholderPage
-      title="Councils & Troops"
-      description="Organisation hierarchy, scout levels and category configuration."
-      feature="1.6"
-    />
+    <>
+      <PageHeader
+        title="Councils & Troops"
+        description="Councils, troops, scout levels, badge categories and activity categories."
+      />
+      <OrganizationManagement canManage={canManage} />
+    </>
   );
 }

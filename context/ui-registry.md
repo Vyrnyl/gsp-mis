@@ -94,6 +94,7 @@ The prototype's mobile navigation is **broken**: `#menuToggle` has inline `displ
 | Member profile screen        | **built** | `src/features/members/components/member-profile-view.tsx` | Feature 1.3. `/members/[id]` — personal info, emergency contact, membership history table, edit/renew/archive/restore |
 | Pending approvals screen     | **built** | `src/features/approvals/components/approval-queue.tsx` | Feature 1.4. `/approvals` — paginated queue of `pending` members, Review action opens the review modal |
 | Dashboard screen (role-aware) | **built** | `src/features/dashboard/components/dashboard-view.tsx` | Feature 1.5. `/dashboard` — fetches `GET /api/dashboard` once on mount, picks `admin-dashboard.tsx` / `council-dashboard.tsx` / `troop-leader-dashboard.tsx` by the response's own `role` (server-decided, never a client param) |
+| Organization management screen | **built** | `src/features/organizations/components/organization-management.tsx` | Feature 1.6. `/organizations` — 5-tab screen (Councils/Troops/Scout Levels/Badge Categories/Activity Categories) built on the new `Tabs` primitive; CRUD gated by `canManage` (Admin only), everyone else browses read-only |
 
 ---
 
@@ -193,7 +194,7 @@ These do **not** exist in `Gsp.html` but are required by the Definition of Done 
 | `Combobox`                                         | planned   | `Select` covers native cases; 1.3's troop picker shipped with native `Select` (only 3 seeded troops) — revisit if 1.6 grows the list enough to need search       |
 | `DatePicker`                                       | planned   | Events, financial periods, report ranges. 1.3's renewal dates shipped with native `<input type="date">`, matching the prototype's own approach                  |
 | `FileUpload`                                       | planned   | Member avatars, report attachments                                                                                                                              |
-| `Tabs`                                             | planned   | Prototype only has `.auth-tabs`, hardcoded for auth. Needed generally (profile, settings, report types)                                                         |
+| `Tabs` / `TabPanel`                                 | **built** | `src/shared/components/ui/tabs.tsx` — generalizes the `role="tablist"` pattern `auth-card.tsx` hardcoded for its two tabs. Scrolls horizontally instead of wrapping below `md`; consumer wires `TabPanel` to the same `id` via the `${id}-tab`/`${id}-panel` convention. First real use: feature 1.6's 5-tab organization screen |
 | `Dropdown` / `ActionMenu`                          | planned   | Table rows currently show inline buttons; a row action menu scales better                                                                                       |
 | `Tooltip`                                          | planned   | Icon-only buttons and truncated cells                                                                                                                           |
 | `Breadcrumb`                                       | planned   | Detail pages (member profile, event detail) need a way back                                                                                                     |

@@ -33,6 +33,7 @@ export {
   FiGrid as DashboardIcon,
   FiInbox as EmptyIcon,
   FiInfo as InfoIcon,
+  FiLayers as ScoutLevelIcon,
   FiLoader as SpinnerIcon,
   FiLogOut as LogoutIcon,
   FiMenu as MenuIcon,

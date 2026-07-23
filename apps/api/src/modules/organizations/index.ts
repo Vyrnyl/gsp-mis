@@ -1,2 +1,9 @@
 export { organizationsRoutes } from './organizations.routes';
-export type { ScoutLevelOption, TroopOption } from './organizations.types';
+export type {
+  ActivityCategoryDto,
+  BadgeCategoryDto,
+  CouncilDto,
+  ScoutLevelDto,
+  TroopDto,
+  TroopLeaderOptionDto,
+} from './organizations.types';

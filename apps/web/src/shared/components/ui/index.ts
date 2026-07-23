@@ -36,6 +36,7 @@ export {
   TableWrapper,
   type TableProps,
 } from './table';
+export { TabPanel, Tabs, type TabItem, type TabPanelProps, type TabsProps } from './tabs';
 export { Textarea, type TextareaProps } from './textarea';
 export {
   ToastItem,
