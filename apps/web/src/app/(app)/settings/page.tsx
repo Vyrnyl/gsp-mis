@@ -1,15 +1,24 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { SettingsView } from '@/features/settings/components/settings-view';
+import { PageHeader } from '@/shared/components/layout/page-header';
 
 export const metadata: Metadata = { title: 'Settings' };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await getSession();
+  // The (app) layout already redirects to /login when there is no session; this
+  // narrows the type for what follows.
+  if (!user) return null;
+
   return (
-    <PlaceholderPage
-      title="Settings"
-      description="System configuration, user management and the audit log."
-      feature="3.4"
-    />
+    <>
+      <PageHeader
+        title="Settings & System Administration"
+        description="Configure the portal, manage users and access, and review the audit trail."
+      />
+      <SettingsView user={user} />
+    </>
   );
 }

@@ -188,10 +188,13 @@ The prototype's mobile navigation is **broken**: `#menuToggle` has inline `displ
 
 ## 8. Settings
 
-| Component        | Status    | File     | Exact classes                                                                         |
-| ---------------- | --------- | -------- | ------------------------------------------------------------------------------------- |
-| Settings section | prototype | Gsp.html | `.settings-section`, `.settings-row`, `.settings-label` (`.label-main`, `.label-sub`) |
-| Settings toggle  | prototype | Gsp.html | `.toggle-switch`, `.slider`                                                           |
+| Component            | Status    | File                                                            | Notes                                                                                                                                                                                            |
+| --------------------- | --------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings section      | **built** | `src/features/settings/components/system-settings-panel.tsx`    | Feature 3.4. Replaces `.settings-section`/`.settings-row`/`.settings-label` with `Card`/`CardHeader`/`FormField` groups (General/Membership/Notifications) — no new base primitive              |
+| Settings toggle       | **built** | Uses the existing `ToggleSwitch` (§9)                            | The prototype's `.toggle-switch`/`.slider`, already ported in 0.2 — 3.4's Email Notifications row is its first feature consumer                                                                |
+| Users & Access table  | **built** | `src/features/settings/components/users-panel.tsx`               | Feature 3.4. Portal Users table + Add/Edit User modal + reset-password/activate-deactivate/delete actions. Closest prototype baseline is `Gsp.html`'s `renderUsers` — composed from `Table`/`Badge`/`ConfirmDialog`/`FormField`, no new base primitive |
+| Audit log table       | **built** | `src/features/settings/components/audit-log-panel.tsx`           | Feature 3.4. First screen to render `audit_logs` directly — paginated `Table` + `ActivityDot` per row for the action-tone convention, no new base primitive                                    |
+| Backups panel         | **built** | `src/features/settings/components/backups-panel.tsx`             | Feature 3.4. Manual-backup card + `ActivityItem`-based history list, both derived from the audit log rather than a stored backup-state row                                                     |
 
 ---
 
