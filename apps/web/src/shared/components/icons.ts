@@ -26,6 +26,7 @@ export {
   FiClipboard as ReportIcon,
   FiClock as ClockIcon,
   FiDollarSign as FinanceIcon,
+  FiDownload as DownloadIcon,
   FiEdit2 as EditIcon,
   FiEye as EyeIcon,
   FiEyeOff as EyeOffIcon,

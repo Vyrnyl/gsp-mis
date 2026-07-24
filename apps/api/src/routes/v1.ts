@@ -12,6 +12,7 @@ import { healthRoutes } from '../modules/health';
 import { membersRoutes } from '../modules/members';
 import { notificationsRoutes } from '../modules/notifications';
 import { organizationsRoutes } from '../modules/organizations';
+import { reportsRoutes } from '../modules/reports';
 
 /**
  * `/api/v1` router (architecture.md §7).
@@ -36,5 +37,6 @@ router.use('/achievements', achievementsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/announcements', announcementsRoutes);
 router.use('/finance', financeRoutes);
+router.use('/reports', reportsRoutes);
 
 export const v1Routes = router;

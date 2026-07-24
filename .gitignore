@@ -27,4 +27,6 @@ Thumbs.db
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 
+apps/api/storage/
+
 .playwright-mcp/
