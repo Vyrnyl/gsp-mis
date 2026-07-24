@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { activityReportsRoutes } from '../modules/activity-reports';
+import { analyticsRoutes } from '../modules/analytics';
 import { announcementsRoutes } from '../modules/announcements';
 import { attendanceRoutes } from '../modules/attendance';
 import { authRoutes } from '../modules/auth';
@@ -38,5 +39,6 @@ router.use('/notifications', notificationsRoutes);
 router.use('/announcements', announcementsRoutes);
 router.use('/finance', financeRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export const v1Routes = router;
