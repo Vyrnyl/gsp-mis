@@ -13,6 +13,7 @@ import { healthRoutes } from '../modules/health';
 import { membersRoutes } from '../modules/members';
 import { notificationsRoutes } from '../modules/notifications';
 import { organizationsRoutes } from '../modules/organizations';
+import { profileRoutes } from '../modules/profile';
 import { reportsRoutes } from '../modules/reports';
 import { auditLogsRoutes, settingsRoutes, usersRoutes } from '../modules/settings';
 
@@ -41,6 +42,7 @@ router.use('/announcements', announcementsRoutes);
 router.use('/finance', financeRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/profile', profileRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/users', usersRoutes);
 router.use('/audit-logs', auditLogsRoutes);

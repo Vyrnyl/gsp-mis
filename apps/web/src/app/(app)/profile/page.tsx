@@ -1,15 +1,21 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { ProfileView } from '@/features/profile/components/profile-view';
+import { PageHeader } from '@/shared/components/layout/page-header';
 
 export const metadata: Metadata = { title: 'My Profile' };
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  const user = await getSession();
+  // The (app) layout already redirects to /login when there is no session; this
+  // narrows the type for what follows.
+  if (!user) return null;
+
   return (
-    <PlaceholderPage
-      title="My Profile"
-      description="Your account details and password."
-      feature="3.5"
-    />
+    <>
+      <PageHeader title="My Profile" description="Your account details and password." />
+      <ProfileView user={user} />
+    </>
   );
 }
