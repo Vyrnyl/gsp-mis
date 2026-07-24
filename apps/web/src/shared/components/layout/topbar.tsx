@@ -1,6 +1,7 @@
 'use client';
 
-import { MenuIcon, NotificationIcon } from '@/shared/components/icons';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
+import { MenuIcon } from '@/shared/components/icons';
 import { SearchInput } from '@/shared/components/ui/search-input';
 
 export interface TopbarProps {
@@ -41,15 +42,7 @@ export function Topbar({ title, onOpenSidebar, isSidebarOpen }: TopbarProps) {
           disabled
           title="Global search arrives with Phase 1"
         />
-        <button
-          type="button"
-          aria-label="Notifications"
-          disabled
-          title="Notifications arrive with feature 2.5"
-          className="relative rounded-control p-2 text-muted transition hover:bg-hairline-subtle disabled:cursor-not-allowed"
-        >
-          <NotificationIcon className="text-xl" aria-hidden />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

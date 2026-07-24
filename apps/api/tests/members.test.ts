@@ -1,16 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/shared/utils/audit-log', () => ({ writeAuditLog: vi.fn() }));
+vi.mock('../src/shared/utils/notify', () => ({ notifyUser: vi.fn() }));
 
 import { membersRepository, type MemberWithRelations } from '../src/modules/members/members.repository';
 import { membersService } from '../src/modules/members/members.service';
 import { writeAuditLog } from '../src/shared/utils/audit-log';
+import { notifyUser } from '../src/shared/utils/notify';
 import type { CreateMemberInput, ListMembersQuery, UpdateMemberInput } from '../src/modules/members/members.schema';
 
 const STATUS_PENDING = { id: 'status-pending', name: 'pending', description: null };
 const STATUS_ACTIVE = { id: 'status-active', name: 'active', description: null };
 const STATUS_ARCHIVED = { id: 'status-archived', name: 'archived', description: null };
 const STATUS_REJECTED = { id: 'status-rejected', name: 'rejected', description: null };
+
+const TROOP_WITH_LEADER = {
+  id: 'troop-1',
+  councilId: 'council-1',
+  name: 'Troop 12 — Virac',
+  troopCode: 'CAT-VIR-012',
+  leaderId: 'user-liza',
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
 
 const TROOP = {
   id: 'troop-1',
@@ -193,6 +205,34 @@ describe('membersService.approve', () => {
     expect(result.status).toBe('active');
   });
 
+  it("notifies the member's troop leader when one is assigned", async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_PENDING, troop: TROOP_WITH_LEADER }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ACTIVE }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ACTIVE);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'approve').mockResolvedValue({} as never);
+
+    await membersService.approve('member-1', 'reviewer-1');
+
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-liza', title: 'Registration approved' }),
+    );
+  });
+
+  it('skips notifying when the troop has no assigned leader', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_PENDING }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ACTIVE }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ACTIVE);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'approve').mockResolvedValue({} as never);
+
+    await membersService.approve('member-1', 'reviewer-1');
+
+    expect(notifyUser).not.toHaveBeenCalled();
+  });
+
   it('rejects approving a member that is not pending', async () => {
     vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember({ status: STATUS_ACTIVE }));
 
@@ -230,6 +270,21 @@ describe('membersService.reject', () => {
     );
     expect(result.status).toBe('rejected');
     expect(result.rejectionReason).toBe('Duplicate record.');
+  });
+
+  it("notifies the member's troop leader when one is assigned", async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_PENDING, troop: TROOP_WITH_LEADER }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_REJECTED }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_REJECTED);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'reject').mockResolvedValue({} as never);
+
+    await membersService.reject('member-1', 'reviewer-1', 'Duplicate record.');
+
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-liza', title: 'Registration rejected' }),
+    );
   });
 
   it('rejects a member that is not pending', async () => {

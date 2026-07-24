@@ -1,6 +1,7 @@
 import { writeAuditLog } from '../../shared/utils/audit-log';
 import { ApiError } from '../../shared/utils/api-error';
 import { buildPaginationMeta, type PaginationMeta } from '../../shared/utils/api-response';
+import { notifyUser } from '../../shared/utils/notify';
 import type { MemberWithRelations } from './members.repository';
 import { membersRepository } from './members.repository';
 import type {
@@ -135,6 +136,13 @@ export const membersService = {
     const statusId = await requireStatusId('active');
     await membersRepository.approve(id, statusId, reviewerId);
     await writeAuditLog({ userId: reviewerId, action: 'member.approve', entityType: 'member', entityId: id });
+    if (member.troop?.leaderId) {
+      await notifyUser({
+        userId: member.troop.leaderId,
+        title: 'Registration approved',
+        message: `${member.firstName} ${member.lastName}'s registration was approved.`,
+      });
+    }
     return membersService.getById(id);
   },
 
@@ -152,6 +160,13 @@ export const membersService = {
       entityId: id,
       details: { reason },
     });
+    if (member.troop?.leaderId) {
+      await notifyUser({
+        userId: member.troop.leaderId,
+        title: 'Registration rejected',
+        message: `${member.firstName} ${member.lastName}'s registration was rejected.`,
+      });
+    }
     return membersService.getById(id);
   },
 };

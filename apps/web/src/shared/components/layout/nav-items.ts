@@ -1,5 +1,6 @@
 import {
   AnalyticsIcon,
+  AnnouncementIcon,
   ApprovalIcon,
   AttendanceIcon,
   BadgeIcon,
@@ -74,6 +75,7 @@ export const NAV_SECTIONS: NavSection[] = [
         permission: 'activity-reports:read',
       },
       { href: '/badges', label: 'Badges', icon: BadgeIcon, permission: 'badges:read' },
+      { href: '/announcements', label: 'Announcements', icon: AnnouncementIcon },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 import { ApiError } from '../../shared/utils/api-error';
+import { notifyUser } from '../../shared/utils/notify';
 import type { RoleName } from '../../shared/constants/roles';
 import { badgesRepository } from './badges.repository';
 import type {
@@ -177,6 +178,13 @@ export const badgesService = {
     }
 
     const verified = await badgesRepository.verifyMemberBadge(id, verifiedById);
+    if (verified.member.troop?.leaderId) {
+      await notifyUser({
+        userId: verified.member.troop.leaderId,
+        title: 'Badge verified',
+        message: `${verified.badge.name} for ${verified.member.firstName} ${verified.member.lastName} was verified.`,
+      });
+    }
     return toMemberBadgeRecordDto(verified);
   },
 

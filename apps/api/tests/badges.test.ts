@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/shared/utils/notify', () => ({ notifyUser: vi.fn() }));
+
 import { badgesRepository } from '../src/modules/badges/badges.repository';
 import { badgesService } from '../src/modules/badges/badges.service';
+import { notifyUser } from '../src/shared/utils/notify';
 import type { CreateAchievementInput, CreateBadgeInput, RecordMemberBadgeInput } from '../src/modules/badges/badges.schema';
 
 const ADMIN = { id: 'user-admin', role: 'admin' as const };
@@ -220,6 +223,24 @@ describe('badgesService', () => {
 
       expect(verifySpy).toHaveBeenCalledWith('mb-1', 'user-admin');
       expect(result).toMatchObject({ status: 'verified', verifiedByName: 'Marisol Tabuena' });
+      // MEMBER_BADGE_ROW's troop carries no leaderId — nothing to notify.
+      expect(notifyUser).not.toHaveBeenCalled();
+    });
+
+    it("notifies the member's troop leader when one is assigned", async () => {
+      vi.spyOn(badgesRepository, 'findMemberBadgeById').mockResolvedValue(MEMBER_BADGE_ROW as never);
+      vi.spyOn(badgesRepository, 'verifyMemberBadge').mockResolvedValue({
+        ...MEMBER_BADGE_ROW,
+        status: 'verified',
+        verifiedBy: { fullName: 'Marisol Tabuena' },
+        member: { ...MEMBER_BADGE_ROW.member, troop: { name: 'Troop 12 — Virac', leaderId: 'user-liza' } },
+      } as never);
+
+      await badgesService.verifyMemberBadge('mb-1', 'user-admin');
+
+      expect(notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-liza', title: 'Badge verified' }),
+      );
     });
   });
 

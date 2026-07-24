@@ -55,6 +55,10 @@ export {
   FiXCircle as RejectIcon,
 } from 'react-icons/fi';
 
-export { FaCampground as TroopLeaderIcon, FaLandmark as CouncilIcon } from 'react-icons/fa6';
+export {
+  FaBullhorn as AnnouncementIcon,
+  FaCampground as TroopLeaderIcon,
+  FaLandmark as CouncilIcon,
+} from 'react-icons/fa6';
 
 export type { IconType } from 'react-icons';
