@@ -42,6 +42,7 @@ These encode the workflow — prefer them over ad-hoc work:
 | `add-component` | Creating any reusable UI piece (button, card, table, modal, chart…) |
 | `checkpoint`    | Saving/resuming session state; updating the tracker                 |
 | `debug`         | Anything broken, erroring, or rendering wrong                       |
+| `revise-feature`| Changing already-correct behavior in a feature already marked done  |
 
 ## Documentation map
 

@@ -245,3 +245,18 @@ Progress is **not** tracked in this file. This document is the plan (_what to bu
 [progress.md](progress.md) holds, per feature: current status and Feature Loop step, screens and components built, API endpoints, files touched, what remains, blockers, plus a cross-cutting checklist, open decisions, and a session log.
 
 **Update [progress.md](progress.md) at the end of every work session and every time a Loop step completes.**
+
+---
+
+## 9. Revising a Done Feature
+
+A revision changes already-correct, already-shipped behavior in a feature marked ● — distinct from a bug (nothing is broken; use the `debug` skill) and from new scope (no Loop steps are being entered fresh; use `build-feature`). Run this via the `revise-feature` skill.
+
+**Classify blast radius before touching anything:**
+
+- **Isolated** — every file touched lives inside that feature's own module (`apps/api/src/modules/<domain>/*`, `apps/web/src/app/(app)/<feature>/*`, `apps/web/src/features/<feature>/*`). Nothing else in the app imports these — revise directly.
+- **Shared** — the change reaches into `apps/web/src/shared/components/ui/*` ([ui-registry.md](ui-registry.md) lists consumers), a component [progress.md](progress.md) calls out as cross-feature reuse (e.g. `PasswordStrengthMeter`, `MemberStatusBadge`), a Prisma model queried by more than one module, or auth/session/JWT shape, RBAC middleware, the API envelope, `asyncHandler`/`errorHandler`. Every consumer found is now in scope for re-verification, not just the one that prompted the request.
+
+**Process:** read the feature's file list in [progress.md](progress.md) → classify blast radius → revise, respecting layer boundaries (§2) → visually re-verify the changed screen's states (900/768/480px), plus every other consumer if shared → `npm run typecheck && npm run lint && npm test` in both workspaces regardless of scope → append to the feature's existing progress.md entry (don't renumber its Loop step) and update [ui-registry.md](ui-registry.md) if a shared component's contract changed → add a Session Log line.
+
+A revision must never regress the Definition of Done (§3) for the feature it touches, or for any shared consumer it reaches.
