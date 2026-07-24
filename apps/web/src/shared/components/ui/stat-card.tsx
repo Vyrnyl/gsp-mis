@@ -42,8 +42,8 @@ export function StatCard({ icon: Icon, value, label, tone = 'green', className }
       >
         <Icon aria-hidden />
       </span>
-      <div>
-        <h3 className="text-[1.8rem] font-bold leading-none text-ink">{value}</h3>
+      <div className="min-w-0">
+        <h3 className="break-words text-[1.8rem] font-bold leading-tight text-ink">{value}</h3>
         <p className="mt-[3px] text-[0.8rem] text-muted">{label}</p>
       </div>
     </div>

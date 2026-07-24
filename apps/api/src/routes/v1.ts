@@ -7,6 +7,7 @@ import { authRoutes } from '../modules/auth';
 import { achievementsRoutes, badgeCatalogRoutes, memberBadgesRoutes } from '../modules/badges';
 import { dashboardRoutes } from '../modules/dashboard';
 import { eventsRoutes } from '../modules/events';
+import { financeRoutes } from '../modules/finance';
 import { healthRoutes } from '../modules/health';
 import { membersRoutes } from '../modules/members';
 import { notificationsRoutes } from '../modules/notifications';
@@ -34,5 +35,6 @@ router.use('/member-badges', memberBadgesRoutes);
 router.use('/achievements', achievementsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/announcements', announcementsRoutes);
+router.use('/finance', financeRoutes);
 
 export const v1Routes = router;

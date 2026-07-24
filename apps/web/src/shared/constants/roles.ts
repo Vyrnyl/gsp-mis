@@ -75,7 +75,6 @@ export const ROLE_PERMISSIONS: Record<AuthRoleId, PermissionName[]> = {
     'badges:read',
     'activity-reports:read',
     'finance:read',
-    'finance:write',
     'reports:read',
     'reports:export',
     'analytics:read',

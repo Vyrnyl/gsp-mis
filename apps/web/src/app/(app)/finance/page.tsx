@@ -1,15 +1,20 @@
 import type { Metadata } from 'next';
 
-import { PlaceholderPage } from '@/shared/components/layout/placeholder-page';
+import { getSession } from '@/features/auth/services/session.service';
+import { FinanceView } from '@/features/finance/components/finance-view';
+import { PageHeader } from '@/shared/components/layout/page-header';
+import { roleHasPermission } from '@/shared/constants/roles';
 
 export const metadata: Metadata = { title: 'Financial Tracking' };
 
-export default function FinancePage() {
+export default async function FinancePage() {
+  const user = await getSession();
+  const canManage = user ? roleHasPermission(user.role, 'finance:write') : false;
+
   return (
-    <PlaceholderPage
-      title="Financial Tracking"
-      description="Payments, expenses, fee types and budget summaries."
-      feature="3.1"
-    />
+    <>
+      <PageHeader title="Financial Tracking" description="Council payments, expenses, fee types and budget summaries." />
+      <FinanceView canManage={canManage} />
+    </>
   );
 }
