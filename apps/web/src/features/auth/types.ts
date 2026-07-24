@@ -62,6 +62,11 @@ export interface ForgotPasswordRequest {
   email: string;
 }
 
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
 /**
  * What the browser receives from the BFF's own `/api/auth/*` route handlers — never
  * `tokens`. The BFF reads `LoginResponseBody`/`SignupResponseBody` (auth.types.ts)
@@ -74,6 +79,10 @@ export interface LoginResponse {
 export type SignupResponse = LoginResponse;
 
 export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordResponse {
   message: string;
 }
 

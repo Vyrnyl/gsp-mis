@@ -4,6 +4,8 @@ import type {
   LoginRequest,
   LoginResponse,
   LogoutResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
   SignupRequest,
   SignupResponse,
 } from '../types';
@@ -56,4 +58,8 @@ export function logout(): Promise<LogoutResponse> {
 
 export function forgotPassword(payload: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
   return postJson<ForgotPasswordResponse>('/api/auth/forgot-password', payload);
+}
+
+export function resetPassword(payload: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+  return postJson<ResetPasswordResponse>('/api/auth/reset-password', payload);
 }

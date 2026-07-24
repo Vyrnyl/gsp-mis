@@ -2,7 +2,14 @@ import type { Request, Response } from 'express';
 
 import { sendSuccess } from '../../shared/utils/api-response';
 import { authService } from './auth.service';
-import { forgotPasswordSchema, loginSchema, logoutSchema, refreshSchema, signupSchema } from './auth.schema';
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  logoutSchema,
+  refreshSchema,
+  resetPasswordSchema,
+  signupSchema,
+} from './auth.schema';
 
 /** Thin controller — request/response mapping only (code-standards.md §6.2). */
 export const authController = {
@@ -33,6 +40,12 @@ export const authController = {
   async forgotPassword(req: Request, res: Response): Promise<void> {
     const input = forgotPasswordSchema.parse(req.body);
     const result = await authService.forgotPassword(input);
+    sendSuccess(res, result);
+  },
+
+  async resetPassword(req: Request, res: Response): Promise<void> {
+    const input = resetPasswordSchema.parse(req.body);
+    const result = await authService.resetPassword(input);
     sendSuccess(res, result);
   },
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env';
 import { authRepository } from '../src/modules/auth/auth.repository';
 import { authService } from '../src/modules/auth/auth.service';
+import { emailService } from '../src/shared/utils/email';
 import { hashPassword } from '../src/shared/utils/password';
 
 const ROLE_ADMIN = { id: 'role-admin', name: 'admin', description: null };
@@ -187,9 +188,90 @@ describe('authService.logout', () => {
 });
 
 describe('authService.forgotPassword', () => {
-  it('returns the same generic message regardless of input', async () => {
-    const result = await authService.forgotPassword({ email: 'anyone@example.com' });
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(emailService, 'sendPasswordResetEmail').mockResolvedValue(undefined);
+  });
+
+  it('creates a reset token and emails it when the account exists and is active', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(buildUser({ email: 'maria@example.com' }));
+    vi.spyOn(authRepository, 'invalidateActivePasswordResetTokens').mockResolvedValue({ count: 0 });
+    const createSpy = vi.spyOn(authRepository, 'createPasswordResetToken').mockResolvedValue({} as never);
+
+    const result = await authService.forgotPassword({ email: 'maria@example.com' });
+
+    expect(createSpy).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date));
+    expect(emailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+      'maria@example.com',
+      expect.stringContaining(`${env.WEB_APP_URL}/reset-password?token=`),
+    );
     expect(result.message).toEqual(expect.any(String));
+  });
+
+  it('sends no email and returns the same generic message for an unknown address (no enumeration)', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
+    const createSpy = vi.spyOn(authRepository, 'createPasswordResetToken');
+
+    const result = await authService.forgotPassword({ email: 'nobody@example.com' });
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    expect(result.message).toEqual(expect.any(String));
+  });
+
+  it('sends no email for a deactivated account, same generic message', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(buildUser({ isActive: false }));
+    const createSpy = vi.spyOn(authRepository, 'createPasswordResetToken');
+
+    const result = await authService.forgotPassword({ email: 'maria@example.com' });
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(emailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    expect(result.message).toEqual(expect.any(String));
+  });
+
+  it('still returns the generic message when email delivery fails', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(buildUser({ email: 'maria@example.com' }));
+    vi.spyOn(authRepository, 'invalidateActivePasswordResetTokens').mockResolvedValue({ count: 0 });
+    vi.spyOn(authRepository, 'createPasswordResetToken').mockResolvedValue({} as never);
+    vi.spyOn(emailService, 'sendPasswordResetEmail').mockRejectedValue(new Error('SMTP down'));
+
+    const result = await authService.forgotPassword({ email: 'maria@example.com' });
+
+    expect(result.message).toEqual(expect.any(String));
+  });
+});
+
+describe('authService.resetPassword', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('resets the password, consumes the token, and revokes every session for a valid token', async () => {
+    vi.spyOn(authRepository, 'findActivePasswordResetTokenByHash').mockResolvedValue({
+      id: 'reset-1',
+      userId: 'user-1',
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() + 1000),
+      usedAt: null,
+      createdAt: new Date(),
+    });
+    const updatePasswordSpy = vi.spyOn(authRepository, 'updateUserPassword').mockResolvedValue({} as never);
+    const markUsedSpy = vi.spyOn(authRepository, 'markPasswordResetTokenUsed').mockResolvedValue({} as never);
+    const revokeSpy = vi.spyOn(authRepository, 'revokeAllRefreshTokensForUser').mockResolvedValue({ count: 2 });
+
+    const result = await authService.resetPassword({ token: 'raw-token', newPassword: 'BrandNewPass1!' });
+
+    expect(updatePasswordSpy).toHaveBeenCalledWith('user-1', expect.any(String));
+    expect(markUsedSpy).toHaveBeenCalledWith('reset-1');
+    expect(revokeSpy).toHaveBeenCalledWith('user-1');
+    expect(result.message).toEqual(expect.any(String));
+  });
+
+  it('rejects an unknown, already-used, or expired token', async () => {
+    vi.spyOn(authRepository, 'findActivePasswordResetTokenByHash').mockResolvedValue(null);
+
+    await expect(
+      authService.resetPassword({ token: 'garbage', newPassword: 'BrandNewPass1!' }),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 

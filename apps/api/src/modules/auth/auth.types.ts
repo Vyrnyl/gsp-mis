@@ -4,6 +4,7 @@ import type {
   LoginInput,
   LogoutInput,
   RefreshInput,
+  ResetPasswordInput,
   SignupInput,
 } from './auth.schema';
 
@@ -24,6 +25,7 @@ export interface AuthTokens {
 export type LoginRequestBody = LoginInput;
 export type SignupRequestBody = SignupInput;
 export type ForgotPasswordRequestBody = ForgotPasswordInput;
+export type ResetPasswordRequestBody = ResetPasswordInput;
 export type RefreshRequestBody = RefreshInput;
 export type LogoutRequestBody = LogoutInput;
 
@@ -45,6 +47,10 @@ export interface RefreshResponseBody {
 
 export interface ForgotPasswordResponseBody {
   /** Deliberately generic — must not reveal whether the email exists (user enumeration). */
+  message: string;
+}
+
+export interface ResetPasswordResponseBody {
   message: string;
 }
 

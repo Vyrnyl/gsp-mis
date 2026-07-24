@@ -54,4 +54,42 @@ export const authRepository = {
   revokeRefreshToken(id: string) {
     return prisma.refreshToken.update({ where: { id }, data: { revokedAt: new Date() } });
   },
+
+  /**
+   * A reset means the account was inaccessible or compromised, so every existing
+   * session is invalidated too — stronger than 3.5's self-service changePassword,
+   * which trusts the caller already holds a valid session.
+   */
+  revokeAllRefreshTokensForUser(userId: string) {
+    return prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  },
+
+  createPasswordResetToken(userId: string, tokenHash: string, expiresAt: Date) {
+    return prisma.passwordResetToken.create({ data: { userId, tokenHash, expiresAt } });
+  },
+
+  /** Invalidates any outstanding reset links so only the most recently requested one can ever be used. */
+  invalidateActivePasswordResetTokens(userId: string) {
+    return prisma.passwordResetToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+  },
+
+  findActivePasswordResetTokenByHash(tokenHash: string) {
+    return prisma.passwordResetToken.findFirst({
+      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+    });
+  },
+
+  markPasswordResetTokenUsed(id: string) {
+    return prisma.passwordResetToken.update({ where: { id }, data: { usedAt: new Date() } });
+  },
+
+  updateUserPassword(userId: string, passwordHash: string) {
+    return prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  },
 };

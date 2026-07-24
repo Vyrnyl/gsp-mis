@@ -34,6 +34,20 @@ const envSchema = z.object({
 
   /** Gate on self-service admin signup — matches the prototype's "Admin Secret Key" field. */
   ADMIN_SIGNUP_KEY: z.string().min(1, 'ADMIN_SIGNUP_KEY is required'),
+
+  /**
+   * Shared EmailService (build-plan.md §7, open decision #7). SMTP is optional —
+   * when unset, the service logs emails to the console instead of failing boot, so
+   * dev/test never needs real mail credentials. Set all three to send for real.
+   */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().default('Girl Scouts of the Philippines <no-reply@gsp-mis.local>'),
+
+  /** Base URL of the web app — used to build links inside outgoing emails (e.g. password reset). */
+  WEB_APP_URL: z.string().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsOrigins: string[] };

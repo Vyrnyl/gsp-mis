@@ -15,6 +15,7 @@ import { z } from 'zod';
  *   POST /refresh          — refreshSchema (BFF forwards its httpOnly refresh cookie)
  *   POST /logout           — logoutSchema
  *   POST /forgot-password  — forgotPasswordSchema
+ *   POST /reset-password   — resetPasswordSchema
  */
 
 export const loginSchema = z.object({
@@ -57,6 +58,11 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().min(1, 'Email address is required.').email('Enter a valid email address.'),
 });
 
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required.'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters.'),
+});
+
 /** The BFF sends the refresh token it holds in its own httpOnly cookie; the API never sets cookies. */
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required.'),
@@ -69,5 +75,6 @@ export const logoutSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type LogoutInput = z.infer<typeof logoutSchema>;

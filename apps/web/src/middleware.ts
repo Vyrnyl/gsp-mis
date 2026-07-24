@@ -5,7 +5,7 @@ import { ACCESS_TOKEN_COOKIE } from '@/features/auth/constants';
 import type { AuthRoleId } from '@/features/auth/types';
 import { getRequiredPermissionForPath, roleHasPermission } from '@/shared/constants/roles';
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/reset-password'];
 
 /**
  * Reads the `role` claim out of the access token's payload without verifying the

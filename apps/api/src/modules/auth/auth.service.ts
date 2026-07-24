@@ -1,14 +1,22 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
 
 import { env } from '../../config/env';
+import { emailService } from '../../shared/utils/email';
 import { ApiError } from '../../shared/utils/api-error';
 import { getTokenExpiry, signAccessToken, signRefreshToken, verifyRefreshToken } from '../../shared/utils/jwt';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import type { RoleName } from '../../shared/constants/roles';
 import { authRepository } from './auth.repository';
-import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshInput, SignupInput } from './auth.schema';
+import type {
+  ForgotPasswordInput,
+  LoginInput,
+  LogoutInput,
+  RefreshInput,
+  ResetPasswordInput,
+  SignupInput,
+} from './auth.schema';
 import type {
   AuthTokens,
   AuthUser,
@@ -17,13 +25,22 @@ import type {
   LogoutResponseBody,
   MeResponseBody,
   RefreshResponseBody,
+  ResetPasswordResponseBody,
   SignupResponseBody,
 } from './auth.types';
+
+/** 1 hour — short enough that a stale, unread email carries little risk. */
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 type UserWithRoles = Prisma.UserGetPayload<{ include: { userRoles: { include: { role: true } } } }>;
 
 /** Refresh tokens are high-entropy JWTs, not human passwords — a fast hash is correct here, bcrypt is not. */
 function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/** Same reasoning as `hashRefreshToken` — a high-entropy random token, not a human password. */
+function hashResetToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -141,9 +158,50 @@ export const authService = {
     return { message: 'Signed out.' };
   },
 
-  /** Deliberately identical response whether or not the email exists — no user enumeration. */
-  async forgotPassword(_input: ForgotPasswordInput): Promise<ForgotPasswordResponseBody> {
+  /**
+   * Deliberately identical response whether or not the email exists — no user
+   * enumeration. Email delivery (build-plan.md §7, open decision #7) is genuinely
+   * best-effort here for the same reason: surfacing a send failure to the caller
+   * would leak that the address exists (or doesn't), so failures are only logged.
+   */
+  async forgotPassword(input: ForgotPasswordInput): Promise<ForgotPasswordResponseBody> {
+    const email = input.email.trim().toLowerCase();
+    const user = await authRepository.findUserByEmail(email);
+
+    if (user && user.isActive) {
+      await authRepository.invalidateActivePasswordResetTokens(user.id);
+
+      const rawToken = randomBytes(32).toString('hex');
+      await authRepository.createPasswordResetToken(
+        user.id,
+        hashResetToken(rawToken),
+        new Date(Date.now() + RESET_TOKEN_TTL_MS),
+      );
+
+      const resetUrl = `${env.WEB_APP_URL}/reset-password?token=${rawToken}`;
+      try {
+        await emailService.sendPasswordResetEmail(user.email, resetUrl);
+      } catch (error) {
+        console.error('[auth] failed to send password reset email', error);
+      }
+    }
+
     return { message: 'If that email is registered, a password reset link has been sent.' };
+  },
+
+  /** Public by design (auth.routes.ts) — the token itself, not a session, proves the caller owns the account. */
+  async resetPassword(input: ResetPasswordInput): Promise<ResetPasswordResponseBody> {
+    const record = await authRepository.findActivePasswordResetTokenByHash(hashResetToken(input.token));
+    if (!record) {
+      throw ApiError.badRequest('This reset link is invalid or has expired.');
+    }
+
+    const passwordHash = await hashPassword(input.newPassword);
+    await authRepository.updateUserPassword(record.userId, passwordHash);
+    await authRepository.markPasswordResetTokenUsed(record.id);
+    await authRepository.revokeAllRefreshTokensForUser(record.userId);
+
+    return { message: 'Your password has been reset. Please sign in with your new password.' };
   },
 
   /** Backs `GET /auth/me` — `requireAuth` guarantees `userId` came from a valid access token. */

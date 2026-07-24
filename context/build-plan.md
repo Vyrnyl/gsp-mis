@@ -78,7 +78,7 @@ Goal: a usable system for auth, membership, and a live dashboard.
 - **Contract**: `POST /api/v1/auth/login|signup|refresh|logout|forgot-password`; user + session types.
 - **Wire**: JWT + refresh tokens; **BFF issues httpOnly cookies** (per [project-overview.md](project-overview.md) Auth); password hashing; protected-route redirect; role-based landing.
 - **Done gate**: log in as each role → lands on role-appropriate dashboard; bad creds show alert; session persists on refresh.
-- **Known gap**: `forgot-password` returns its generic non-enumerating response but sends no real email — no reset link is actually delivered. Blocked on the open email-sending-service decision (§7).
+- **Resolved 2026-07-24** (was: known gap blocked on §7): `forgot-password` now emails a real, single-use, 1-hour reset link via the shared `EmailService` (§7), landing on a new `/reset-password` page/endpoint that completes the reset and revokes every session on the account.
 
 ### 1.2 App Shell + Role-Based Navigation
 
@@ -232,9 +232,9 @@ Auth (1.1) → Shell/Nav (1.2) → Membership (1.3) → Dashboard (1.5). This is
 - **Dashboard role source**: session/JWT server-side only — never a client parameter (§1.5).
 - **Role model**: **relational is authoritative** — roles come from `user_roles`, capabilities from `role_permissions`. There is **no role string column on `users`** ([database-design.md](database-design.md) §3.1). Required because "Assign user roles" and "Manage permissions" are explicit Administrator features that a flat string cannot support. Seeded roles: `admin`, `executive_council`, `troop_leader`. The join table permits many-to-many, but **v1 enforces exactly one role per user at the service layer** — validate this on assignment.
 
-### Open
+### Settled (continued)
 
-- **Email-sending service**: no provider is chosen and no feature currently scopes the work. Two consumers already exist without it: 1.1's `forgot-password` returns its generic "a reset link has been sent" response but sends no real email (there is nothing to click), and 2.5 Notifications & Announcements is in-app only (panel/dropdown, unread badge) — event reminders and council notices don't leave the app either. Needs a decision on provider (e.g. Resend, SES, SMTP), where the integration lives (a shared `EmailService` under `apps/api/src/shared/`, not duplicated per feature), and which feature absorbs the initial build-out — likely folded into 1.1 as a follow-up or added as its own small feature before 2.5, since 2.5 needs the same sender.
+- **Email-sending service**: ✅ resolved 2026-07-24, folded into 1.1 as its own follow-up (as this section anticipated). Provider: **SMTP via `nodemailer`** (works with Gmail/SendGrid/Mailtrap/SES's SMTP interface — no provider-specific SDK), so no single vendor is hard-coded. Lives at `apps/api/src/shared/utils/email.ts` as a shared `emailService` — `send()` plus a named `sendPasswordResetEmail()` for the first concrete email type, so a sibling method (e.g. for 2.5) can be added later without duplicating the transport. When `SMTP_HOST` is unset, falls back to nodemailer's `jsonTransport` (logs the composed email instead of sending), so dev/test never need real credentials. 2.5's notifications remain in-app only — unaffected, since nothing there currently requires real delivery; if that changes, it reuses this same service.
 
 ---
 
