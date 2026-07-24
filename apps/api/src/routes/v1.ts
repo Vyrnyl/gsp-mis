@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { activityReportsRoutes } from '../modules/activity-reports';
 import { attendanceRoutes } from '../modules/attendance';
 import { authRoutes } from '../modules/auth';
+import { achievementsRoutes, badgeCatalogRoutes, memberBadgesRoutes } from '../modules/badges';
 import { dashboardRoutes } from '../modules/dashboard';
 import { eventsRoutes } from '../modules/events';
 import { healthRoutes } from '../modules/health';
@@ -26,5 +27,8 @@ router.use('/organizations', organizationsRoutes);
 router.use('/events', eventsRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/activity-reports', activityReportsRoutes);
+router.use('/badges', badgeCatalogRoutes);
+router.use('/member-badges', memberBadgesRoutes);
+router.use('/achievements', achievementsRoutes);
 
 export const v1Routes = router;

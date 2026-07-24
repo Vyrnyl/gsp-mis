@@ -91,7 +91,6 @@ export const ROLE_PERMISSIONS: Record<AuthRoleId, PermissionName[]> = {
     'attendance:write',
     'badges:read',
     'badges:write',
-    'badges:verify',
     'activity-reports:read',
     'activity-reports:write',
     'reports:read',
