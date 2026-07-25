@@ -28,6 +28,7 @@ export function AchievementFormModal({ isOpen, memberOptions, onClose, onSubmit 
       setValues(EMPTY_ACHIEVEMENT_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 

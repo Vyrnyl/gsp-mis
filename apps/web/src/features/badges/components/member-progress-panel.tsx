@@ -9,6 +9,7 @@ import {
   CardHeader,
   EmptyState,
   ErrorState,
+  Pagination,
   ProgressBar,
   Table,
   TableAvatar,
@@ -20,9 +21,12 @@ import {
   TableSkeleton,
   TableWrapper,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { MemberProgressSummary, ViewState } from '../types';
 import { MemberProgressDetailModal } from './member-progress-detail-modal';
+
+const PAGE_SIZE = 8;
 
 export interface MemberProgressPanelProps {
   viewState: ViewState;
@@ -47,6 +51,7 @@ export function MemberProgressPanel({
   // — otherwise verifying a badge wouldn't visibly flip it to "Verified" in the modal.
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
   const detailMember = members.find((member) => member.memberId === detailMemberId) ?? null;
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(members, PAGE_SIZE);
 
   return (
     <Card>
@@ -84,7 +89,7 @@ export function MemberProgressPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {members.map((member) => (
+              {pageItems.map((member) => (
                 <TableRow key={member.memberId}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
@@ -124,6 +129,10 @@ export function MemberProgressPanel({
             </TableBody>
           </Table>
         </TableWrapper>
+      ) : null}
+
+      {viewState === 'ready' && members.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="members" />
       ) : null}
 
       <MemberProgressDetailModal

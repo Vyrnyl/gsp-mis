@@ -45,6 +45,7 @@ export function MemberFormModal({
       setValues(initialValues ?? EMPTY_MEMBER_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 
@@ -127,8 +128,8 @@ export function MemberFormModal({
           </p>
         ) : (
           <p className="-mt-2 mb-4 text-[0.8rem] text-muted">
-            New registrations start as <strong>Pending Review</strong> until the Executive Council
-            approves them.
+            New registrations start as <strong>Pending Review</strong> until an Administrator or
+            Executive Council member approves them.
           </p>
         )}
 

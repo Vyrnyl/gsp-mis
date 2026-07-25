@@ -36,6 +36,7 @@ export function BadgeFormModal({
       setValues(initialValues ?? EMPTY_BADGE_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 

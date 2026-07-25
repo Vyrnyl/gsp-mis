@@ -36,6 +36,7 @@ export function ActivityReportFormModal({ isOpen, eventOptions, onClose, onSubmi
       setValues(EMPTY_ACTIVITY_REPORT_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 

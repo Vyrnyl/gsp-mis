@@ -9,6 +9,7 @@ import {
   CardHeader,
   EmptyState,
   ErrorState,
+  Pagination,
   Table,
   TableAvatar,
   TableBody,
@@ -19,9 +20,12 @@ import {
   TableSkeleton,
   TableWrapper,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { AchievementFormValues, AchievementRecordSummary, MemberOption, ViewState } from '../types';
 import { AchievementFormModal } from './achievement-form-modal';
+
+const PAGE_SIZE = 8;
 
 export interface AchievementHistoryPanelProps {
   viewState: ViewState;
@@ -46,6 +50,7 @@ export function AchievementHistoryPanel({
   onCreate,
 }: AchievementHistoryPanelProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(achievements, PAGE_SIZE);
 
   async function handleSubmit(values: AchievementFormValues) {
     await onCreate(values);
@@ -103,7 +108,7 @@ export function AchievementHistoryPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {achievements.map((achievement) => (
+              {pageItems.map((achievement) => (
                 <TableRow key={achievement.id}>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
@@ -131,6 +136,10 @@ export function AchievementHistoryPanel({
             </TableBody>
           </Table>
         </TableWrapper>
+      ) : null}
+
+      {viewState === 'ready' && achievements.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="achievements" />
       ) : null}
 
       {canRecord ? (

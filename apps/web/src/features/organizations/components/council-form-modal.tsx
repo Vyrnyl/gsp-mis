@@ -26,6 +26,7 @@ export function CouncilFormModal({ isOpen, mode, initialValues, onClose, onSubmi
       setValues(initialValues ?? EMPTY_COUNCIL_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 

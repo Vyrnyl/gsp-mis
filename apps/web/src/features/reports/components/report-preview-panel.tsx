@@ -4,6 +4,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  Pagination,
   StatCard,
   StatCardSkeleton,
   Table,
@@ -15,8 +16,11 @@ import {
   TableSkeleton,
   TableWrapper,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { ReportFormat, ReportPreview, ViewState } from '../types';
+
+const PAGE_SIZE = 10;
 
 export interface ReportPreviewPanelProps {
   viewState: ViewState;
@@ -39,6 +43,8 @@ export function ReportPreviewPanel({
   onRetry,
   onExport,
 }: ReportPreviewPanelProps) {
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(preview?.rows ?? [], PAGE_SIZE);
+
   if (viewState === 'idle') {
     return (
       <Card>
@@ -133,7 +139,7 @@ export function ReportPreviewPanel({
             </TableRow>
           </TableHead>
           <TableBody>
-            {preview.rows.map((row, rowIndex) => (
+            {pageItems.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {row.map((cell, cellIndex) => (
                   <TableCell key={cellIndex}>
@@ -145,6 +151,10 @@ export function ReportPreviewPanel({
           </TableBody>
         </Table>
       </TableWrapper>
+
+      {preview.rows.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="rows" />
+      ) : null}
     </Card>
   );
 }

@@ -16,6 +16,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -26,9 +27,12 @@ import {
   TableWrapper,
   useToast,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { CategoryFormValues, CategoryItem, ViewState } from '../types';
 import { CategoryFormModal } from './category-form-modal';
+
+const PAGE_SIZE = 8;
 
 export interface CategoryPanelProps {
   viewState: ViewState;
@@ -78,6 +82,7 @@ export function CategoryPanel({
   const sortedItems = showOrder
     ? [...items].sort((a, b) => (a.orderNumber ?? 0) - (b.orderNumber ?? 0))
     : [...items].sort((a, b) => a.name.localeCompare(b.name));
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(sortedItems, PAGE_SIZE);
 
   async function handleCreate(values: CategoryFormValues) {
     await onCreate(values);
@@ -159,7 +164,7 @@ export function CategoryPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.map((item) => {
+              {pageItems.map((item) => {
                 const CategoryIcon = resolveBadgeCategoryIcon(item.icon);
 
                 return (
@@ -209,6 +214,16 @@ export function CategoryPanel({
             </TableBody>
           </Table>
         </TableWrapper>
+      ) : null}
+
+      {viewState === 'ready' && sortedItems.length > pageSize ? (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPage}
+          itemLabel={itemNounPlural.toLowerCase()}
+        />
       ) : null}
 
       <CategoryFormModal

@@ -34,6 +34,7 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
       setValues(EMPTY_RECORD_BADGE_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 

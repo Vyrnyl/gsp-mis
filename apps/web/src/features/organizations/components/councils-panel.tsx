@@ -10,6 +10,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -20,9 +21,12 @@ import {
   TableWrapper,
   useToast,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { Council, CouncilFormValues, ViewState } from '../types';
 import { CouncilFormModal } from './council-form-modal';
+
+const PAGE_SIZE = 8;
 
 export interface CouncilsPanelProps {
   viewState: ViewState;
@@ -47,6 +51,7 @@ export function CouncilsPanel({
   const [formModal, setFormModal] = useState<{ mode: 'create' } | { mode: 'edit'; council: Council } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Council | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(councils, PAGE_SIZE);
 
   async function handleCreate(values: CouncilFormValues) {
     await onCreate(values);
@@ -128,7 +133,7 @@ export function CouncilsPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {councils.map((council) => (
+              {pageItems.map((council) => (
                 <TableRow key={council.id}>
                   <TableCell className="font-semibold text-ink">{council.name}</TableCell>
                   <TableCell>{council.description ?? <span className="text-muted">—</span>}</TableCell>
@@ -163,6 +168,10 @@ export function CouncilsPanel({
             </TableBody>
           </Table>
         </TableWrapper>
+      ) : null}
+
+      {viewState === 'ready' && councils.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="councils" />
       ) : null}
 
       <CouncilFormModal

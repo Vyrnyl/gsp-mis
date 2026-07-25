@@ -10,6 +10,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -20,10 +21,13 @@ import {
   TableWrapper,
   useToast,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 import { formatCurrency } from '@/shared/utils/format-currency';
 
 import type { FeeTypeFormValues, FeeTypeItem, ViewState } from '../types';
 import { FeeTypeFormModal } from './fee-type-form-modal';
+
+const PAGE_SIZE = 8;
 
 export interface FeeTypesPanelProps {
   viewState: ViewState;
@@ -50,6 +54,7 @@ export function FeeTypesPanel({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const sortedFeeTypes = [...feeTypes].sort((a, b) => a.name.localeCompare(b.name));
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(sortedFeeTypes, PAGE_SIZE);
 
   async function handleCreate(values: FeeTypeFormValues) {
     await onCreate(values);
@@ -130,7 +135,7 @@ export function FeeTypesPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedFeeTypes.map((feeType) => (
+              {pageItems.map((feeType) => (
                 <TableRow key={feeType.id}>
                   <TableCell className="font-semibold text-ink">{feeType.name}</TableCell>
                   <TableCell>
@@ -167,6 +172,10 @@ export function FeeTypesPanel({
             </TableBody>
           </Table>
         </TableWrapper>
+      ) : null}
+
+      {viewState === 'ready' && sortedFeeTypes.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="fee types" />
       ) : null}
 
       <FeeTypeFormModal

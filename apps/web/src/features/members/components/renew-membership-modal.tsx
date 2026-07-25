@@ -40,6 +40,7 @@ export function RenewMembershipModal({ isOpen, memberName, onClose, onSubmit }: 
       setStartDate(start);
       setEndDate(oneYearFrom(start));
       setError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 

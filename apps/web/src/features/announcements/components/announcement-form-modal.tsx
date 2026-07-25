@@ -25,6 +25,7 @@ export function AnnouncementFormModal({ isOpen, onClose, onSubmit }: Announcemen
       setValues(EMPTY_ANNOUNCEMENT_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 

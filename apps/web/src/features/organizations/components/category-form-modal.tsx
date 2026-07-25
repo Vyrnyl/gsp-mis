@@ -40,6 +40,7 @@ export function CategoryFormModal({
       setValues(initialValues ?? EMPTY_CATEGORY_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 

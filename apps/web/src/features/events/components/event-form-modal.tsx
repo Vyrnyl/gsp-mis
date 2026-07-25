@@ -39,6 +39,7 @@ export function EventFormModal({
       setValues(initialValues ?? EMPTY_EVENT_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 

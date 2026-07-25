@@ -5,6 +5,7 @@ import {
   ChartSkeleton,
   EmptyState,
   ErrorState,
+  Pagination,
   StatCard,
   StatCardSkeleton,
   Table,
@@ -16,10 +17,13 @@ import {
   TableSkeleton,
   TableWrapper,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import { ORGANIZATION_STAT_PRESENTATION } from '../constants';
 import type { OrganizationAnalytics, ViewState } from '../types';
 import { OrganizationPerformanceChart } from './organization-performance-chart';
+
+const PAGE_SIZE = 8;
 
 export interface OrganizationPerformancePanelProps {
   viewState: ViewState;
@@ -28,6 +32,8 @@ export interface OrganizationPerformancePanelProps {
 }
 
 export function OrganizationPerformancePanel({ viewState, data, onRetry }: OrganizationPerformancePanelProps) {
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(data?.troops ?? [], PAGE_SIZE);
+
   if (viewState === 'error') {
     return (
       <Card>
@@ -83,7 +89,7 @@ export function OrganizationPerformancePanel({ viewState, data, onRetry }: Organ
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.troops.map((troop) => (
+                  {pageItems.map((troop) => (
                     <TableRow key={troop.troopId}>
                       <TableCell>
                         <span className="whitespace-nowrap">{troop.troopName}</span>
@@ -96,6 +102,9 @@ export function OrganizationPerformancePanel({ viewState, data, onRetry }: Organ
                 </TableBody>
               </Table>
             </TableWrapper>
+            {data.troops.length > pageSize ? (
+              <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="troops" />
+            ) : null}
           </Card>
         </>
       ) : (
