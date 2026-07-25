@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { AddIcon, BadgeIcon, DeleteIcon, EditIcon } from '@/shared/components/icons';
+import { AddIcon, BadgeIcon, DeleteIcon, EditIcon, resolveBadgeCategoryIcon } from '@/shared/components/icons';
 import {
   Button,
   Card,
@@ -107,13 +107,18 @@ export function BadgeCatalogPanel({
 
       {viewState === 'ready' && badges.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 xs:grid-cols-3 lg2:grid-cols-4">
-          {badges.map((badge) => (
+          {badges.map((badge) => {
+            // Icon comes from the badge's category, so the grid is scannable by category.
+            // Uncategorized badges keep the generic award glyph rather than borrowing one.
+            const CategoryIcon = resolveBadgeCategoryIcon(badge.categoryIcon);
+
+            return (
             <div
               key={badge.id}
               className="rounded-card border-2 border-hairline-subtle bg-surface p-3.5 text-center transition hover:-translate-y-0.5 hover:border-brand-green"
             >
               <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-status-warning-bg text-brand-gold-ink">
-                <BadgeIcon className="text-xl" aria-hidden />
+                <CategoryIcon className="text-xl" aria-hidden />
               </span>
               <p className="mt-2 text-[0.82rem] font-semibold text-ink">{badge.name}</p>
               <p className="mt-0.5 text-[0.72rem] text-muted">{badge.categoryName ?? 'Uncategorized'}</p>
@@ -142,7 +147,8 @@ export function BadgeCatalogPanel({
                 </div>
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 

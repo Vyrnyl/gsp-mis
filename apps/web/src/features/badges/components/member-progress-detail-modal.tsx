@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { ApprovalIcon } from '@/shared/components/icons';
+import { ApprovalIcon, resolveBadgeCategoryIcon } from '@/shared/components/icons';
 import { Button, Modal } from '@/shared/components/ui';
 
 import type { MemberProgressSummary } from '../types';
@@ -48,18 +48,26 @@ export function MemberProgressDetailModal({
             <p className="py-6 text-center text-[0.9rem] text-muted">No badges recorded for this member yet.</p>
           ) : (
             <ul className="space-y-2.5">
-              {member.badges.map((record) => (
+              {member.badges.map((record) => {
+                const CategoryIcon = resolveBadgeCategoryIcon(record.badgeCategoryIcon);
+
+                return (
                 <li
                   key={record.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-hairline-subtle p-3"
                 >
-                  <div>
-                    <p className="text-[0.9rem] font-semibold text-ink">{record.badgeName}</p>
-                    <p className="text-[0.78rem] text-muted">
-                      {record.badgeCategoryName ?? 'Uncategorized'}
-                      {record.earnedAt ? ` · Earned ${toDisplayDate(record.earnedAt)}` : ''}
-                      {record.verifiedByName ? ` · Verified by ${record.verifiedByName}` : ''}
-                    </p>
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-status-warning-bg text-brand-gold-ink">
+                      <CategoryIcon className="text-[0.95rem]" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-[0.9rem] font-semibold text-ink">{record.badgeName}</p>
+                      <p className="text-[0.78rem] text-muted">
+                        {record.badgeCategoryName ?? 'Uncategorized'}
+                        {record.earnedAt ? ` · Earned ${toDisplayDate(record.earnedAt)}` : ''}
+                        {record.verifiedByName ? ` · Verified by ${record.verifiedByName}` : ''}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <MemberBadgeStatusBadge status={record.status} />
@@ -76,7 +84,8 @@ export function MemberProgressDetailModal({
                     ) : null}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </>

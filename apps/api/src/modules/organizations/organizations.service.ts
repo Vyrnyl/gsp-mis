@@ -8,10 +8,12 @@ import type {
 } from './organizations.repository';
 import { organizationsRepository } from './organizations.repository';
 import type {
+  CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
   CreateScoutLevelInput,
   CreateTroopInput,
+  UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
   UpdateScoutLevelInput,
@@ -71,6 +73,7 @@ function toBadgeCategoryDto(category: BadgeCategoryWithCount): BadgeCategoryDto 
     id: category.id,
     name: category.name,
     description: category.description,
+    icon: category.icon,
     usageCount: category._count.badges,
   };
 }
@@ -212,14 +215,14 @@ export const organizationsService = {
     return { badgeCategories: categories.map(toBadgeCategoryDto) };
   },
 
-  async createBadgeCategory(input: CreateCategoryInput): Promise<BadgeCategoryDto> {
+  async createBadgeCategory(input: CreateBadgeCategoryInput): Promise<BadgeCategoryDto> {
     const existing = await organizationsRepository.findBadgeCategoryByName(input.name.trim());
     if (existing) throw ApiError.conflict('A badge category with this name already exists.');
     const created = await organizationsRepository.createBadgeCategory(input);
     return toBadgeCategoryDto(created);
   },
 
-  async updateBadgeCategory(id: string, input: UpdateCategoryInput): Promise<BadgeCategoryDto> {
+  async updateBadgeCategory(id: string, input: UpdateBadgeCategoryInput): Promise<BadgeCategoryDto> {
     const category = await organizationsRepository.findBadgeCategoryById(id);
     if (!category) throw ApiError.notFound('Badge category not found.');
 

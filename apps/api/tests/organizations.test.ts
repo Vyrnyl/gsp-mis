@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { organizationsRepository } from '../src/modules/organizations/organizations.repository';
 import { organizationsService } from '../src/modules/organizations/organizations.service';
+import { createBadgeCategorySchema } from '../src/modules/organizations/organizations.schema';
 import type {
+  CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
   CreateScoutLevelInput,
@@ -41,7 +43,13 @@ const SCOUT_LEVEL = {
   _count: { members: 0 },
 };
 
-const BADGE_CATEGORY = { id: 'badge-cat-1', name: 'Outdoor Skills', description: null, _count: { badges: 0 } };
+const BADGE_CATEGORY = {
+  id: 'badge-cat-1',
+  name: 'Outdoor Skills',
+  description: null,
+  icon: 'compass',
+  _count: { badges: 0 },
+};
 const ACTIVITY_CATEGORY = { id: 'activity-cat-1', name: 'Camping', description: null, _count: { events: 0 } };
 
 describe('organizationsService councils', () => {
@@ -211,8 +219,18 @@ describe('organizationsService badge categories', () => {
   it('rejects a duplicate badge category name', async () => {
     vi.spyOn(organizationsRepository, 'findBadgeCategoryByName').mockResolvedValue(BADGE_CATEGORY as never);
 
-    const input: CreateCategoryInput = { name: 'Outdoor Skills' };
+    const input: CreateBadgeCategoryInput = { name: 'Outdoor Skills', icon: 'compass' };
     await expect(organizationsService.createBadgeCategory(input)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('rejects an icon key outside the curated set', () => {
+    const result = createBadgeCategorySchema.safeParse({ name: 'Outdoor Skills', icon: 'FaCampground' });
+    expect(result.success).toBe(false);
+  });
+
+  it('defaults the icon when the client omits it', () => {
+    const result = createBadgeCategorySchema.parse({ name: 'Outdoor Skills' });
+    expect(result.icon).toBe('award');
   });
 
   it('blocks deleting a badge category still used by badges', async () => {

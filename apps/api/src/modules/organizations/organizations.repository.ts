@@ -2,10 +2,12 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '../../config/prisma';
 import type {
+  CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
   CreateScoutLevelInput,
   CreateTroopInput,
+  UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
   UpdateScoutLevelInput,
@@ -133,16 +135,16 @@ export const organizationsRepository = {
   findBadgeCategoryById(id: string) {
     return prisma.badgeCategory.findUnique({ where: { id }, include: badgeCategoryInclude });
   },
-  createBadgeCategory(input: CreateCategoryInput) {
+  createBadgeCategory(input: CreateBadgeCategoryInput) {
     return prisma.badgeCategory.create({
-      data: { name: input.name.trim(), description: input.description?.trim() || null },
+      data: { name: input.name.trim(), description: input.description?.trim() || null, icon: input.icon },
       include: badgeCategoryInclude,
     });
   },
-  updateBadgeCategory(id: string, input: UpdateCategoryInput) {
+  updateBadgeCategory(id: string, input: UpdateBadgeCategoryInput) {
     return prisma.badgeCategory.update({
       where: { id },
-      data: { name: input.name.trim(), description: input.description?.trim() || null },
+      data: { name: input.name.trim(), description: input.description?.trim() || null, icon: input.icon },
       include: badgeCategoryInclude,
     });
   },

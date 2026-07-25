@@ -45,11 +45,11 @@ const SCOUT_LEVELS = [
 ];
 
 const BADGE_CATEGORIES = [
-  { name: 'Community Service', description: 'Service to the community' },
-  { name: 'Outdoor Skills', description: 'Camping, hiking and navigation' },
-  { name: 'Health & Safety', description: 'First aid and personal wellbeing' },
-  { name: 'Leadership', description: 'Troop leadership and mentoring' },
-  { name: 'Arts & Culture', description: 'Filipino heritage and creative arts' },
+  { name: 'Community Service', description: 'Service to the community', icon: 'heart' },
+  { name: 'Outdoor Skills', description: 'Camping, hiking and navigation', icon: 'compass' },
+  { name: 'Health & Safety', description: 'First aid and personal wellbeing', icon: 'lifebuoy' },
+  { name: 'Leadership', description: 'Troop leadership and mentoring', icon: 'flag' },
+  { name: 'Arts & Culture', description: 'Filipino heritage and creative arts', icon: 'music' },
 ];
 
 const ACTIVITY_CATEGORIES = [
@@ -203,7 +203,7 @@ async function seedReferenceData() {
   for (const category of BADGE_CATEGORIES) {
     await prisma.badgeCategory.upsert({
       where: { name: category.name },
-      update: { description: category.description },
+      update: { description: category.description, icon: category.icon },
       create: category,
     });
   }

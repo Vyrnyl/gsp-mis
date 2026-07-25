@@ -22,6 +22,8 @@ export interface BadgeCatalogItem {
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
+  /** Icon key inherited from the badge's category — null when uncategorized. */
+  categoryIcon: string | null;
   requiredPoints: number;
   requirements: string[];
   earnedCount: number;
@@ -44,6 +46,8 @@ export interface MemberBadgeRecord {
   badgeId: string;
   badgeName: string;
   badgeCategoryName: string | null;
+  /** Icon key inherited from the badge's category — null when uncategorized. */
+  badgeCategoryIcon: string | null;
   status: MemberBadgeStatus;
   earnedAt: string | null;
   verifiedByName: string | null;

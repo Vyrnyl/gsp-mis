@@ -3,10 +3,12 @@ import type { Request, Response } from 'express';
 import { sendSuccess } from '../../shared/utils/api-response';
 import { organizationsService } from './organizations.service';
 import {
+  createBadgeCategorySchema,
   createCategorySchema,
   createCouncilSchema,
   createScoutLevelSchema,
   createTroopSchema,
+  updateBadgeCategorySchema,
   updateCategorySchema,
   updateCouncilSchema,
   updateScoutLevelSchema,
@@ -85,12 +87,12 @@ export const organizationsController = {
     sendSuccess(res, result);
   },
   async createBadgeCategory(req: Request, res: Response): Promise<void> {
-    const input = createCategorySchema.parse(req.body);
+    const input = createBadgeCategorySchema.parse(req.body);
     const badgeCategory = await organizationsService.createBadgeCategory(input);
     sendSuccess(res, { badgeCategory }, 201);
   },
   async updateBadgeCategory(req: Request, res: Response): Promise<void> {
-    const input = updateCategorySchema.parse(req.body);
+    const input = updateBadgeCategorySchema.parse(req.body);
     const badgeCategory = await organizationsService.updateBadgeCategory(req.params['id']!, input);
     sendSuccess(res, { badgeCategory });
   },

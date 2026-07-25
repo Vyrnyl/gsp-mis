@@ -201,6 +201,9 @@ model BadgeCategory {
   id          String  @id @default(uuid()) @db.Uuid
   name        String  @unique
   description String?
+  /// Semantic key from the curated set in `organizations.schema.ts` — never a
+  /// react-icons component name, so the icon set stays swappable in one place.
+  icon        String  @default("award")
 
   badges Badge[]
 

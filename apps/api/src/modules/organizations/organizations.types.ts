@@ -31,6 +31,8 @@ export interface BadgeCategoryDto {
   id: string;
   name: string;
   description: string | null;
+  /** Semantic key from `BADGE_CATEGORY_ICON_KEYS` — the web side maps it to a component. */
+  icon: string;
   usageCount: number;
 }
 

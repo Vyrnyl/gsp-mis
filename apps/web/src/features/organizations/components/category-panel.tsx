@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 
-import { AddIcon, DeleteIcon, EditIcon, type IconType } from '@/shared/components/icons';
+import {
+  AddIcon,
+  DeleteIcon,
+  EditIcon,
+  resolveBadgeCategoryIcon,
+  type IconType,
+} from '@/shared/components/icons';
 import {
   Button,
   Card,
@@ -32,6 +38,8 @@ export interface CategoryPanelProps {
   icon: IconType;
   items: CategoryItem[];
   showOrder: boolean;
+  /** Badge categories only — adds the icon swatch column and the form's icon picker. */
+  showIcon?: boolean;
   usageLabel: string;
   canManage: boolean;
   onRetry: () => void;
@@ -54,6 +62,7 @@ export function CategoryPanel({
   icon: Icon,
   items,
   showOrder,
+  showIcon = false,
   usageLabel,
   canManage,
   onRetry,
@@ -150,10 +159,24 @@ export function CategoryPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.map((item) => (
+              {sortedItems.map((item) => {
+                const CategoryIcon = resolveBadgeCategoryIcon(item.icon);
+
+                return (
                 <TableRow key={item.id}>
                   {showOrder ? <TableCell>{item.orderNumber}</TableCell> : null}
-                  <TableCell className="font-semibold text-ink">{item.name}</TableCell>
+                  <TableCell className="font-semibold text-ink">
+                    {showIcon ? (
+                      <span className="flex items-center gap-2">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-green3 text-brand-green">
+                          <CategoryIcon className="text-[0.95rem]" aria-hidden />
+                        </span>
+                        {item.name}
+                      </span>
+                    ) : (
+                      item.name
+                    )}
+                  </TableCell>
                   <TableCell>{item.description ?? <span className="text-muted">—</span>}</TableCell>
                   <TableCell>{item.usageCount}</TableCell>
                   {canManage ? (
@@ -181,7 +204,8 @@ export function CategoryPanel({
                     </TableCell>
                   ) : null}
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableWrapper>
@@ -192,12 +216,14 @@ export function CategoryPanel({
         mode={formModal?.mode ?? 'create'}
         itemNoun={itemNoun}
         showOrder={showOrder}
+        showIcon={showIcon}
         initialValues={
           formModal?.mode === 'edit'
             ? {
                 name: formModal.item.name,
                 description: formModal.item.description ?? '',
                 orderNumber: formModal.item.orderNumber,
+                icon: formModal.item.icon,
               }
             : undefined
         }

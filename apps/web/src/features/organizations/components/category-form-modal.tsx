@@ -2,9 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, Button, FormField, Input, Modal, Textarea } from '@/shared/components/ui';
+import { DEFAULT_BADGE_CATEGORY_ICON } from '@/shared/components/icons';
+import { Alert, Button, FormField, IconPicker, Input, Modal, Textarea } from '@/shared/components/ui';
 
-import { EMPTY_CATEGORY_FORM_VALUES } from '../constants';
+import { BADGE_CATEGORY_ICON_OPTIONS, EMPTY_CATEGORY_FORM_VALUES } from '../constants';
 import type { CategoryFormValues } from '../types';
 
 export interface CategoryFormModalProps {
@@ -12,6 +13,8 @@ export interface CategoryFormModalProps {
   mode: 'create' | 'edit';
   itemNoun: string;
   showOrder: boolean;
+  /** Badge categories only — scout levels and activity categories have no icon. */
+  showIcon?: boolean;
   initialValues?: CategoryFormValues;
   onClose: () => void;
   onSubmit: (values: CategoryFormValues) => Promise<void>;
@@ -22,6 +25,7 @@ export function CategoryFormModal({
   mode,
   itemNoun,
   showOrder,
+  showIcon = false,
   initialValues,
   onClose,
   onSubmit,
@@ -112,6 +116,16 @@ export function CategoryFormModal({
             onChange={(event) => setValues((current) => ({ ...current, description: event.target.value }))}
           />
         </FormField>
+
+        {showIcon ? (
+          <IconPicker
+            legend="Icon"
+            hint="Shown on every badge in this category"
+            options={BADGE_CATEGORY_ICON_OPTIONS}
+            value={values.icon ?? DEFAULT_BADGE_CATEGORY_ICON}
+            onChange={(icon) => setValues((current) => ({ ...current, icon }))}
+          />
+        ) : null}
       </form>
     </Modal>
   );

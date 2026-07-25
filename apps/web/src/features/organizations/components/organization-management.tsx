@@ -147,6 +147,7 @@ export function OrganizationManagement({ canManage }: OrganizationManagementProp
             icon={BadgeIcon}
             items={badgeCategories.items}
             showOrder={false}
+            showIcon
             usageLabel="Badges"
             canManage={canManage}
             onRetry={badgeCategories.refetch}

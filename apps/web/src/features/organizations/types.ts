@@ -47,12 +47,18 @@ export interface TroopFormValues {
   leaderId: string;
 }
 
-/** Shared shape for the three simple lookup tables — scout levels, badge categories, activity categories. */
+/**
+ * Shared shape for the three simple lookup tables — scout levels, badge categories,
+ * activity categories. `orderNumber` is scout-levels-only and `icon` is
+ * badge-categories-only; both stay optional so the other two tabs are unaffected.
+ */
 export interface CategoryItem {
   id: string;
   name: string;
   description: string | null;
   orderNumber?: number;
+  /** Badge categories only — a key from `BADGE_CATEGORY_ICONS`. */
+  icon?: string;
   usageCount: number;
 }
 
@@ -60,4 +66,5 @@ export interface CategoryFormValues {
   name: string;
   description: string;
   orderNumber?: number;
+  icon?: string;
 }

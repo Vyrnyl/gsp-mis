@@ -9,6 +9,7 @@ export { ConfirmDialog, type ConfirmDialogProps, type ConfirmTone } from './conf
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { FormField, useFieldContext, type FormFieldProps } from './form-field';
+export { IconPicker, type IconPickerOption, type IconPickerProps } from './icon-picker';
 export { Input, PasswordInput, type InputProps, type PasswordInputProps } from './input';
 export { Modal, type ModalProps, type ModalSize } from './modal';
 export { Pagination, buildPageRange, type PaginationProps } from './pagination';

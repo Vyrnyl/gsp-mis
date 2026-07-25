@@ -6,6 +6,8 @@ export interface BadgeDto {
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
+  /** Denormalized from the category join, same as `categoryName` — null when uncategorized. */
+  categoryIcon: string | null;
   requiredPoints: number;
   requirements: string[];
   earnedCount: number;
@@ -19,6 +21,8 @@ export interface MemberBadgeRecordDto {
   badgeId: string;
   badgeName: string;
   badgeCategoryName: string | null;
+  /** Denormalized from the badge's category, same as `badgeCategoryName` — null when uncategorized. */
+  badgeCategoryIcon: string | null;
   status: MemberBadgeStatus;
   earnedAt: string | null;
   verifiedByName: string | null;

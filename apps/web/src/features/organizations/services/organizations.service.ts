@@ -107,11 +107,20 @@ export async function listTroopLeaders(): Promise<TroopLeaderOption[]> {
   return data.troopLeaders;
 }
 
-function toCategoryRequestBody(values: CategoryFormValues, showOrder: boolean) {
+/**
+ * The three lookup tables share a body shape apart from their one extra field —
+ * `orderNumber` for scout levels, `icon` for badge categories. Sending either to the
+ * wrong endpoint would fail Zod's strict parse, so each is opted into explicitly.
+ */
+function toCategoryRequestBody(
+  values: CategoryFormValues,
+  extras: { order?: boolean; icon?: boolean } = {},
+) {
   return {
     name: values.name,
     description: values.description || undefined,
-    ...(showOrder ? { orderNumber: values.orderNumber } : {}),
+    ...(extras.order ? { orderNumber: values.orderNumber } : {}),
+    ...(extras.icon ? { icon: values.icon } : {}),
   };
 }
 
@@ -123,7 +132,7 @@ export async function listScoutLevels(): Promise<CategoryItem[]> {
 export async function createScoutLevel(values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ scoutLevel: CategoryItem }>('/api/organizations/scout-levels', {
     method: 'POST',
-    body: JSON.stringify(toCategoryRequestBody(values, true)),
+    body: JSON.stringify(toCategoryRequestBody(values, { order: true })),
   });
   return data.scoutLevel;
 }
@@ -131,7 +140,7 @@ export async function createScoutLevel(values: CategoryFormValues): Promise<Cate
 export async function updateScoutLevel(id: string, values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ scoutLevel: CategoryItem }>(`/api/organizations/scout-levels/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(toCategoryRequestBody(values, true)),
+    body: JSON.stringify(toCategoryRequestBody(values, { order: true })),
   });
   return data.scoutLevel;
 }
@@ -148,7 +157,7 @@ export async function listBadgeCategories(): Promise<CategoryItem[]> {
 export async function createBadgeCategory(values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ badgeCategory: CategoryItem }>('/api/organizations/badge-categories', {
     method: 'POST',
-    body: JSON.stringify(toCategoryRequestBody(values, false)),
+    body: JSON.stringify(toCategoryRequestBody(values, { icon: true })),
   });
   return data.badgeCategory;
 }
@@ -156,7 +165,7 @@ export async function createBadgeCategory(values: CategoryFormValues): Promise<C
 export async function updateBadgeCategory(id: string, values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ badgeCategory: CategoryItem }>(`/api/organizations/badge-categories/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(toCategoryRequestBody(values, false)),
+    body: JSON.stringify(toCategoryRequestBody(values, { icon: true })),
   });
   return data.badgeCategory;
 }
@@ -173,7 +182,7 @@ export async function listActivityCategories(): Promise<CategoryItem[]> {
 export async function createActivityCategory(values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ activityCategory: CategoryItem }>('/api/organizations/activity-categories', {
     method: 'POST',
-    body: JSON.stringify(toCategoryRequestBody(values, false)),
+    body: JSON.stringify(toCategoryRequestBody(values)),
   });
   return data.activityCategory;
 }
@@ -181,7 +190,7 @@ export async function createActivityCategory(values: CategoryFormValues): Promis
 export async function updateActivityCategory(id: string, values: CategoryFormValues): Promise<CategoryItem> {
   const data = await request<{ activityCategory: CategoryItem }>(`/api/organizations/activity-categories/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(toCategoryRequestBody(values, false)),
+    body: JSON.stringify(toCategoryRequestBody(values)),
   });
   return data.activityCategory;
 }

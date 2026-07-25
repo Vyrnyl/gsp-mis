@@ -1,11 +1,14 @@
 import {
   ActivityIcon,
+  BADGE_CATEGORY_ICON_LABELS,
+  BADGE_CATEGORY_ICONS,
   BadgeIcon,
   CouncilIcon,
+  DEFAULT_BADGE_CATEGORY_ICON,
   ScoutLevelIcon,
   TroopLeaderIcon,
 } from '@/shared/components/icons';
-import type { TabItem } from '@/shared/components/ui';
+import type { IconPickerOption, TabItem } from '@/shared/components/ui';
 
 import type { CategoryFormValues, CouncilFormValues, OrganizationTabId, TroopFormValues } from './types';
 
@@ -33,4 +36,14 @@ export const EMPTY_CATEGORY_FORM_VALUES: CategoryFormValues = {
   name: '',
   description: '',
   orderNumber: undefined,
+  icon: DEFAULT_BADGE_CATEGORY_ICON,
 };
+
+/** Picker options for the Badge Categories tab — order matches the barrel's own. */
+export const BADGE_CATEGORY_ICON_OPTIONS: IconPickerOption[] = (
+  Object.keys(BADGE_CATEGORY_ICONS) as (keyof typeof BADGE_CATEGORY_ICONS)[]
+).map((key) => ({
+  value: key,
+  icon: BADGE_CATEGORY_ICONS[key],
+  label: BADGE_CATEGORY_ICON_LABELS[key],
+}));

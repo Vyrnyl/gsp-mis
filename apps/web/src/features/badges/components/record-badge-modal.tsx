@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { resolveBadgeCategoryIcon } from '@/shared/components/icons';
 import { Alert, Button, FormField, Modal, Select } from '@/shared/components/ui';
 
 import { EMPTY_RECORD_BADGE_FORM_VALUES, MEMBER_BADGE_STATUS_LABELS } from '../constants';
@@ -68,6 +69,8 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
     label: member.troopName ? `${member.fullName} — ${member.troopName}` : member.fullName,
   }));
   const badgeSelectOptions = badgeOptions.map((badge) => ({ value: badge.id, label: badge.name }));
+  const selectedBadge = badgeOptions.find((badge) => badge.id === values.badgeId) ?? null;
+  const SelectedBadgeIcon = resolveBadgeCategoryIcon(selectedBadge?.categoryIcon);
   const statusOptions = (['in_progress', 'earned'] as const).map((status) => ({
     value: status,
     label: MEMBER_BADGE_STATUS_LABELS[status],
@@ -108,13 +111,22 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
         </FormField>
 
         <FormField label="Badge" required error={errors.badgeId}>
-          <Select
-            options={badgeSelectOptions}
-            placeholder="Select a badge"
-            value={values.badgeId}
-            onChange={(event) => set('badgeId', event.target.value)}
-            disabled={badgeOptions.length === 0}
-          />
+          <div className="flex items-center gap-2.5">
+            {/* Native <select> can't render an icon per option (Combobox is still `planned` in
+                the registry) — this swatch is the icon feedback instead, updating with the pick. */}
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-warning-bg text-brand-gold-ink">
+              <SelectedBadgeIcon className="text-[0.9rem]" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <Select
+                options={badgeSelectOptions}
+                placeholder="Select a badge"
+                value={values.badgeId}
+                onChange={(event) => set('badgeId', event.target.value)}
+                disabled={badgeOptions.length === 0}
+              />
+            </div>
+          </div>
         </FormField>
 
         <FormField label="Status" hint="Verification happens separately, after the badge is earned">
