@@ -133,9 +133,11 @@ Password for all of them: **`GspDemo!2026`** (or your `SEED_PASSWORD` env overri
 
 ### Seeded members, by troop (needed for role-scoped testing)
 
-Who belongs to which troop matters — Badges and Activity Reports only show a Troop Leader
-**their own troop's** members. (Members Registry and the event-registration picker are
-org-wide for every role.)
+Who belongs to which troop matters — Badges, Activity Reports, and (as of 2026-07-25) the
+**Membership Registry itself** all show a Troop Leader only **their own troop's**
+members. The one exception left is the **event-registration picker** — that one stays
+org-wide for every role, so a Troop Leader can register any troop's active member into an
+event.
 
 | Member | Troop | Type | Status |
 | --- | --- | --- | --- |
@@ -269,7 +271,7 @@ Log in as 🅐 Admin for all Create/Update/Delete steps.
 | Troop code | Name | Council | Leader |
 | --- | --- | --- | --- |
 | CAT-PAN-015 | Troop 15 — Pandan | Catanduanes Council | *(leave unassigned)* |
-| CAT-VIG-021 | Troop 21 — Viga | Catanduanes Council | Grace Tapel |
+| CAT-VIG-021 | Troop 21 — Viga | Catanduanes Council | *(leave unassigned — see one-troop-per-leader check below)* |
 
 **New scout level**
 | Name | Description | Order |
@@ -288,8 +290,15 @@ Log in as 🅐 Admin for all Create/Update/Delete steps.
 
 - [ ] **Councils**: create Albay Council. Read: appears in list. Update: edit its
       description. Delete: try deleting **Catanduanes Council** (has troops) → blocked.
-- [ ] **Troops**: create both rows above. Update: edit a troop's name. Delete: try
-      deleting a troop that has members → blocked.
+- [ ] **Troops**: create both rows above (unassigned leaders). Update: edit a troop's
+      name. Delete: try deleting a troop that has members → blocked.
+- [ ] **One-troop-per-leader guard**: open the leader picker for Troop 15 — Pandan (or any
+      unassigned troop) → confirm **Grace Tapel does not appear**, since she already leads
+      Troop 4 — Bato (already-assigned leaders are filtered out of the picker). If you
+      force her ID through some other path, expect a conflict error: *"This leader is
+      already assigned to another troop."* Then assign an actually-unassigned Troop Leader
+      account (e.g. Imelda Cadag from §1.1, once an Admin has approved/linked her) to
+      confirm the happy path still works.
 - [ ] **Scout Levels**: create "Ambassador Girl Scout". Update its order number. Delete:
       try deleting a level in use by a member → blocked.
 - [ ] **Badge Categories**: create "Environmental Stewardship". Same update/delete-in-use
@@ -300,7 +309,16 @@ Log in as 🅐 Admin for all Create/Update/Delete steps.
 
 ---
 
-## 4. Membership Registry (`/members`) — all three roles write; approve/archive is 🅐/🅔 only
+## 4. Membership Registry (`/members`) — all three roles write; Troop Leader is troop-scoped here
+
+> **Changed 2026-07-25 (915a92d):** a Troop Leader is now scoped to **their own troop
+> only** on this screen — list, view, create, edit, and renew are all enforced
+> server-side (403 outside their troop), and the Troop field is locked to their own troop
+> on the register/edit form. This reverses the earlier "registry is org-wide for everyone"
+> behavior — Liza can no longer see, register into, or edit Troop 4/7 members here. Admin
+> and Executive Council are unaffected (still see every troop, plus a new Troop filter
+> dropdown). The directory's per-row Troop column is replaced with a single header badge
+> for Troop Leaders, since their view is now always one troop.
 
 **Scouts** (pick Troop + Scout Level from the selects)
 | First | Middle | Last | Birthdate | Gender | Email | Phone | Troop | Scout Level | Emergency contact | Emergency phone |
@@ -319,20 +337,39 @@ Log in as 🅐 Admin for all Create/Update/Delete steps.
 - **Rejection reason** (min 5 chars): `Birth certificate copy is missing — please resubmit with the required documents attached.`
 - **Renew membership dates:** Start `2026-08-01` · End `2027-07-31`
 
-- [ ] 🅣 Liza: **Create** the Sofia (Troop 12), Angela (Troop 4), and Perla (Troop 7, adult
-      leader) rows — confirm the troop picker lists **all** troops, not just Troop 12
-      (registry write is org-wide even for a leader).
-- [ ] **Read**: confirm the registry table lists members from **all** troops while logged
-      in as Liza — a deliberate exception to the troop-scoping seen elsewhere.
-- [ ] 🅐 Admin: **Create** the Kyla, Trisha, Denise rows. **Update**: edit one member's
-      phone/email. **Renew**: open a member with expiring/expired status, renew with the
-      dates above — confirm it **appends** a new membership period, not overwrite (check
-      membership history on the profile).
+- [ ] 🅣 Liza: **Create** Sofia Bautista and Trisha Formento (both Troop 12) — confirm the
+      Troop field on the register form is **locked/pre-filled to Troop 12 — Virac** and
+      not editable.
+- [ ] **Read**: confirm the registry table now shows **only Troop 12** members while
+      logged in as Liza, with a **"Troop 12 — Virac" header badge** in place of the
+      per-row Troop column (that column is Admin/EC-only now).
+- [ ] **Scope guard (negative)**: as Liza, try to open a Troop 4 or Troop 7 member's
+      profile directly by URL (grab an id from the Admin view first) → the API returns 403
+      and the page renders its **inline error state** (not the profile). This is different
+      from the module-level RBAC checks elsewhere in this guide (`/finance`, `/settings`,
+      etc.), which redirect to the Dashboard — here you *can* reach the route, the *data*
+      is what's blocked.
+- [ ] 🅣 Grace: **Create** Angela Marasigan and Denise Villaruel (both Troop 4) — same
+      locked-to-Troop-4 confirmation. Confirm Grace's registry shows only Troop 4 and she
+      likewise can't open a Troop 12 member's profile directly.
+- [ ] 🅐 Admin: **Create** Kyla Odtuhan (Troop 7) and Perla Sandoval (Troop 7, adult
+      leader) — Troop 7 has no leader account yet, so only Admin/EC can register into it.
+      Confirm Admin's directory keeps the per-row Troop column **and** a new **Troop
+      filter dropdown**, and that filtering by Troop 7 shows exactly these two.
+- [ ] **Update**: as Admin, edit one member's phone/email. **Renew**: open a member with
+      expiring/expired status, renew with the dates above — confirm it **appends** a new
+      membership period, not overwrite (check membership history on the profile).
 - [ ] **Archive** (🅐/🅔 only): archive one test member you created, confirm they drop out
       of the active registry, then **Restore** them.
 - [ ] 🅣 Liza: confirm there is **no** Archive control visible to her.
 - [ ] Validation: member create with no Troop selected → *"Select a troop."* Scout with no
       Scout Level → required-field error.
+- [ ] **Unassigned-leader edge case**: log in as one of the signup accounts from §1.1
+      (Imelda Cadag, Troop Leader, not yet linked to a real troop) and open the register
+      form → the Troop field shows placeholder **"No troop assigned to you yet"** instead
+      of a locked value, and no header badge appears on the directory. Confirm you cannot
+      submit a registration until an Admin links the account to a troop under
+      **Organizations**.
 
 ---
 

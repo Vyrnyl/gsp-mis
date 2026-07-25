@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000 --max-time 3)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4000/api/v1/health --max-time 3)",
+      "Bash(mkdir -p \"apps/web/src/app/api/notifications/[id]/read\" \"apps/web/src/app/api/notifications/read-all\" \"apps/web/src/app/api/announcements\")",
+      "Bash(curl -s -o /dev/null -w \"GET /api/v1/notifications -> %{http_code}\\\\n\" http://localhost:4000/api/v1/notifications)",
+      "Bash(curl -s -o /dev/null -w \"GET /api/v1/announcements -> %{http_code}\\\\n\" http://localhost:4000/api/v1/announcements)",
+      "Bash(python3 -m json.tool)",
+      "Bash(grep -i \"\\\\.png$\")",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const icons=require\\('react-icons/fi'\\); console.log\\(Object.keys\\(icons\\).filter\\(k=>/wallet|briefcase|dollarsign|percent|creditcard|pocket|piggy/i.test\\(k\\)\\)\\)\")",
+      "Bash(npx eslint *)",
+      "Bash(powershell -Command \"Get-Process chrome -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path,StartTime | Format-Table -AutoSize\")",
+      "Bash(powershell -Command \"Get-Process chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(powershell -Command \"Get-Process chrome -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Get-Process -Id 20496 -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(find \"c:\\\\WebDev\\\\JM\\\\Test-skills\" -maxdepth 2 -iname \"finance-overview-1280.png\" 2>/dev/null; find / -maxdepth 3 -iname \"finance-overview-1280.png\" 2>/dev/null)",
+      "Read(//c//**)",
+      "Bash(mkdir -p \"c:\\\\WebDev\\\\JM\\\\Test-skills\\\\apps\\\\web\\\\src\\\\app\\\\api\\\\finance\\\\payments\" \"c:\\\\WebDev\\\\JM\\\\Test-skills\\\\apps\\\\web\\\\src\\\\app\\\\api\\\\finance\\\\expenses\" \"c:\\\\WebDev\\\\JM\\\\Test-skills\\\\apps\\\\web\\\\src\\\\app\\\\api\\\\finance\\\\fee-types\\\\[id]\" \"c:\\\\WebDev\\\\JM\\\\Test-skills\\\\apps\\\\web\\\\src\\\\app\\\\api\\\\finance\\\\summaries\" \"c:\\\\WebDev\\\\JM\\\\Test-skills\\\\apps\\\\web\\\\src\\\\app\\\\api\\\\finance\\\\member-options\")",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000,4000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4000/api/v1/finance/payments)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:4000/api/v1/finance/summaries)",
+      "Bash(where pandoc *)",
+      "Bash(where wkhtmltopdf *)",
+      "Bash(where chrome *)",
+      "Bash(where msedge *)",
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(npm ls *)"
+    ],
+    "additionalDirectories": [
+      "C:\\WebDev\\JM\\Test-skills\\apps\\web\\src\\app\\api\\notifications\\[id]",
+      "C:\\WebDev\\JM\\Test-skills",
+      "c:\\WebDev\\JM\\Test-skills\\apps\\web\\src\\app\\api\\finance\\fee-types"
+    ]
+  }
+}
