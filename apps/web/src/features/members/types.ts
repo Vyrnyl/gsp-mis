@@ -20,6 +20,8 @@ export interface TroopOption {
   name: string;
   councilId: string;
   councilName: string;
+  /** Used to lock the troop picker to a signed-in Troop Leader's own led troop. */
+  leaderId: string | null;
 }
 
 export interface ScoutLevelOption {

@@ -9,6 +9,9 @@ import { writeAuditLog } from '../src/shared/utils/audit-log';
 import { notifyUser } from '../src/shared/utils/notify';
 import type { CreateMemberInput, ListMembersQuery, UpdateMemberInput } from '../src/modules/members/members.schema';
 
+const ADMIN = { id: 'user-admin', role: 'admin' as const };
+const TROOP_LEADER = { id: 'user-liza', role: 'troop_leader' as const };
+
 const STATUS_PENDING = { id: 'status-pending', name: 'pending', description: null };
 const STATUS_ACTIVE = { id: 'status-active', name: 'active', description: null };
 const STATUS_ARCHIVED = { id: 'status-archived', name: 'archived', description: null };
@@ -82,11 +85,37 @@ describe('membersService.list', () => {
     vi.spyOn(membersRepository, 'list').mockResolvedValue({ rows: [buildMember()], total: 1 });
 
     const query: ListMembersQuery = { page: 1, pageSize: 20 };
-    const result = await membersService.list(query);
+    const result = await membersService.list(query, ADMIN);
 
     expect(result.members).toHaveLength(1);
     expect(result.members[0]).toMatchObject({ id: 'member-1', status: 'active', memberType: 'scout' });
     expect(result.meta).toMatchObject({ page: 1, pageSize: 20, totalItems: 1, totalPages: 1 });
+  });
+
+  it('does not scope the query for admin/executive council', async () => {
+    const listSpy = vi.spyOn(membersRepository, 'list').mockResolvedValue({ rows: [], total: 0 });
+
+    await membersService.list({ page: 1, pageSize: 20 }, ADMIN);
+
+    expect(listSpy).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, undefined);
+  });
+
+  it('scopes the query to the troop leader’s own led troop', async () => {
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+    const listSpy = vi.spyOn(membersRepository, 'list').mockResolvedValue({ rows: [], total: 0 });
+
+    await membersService.list({ page: 1, pageSize: 20 }, TROOP_LEADER);
+
+    expect(listSpy).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, [TROOP.id]);
+  });
+
+  it('scopes to an empty list for a troop leader with no assigned troop', async () => {
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([]);
+    const listSpy = vi.spyOn(membersRepository, 'list').mockResolvedValue({ rows: [], total: 0 });
+
+    await membersService.list({ page: 1, pageSize: 20 }, TROOP_LEADER);
+
+    expect(listSpy).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, []);
   });
 });
 
@@ -108,6 +137,23 @@ describe('membersService.getById', () => {
 
     await expect(membersService.getById('missing')).rejects.toMatchObject({ statusCode: 404 });
   });
+
+  it('allows a troop leader to view a member of their own troop', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+
+    const result = await membersService.getById('member-1', TROOP_LEADER);
+
+    expect(result.id).toBe('member-1');
+  });
+
+  it('rejects a troop leader viewing a member of another troop', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'some-other-troop' }]);
+
+    await expect(membersService.getById('member-1', TROOP_LEADER)).rejects.toMatchObject({ statusCode: 403 });
+  });
 });
 
 describe('membersService.create', () => {
@@ -120,7 +166,7 @@ describe('membersService.create', () => {
       .spyOn(membersRepository, 'create')
       .mockResolvedValue(buildMember({ status: STATUS_PENDING, firstName: 'Josie', lastName: 'Marasigan' }));
 
-    const result = await membersService.create(CREATE_SCOUT_INPUT);
+    const result = await membersService.create(CREATE_SCOUT_INPUT, ADMIN);
 
     expect(createSpy).toHaveBeenCalledWith(CREATE_SCOUT_INPUT, STATUS_PENDING.id, TROOP.councilId);
     expect(result.status).toBe('pending');
@@ -129,7 +175,25 @@ describe('membersService.create', () => {
   it('rejects an unknown troop', async () => {
     vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(null);
 
-    await expect(membersService.create(CREATE_SCOUT_INPUT)).rejects.toMatchObject({ statusCode: 400 });
+    await expect(membersService.create(CREATE_SCOUT_INPUT, ADMIN)).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('allows a troop leader to register a member into their own troop', async () => {
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_PENDING);
+    vi.spyOn(membersRepository, 'create').mockResolvedValue(buildMember({ status: STATUS_PENDING }));
+
+    const result = await membersService.create(CREATE_SCOUT_INPUT, TROOP_LEADER);
+
+    expect(result.status).toBe('pending');
+  });
+
+  it('rejects a troop leader registering a member into a troop they don’t lead', async () => {
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'some-other-troop' }]);
+
+    await expect(membersService.create(CREATE_SCOUT_INPUT, TROOP_LEADER)).rejects.toMatchObject({ statusCode: 403 });
   });
 });
 
@@ -141,7 +205,40 @@ describe('membersService.update', () => {
   it('rejects updating a member that does not exist', async () => {
     vi.spyOn(membersRepository, 'findById').mockResolvedValue(null);
 
-    await expect(membersService.update('missing', updateInput)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(membersService.update('missing', updateInput, ADMIN)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('allows a troop leader to update a member of their own troop', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+    const updateSpy = vi.spyOn(membersRepository, 'update').mockResolvedValue(buildMember({ firstName: 'Josefina' }));
+
+    const result = await membersService.update('member-1', updateInput, TROOP_LEADER);
+
+    expect(updateSpy).toHaveBeenCalled();
+    expect(result.firstName).toBe('Josefina');
+  });
+
+  it('rejects a troop leader updating a member of another troop', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'some-other-troop' }]);
+
+    await expect(membersService.update('member-1', updateInput, TROOP_LEADER)).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('rejects a troop leader reassigning a member to a troop they don’t lead', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember({ troopId: TROOP.id }));
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue({
+      ...TROOP,
+      id: 'some-other-troop',
+    } as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+
+    await expect(
+      membersService.update('member-1', { ...updateInput, troopId: 'some-other-troop' }, TROOP_LEADER),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 });
 
@@ -308,10 +405,38 @@ describe('membersService.renew', () => {
     const renewSpy = vi.spyOn(membersRepository, 'renew').mockResolvedValue(undefined);
     const setStatusSpy = vi.spyOn(membersRepository, 'setStatus').mockResolvedValue({} as never);
 
-    const result = await membersService.renew('member-1', { startDate: '2026-08-01', endDate: '2027-08-01' });
+    const result = await membersService.renew('member-1', { startDate: '2026-08-01', endDate: '2027-08-01' }, ADMIN);
 
     expect(renewSpy).toHaveBeenCalledWith('member-1', '2026-08-01', '2027-08-01');
     expect(setStatusSpy).toHaveBeenCalledWith('member-1', STATUS_ACTIVE.id);
     expect(result.status).toBe('active');
+  });
+
+  it('allows a troop leader to renew a member of their own troop', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: { id: 'status-expired', name: 'expired', description: null } }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ACTIVE }));
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: TROOP.id }]);
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ACTIVE);
+    vi.spyOn(membersRepository, 'renew').mockResolvedValue(undefined);
+    vi.spyOn(membersRepository, 'setStatus').mockResolvedValue({} as never);
+
+    const result = await membersService.renew(
+      'member-1',
+      { startDate: '2026-08-01', endDate: '2027-08-01' },
+      TROOP_LEADER,
+    );
+
+    expect(result.status).toBe('active');
+  });
+
+  it('rejects a troop leader renewing a member of another troop', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'some-other-troop' }]);
+
+    await expect(
+      membersService.renew('member-1', { startDate: '2026-08-01', endDate: '2027-08-01' }, TROOP_LEADER),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 });

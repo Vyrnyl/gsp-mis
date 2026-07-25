@@ -13,6 +13,7 @@ import {
   RestoreIcon,
 } from '@/shared/components/icons';
 import {
+  Badge,
   Button,
   Card,
   CardHeader,
@@ -88,6 +89,9 @@ function toFormValues(member: Member): MemberFormValues {
 
 export interface MemberDirectoryProps {
   canArchive: boolean;
+  /** Signed-in user's id, only when they're a Troop Leader — used to lock the Troop field. */
+  currentUserId: string | null;
+  isTroopLeader: boolean;
 }
 
 /**
@@ -96,7 +100,7 @@ export interface MemberDirectoryProps {
  * API directly, code-standards.md §7.4). Mutations refetch rather than update
  * optimistically (settled decision #3) — every write below re-runs `fetchMembers`.
  */
-export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
+export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: MemberDirectoryProps) {
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -107,6 +111,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<MemberStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<MemberTypeFilter>('all');
+  const [troopFilter, setTroopFilter] = useState('all');
   const [page, setPage] = useState(1);
 
   const [troopOptions, setTroopOptions] = useState<TroopOption[]>([]);
@@ -123,7 +128,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => setPage(1), [debouncedSearch, statusFilter, typeFilter]);
+  useEffect(() => setPage(1), [debouncedSearch, statusFilter, typeFilter, troopFilter]);
 
   const fetchMembers = useCallback(async () => {
     setViewState('loading');
@@ -132,6 +137,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
         search: debouncedSearch || undefined,
         status: statusFilter,
         memberType: typeFilter,
+        troopId: troopFilter !== 'all' ? troopFilter : undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -141,7 +147,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
     } catch {
       setViewState('error');
     }
-  }, [debouncedSearch, statusFilter, typeFilter, page]);
+  }, [debouncedSearch, statusFilter, typeFilter, troopFilter, page]);
 
   useEffect(() => {
     fetchMembers();
@@ -210,12 +216,16 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
     }
   }
 
-  const hasActiveFilters = debouncedSearch.length > 0 || statusFilter !== 'all' || typeFilter !== 'all';
+  const ownTroop = isTroopLeader ? troopOptions.find((troop) => troop.leaderId === currentUserId) ?? null : undefined;
+  const ownTroopId = isTroopLeader ? ownTroop?.id ?? null : undefined;
+  const hasActiveFilters =
+    debouncedSearch.length > 0 || statusFilter !== 'all' || typeFilter !== 'all' || troopFilter !== 'all';
+  const columnCount = isTroopLeader ? 6 : 7;
 
   return (
     <Card>
       <CardHeader
-        title="Membership Registry"
+        title={isTroopLeader && ownTroop ? <Badge tone="blue">{ownTroop.troopCode} — {ownTroop.name}</Badge> : undefined}
         subtitle={viewState === 'ready' ? `${totalItems.toLocaleString()} member${totalItems === 1 ? '' : 's'}` : undefined}
         actions={
           <Button leadingIcon={<AddIcon />} onClick={() => setFormModal({ mode: 'create' })}>
@@ -251,9 +261,21 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
           value={typeFilter}
           onChange={(event) => setTypeFilter(event.target.value as MemberTypeFilter)}
         />
+        {!isTroopLeader ? (
+          <Select
+            aria-label="Filter by troop"
+            className="w-full sm:w-52"
+            options={[
+              { value: 'all', label: 'All Troops' },
+              ...troopOptions.map((troop) => ({ value: troop.id, label: `${troop.troopCode} — ${troop.name}` })),
+            ]}
+            value={troopFilter}
+            onChange={(event) => setTroopFilter(event.target.value)}
+          />
+        ) : null}
       </div>
 
-      {viewState === 'loading' ? <TableSkeleton rows={6} columns={7} /> : null}
+      {viewState === 'loading' ? <TableSkeleton rows={6} columns={columnCount} /> : null}
 
       {viewState === 'error' ? (
         <ErrorState onRetry={fetchMembers} description="We could not load the membership registry. Check your connection and try again." />
@@ -275,7 +297,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
         <EmptyState
           icon={MembersIcon}
           title="No members match your filters"
-          description="Try a different search term or clear the status/type filters."
+          description="Try a different search term or clear the filters."
           action={
             <Button
               variant="outline"
@@ -283,6 +305,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
                 setSearch('');
                 setStatusFilter('all');
                 setTypeFilter('all');
+                setTroopFilter('all');
               }}
             >
               Clear filters
@@ -299,7 +322,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
                 <TableRow>
                   <TableHeaderCell>Name</TableHeaderCell>
                   <TableHeaderCell>Type</TableHeaderCell>
-                  <TableHeaderCell>Troop</TableHeaderCell>
+                  {!isTroopLeader ? <TableHeaderCell>Troop</TableHeaderCell> : null}
                   <TableHeaderCell>Scout Level</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>Joined</TableHeaderCell>
@@ -328,15 +351,17 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
                         </div>
                       </TableCell>
                       <TableCell>{MEMBER_TYPE_LABELS[member.memberType]}</TableCell>
-                      <TableCell>
-                        {member.troop ? (
-                          <code className="rounded bg-subtle px-1.5 py-0.5 text-[0.8rem]">
-                            {member.troop.troopCode}
-                          </code>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </TableCell>
+                      {!isTroopLeader ? (
+                        <TableCell>
+                          {member.troop ? (
+                            <code className="rounded bg-subtle px-1.5 py-0.5 text-[0.8rem]">
+                              {member.troop.troopCode}
+                            </code>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </TableCell>
+                      ) : null}
                       <TableCell>{member.scoutLevel?.name ?? <span className="text-muted">—</span>}</TableCell>
                       <TableCell>
                         <MemberStatusBadge status={member.status} />
@@ -407,6 +432,7 @@ export function MemberDirectory({ canArchive }: MemberDirectoryProps) {
         initialValues={formModal?.mode === 'edit' ? toFormValues(formModal.member) : undefined}
         troopOptions={troopOptions}
         scoutLevelOptions={scoutLevelOptions}
+        restrictToTroopId={ownTroopId}
         onClose={() => setFormModal(null)}
         onSubmit={formModal?.mode === 'edit' ? handleUpdate : handleCreate}
       />

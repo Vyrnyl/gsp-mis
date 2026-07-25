@@ -13,6 +13,14 @@ export default async function MemberProfilePage({
 }) {
   const [user, { id }] = await Promise.all([getSession(), params]);
   const canArchive = user ? roleHasPermission(user.role, 'members:archive') : false;
+  const isTroopLeader = user?.role === 'troop_leader';
 
-  return <MemberProfileView memberId={id} canArchive={canArchive} />;
+  return (
+    <MemberProfileView
+      memberId={id}
+      canArchive={canArchive}
+      currentUserId={user && isTroopLeader ? user.id : null}
+      isTroopLeader={isTroopLeader}
+    />
+  );
 }

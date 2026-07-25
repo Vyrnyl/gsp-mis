@@ -15,24 +15,24 @@ import {
 export const membersController = {
   async list(req: Request, res: Response): Promise<void> {
     const query = listMembersQuerySchema.parse(req.query);
-    const { members, meta } = await membersService.list(query);
+    const { members, meta } = await membersService.list(query, req.user!);
     sendSuccess(res, { members }, 200, meta);
   },
 
   async getById(req: Request, res: Response): Promise<void> {
-    const member = await membersService.getById(req.params['id']!);
+    const member = await membersService.getById(req.params['id']!, req.user!);
     sendSuccess(res, { member });
   },
 
   async create(req: Request, res: Response): Promise<void> {
     const input = createMemberSchema.parse(req.body);
-    const member = await membersService.create(input);
+    const member = await membersService.create(input, req.user!);
     sendSuccess(res, { member }, 201);
   },
 
   async update(req: Request, res: Response): Promise<void> {
     const input = updateMemberSchema.parse(req.body);
-    const member = await membersService.update(req.params['id']!, input);
+    const member = await membersService.update(req.params['id']!, input, req.user!);
     sendSuccess(res, { member });
   },
 
@@ -48,7 +48,7 @@ export const membersController = {
 
   async renew(req: Request, res: Response): Promise<void> {
     const input = renewMembershipSchema.parse(req.body);
-    const member = await membersService.renew(req.params['id']!, input);
+    const member = await membersService.renew(req.params['id']!, input, req.user!);
     sendSuccess(res, { member });
   },
 

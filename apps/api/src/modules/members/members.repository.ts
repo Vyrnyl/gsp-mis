@@ -13,29 +13,38 @@ const memberInclude = {
 
 export type MemberWithRelations = Prisma.MemberGetPayload<{ include: typeof memberInclude }>;
 
-function buildWhere(query: ListMembersQuery): Prisma.MemberWhereInput {
-  const where: Prisma.MemberWhereInput = {};
+/**
+ * `scopedTroopIds` is the Troop Leader's own led-troop scope (`undefined` for
+ * admin/executive council — no restriction). Combined with client-supplied filters
+ * via `AND` rather than overwriting `troopId`, so a Troop Leader filtering by a troop
+ * they don't lead gets zero rows instead of leaking another troop's roster.
+ */
+function buildWhere(query: ListMembersQuery, scopedTroopIds?: string[]): Prisma.MemberWhereInput {
+  const and: Prisma.MemberWhereInput[] = [];
 
-  if (query.status) where.status = { name: query.status };
-  if (query.memberType) where.memberType = query.memberType;
-  if (query.troopId) where.troopId = query.troopId;
+  if (query.status) and.push({ status: { name: query.status } });
+  if (query.memberType) and.push({ memberType: query.memberType });
+  if (query.troopId) and.push({ troopId: query.troopId });
+  if (scopedTroopIds !== undefined) and.push({ troopId: { in: scopedTroopIds } });
 
   if (query.search) {
     const term = query.search.trim();
-    where.OR = [
-      { firstName: { contains: term, mode: 'insensitive' } },
-      { lastName: { contains: term, mode: 'insensitive' } },
-      { email: { contains: term, mode: 'insensitive' } },
-      { troop: { troopCode: { contains: term, mode: 'insensitive' } } },
-    ];
+    and.push({
+      OR: [
+        { firstName: { contains: term, mode: 'insensitive' } },
+        { lastName: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { troop: { troopCode: { contains: term, mode: 'insensitive' } } },
+      ],
+    });
   }
 
-  return where;
+  return and.length > 0 ? { AND: and } : {};
 }
 
 export const membersRepository = {
-  async list(query: ListMembersQuery): Promise<{ rows: MemberWithRelations[]; total: number }> {
-    const where = buildWhere(query);
+  async list(query: ListMembersQuery, scopedTroopIds?: string[]): Promise<{ rows: MemberWithRelations[]; total: number }> {
+    const where = buildWhere(query, scopedTroopIds);
     const [rows, total] = await Promise.all([
       prisma.member.findMany({
         where,
@@ -59,6 +68,10 @@ export const membersRepository = {
 
   findTroopById(id: string) {
     return prisma.troop.findUnique({ where: { id }, include: { council: true } });
+  },
+
+  findTroopIdsLedBy(userId: string) {
+    return prisma.troop.findMany({ where: { leaderId: userId }, select: { id: true } });
   },
 
   /** Registration always starts `pending` — approval (feature 1.4) transitions it to active. */

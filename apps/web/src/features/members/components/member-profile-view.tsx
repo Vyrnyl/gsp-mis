@@ -80,6 +80,9 @@ type ViewState = 'loading' | 'error' | 'not-found' | 'ready';
 export interface MemberProfileViewProps {
   memberId: string;
   canArchive: boolean;
+  /** Signed-in user's id, only when they're a Troop Leader — used to lock the Troop field. */
+  currentUserId: string | null;
+  isTroopLeader: boolean;
 }
 
 /**
@@ -87,7 +90,7 @@ export interface MemberProfileViewProps {
  * lookup; every mutation refetches the member afterward rather than patching local
  * state (settled decision #3), same convention as `MemberDirectory`.
  */
-export function MemberProfileView({ memberId, canArchive }: MemberProfileViewProps) {
+export function MemberProfileView({ memberId, canArchive, currentUserId, isTroopLeader }: MemberProfileViewProps) {
   const { showToast } = useToast();
 
   const [viewState, setViewState] = useState<ViewState>('loading');
@@ -202,6 +205,7 @@ export function MemberProfileView({ memberId, canArchive }: MemberProfileViewPro
 
   const fullName = `${member.firstName} ${member.middleName ? `${member.middleName} ` : ''}${member.lastName}`;
   const canRenew = member.status === 'active' || member.status === 'expiring' || member.status === 'expired';
+  const ownTroopId = isTroopLeader ? troopOptions.find((troop) => troop.leaderId === currentUserId)?.id ?? null : undefined;
 
   return (
     <div>
@@ -325,6 +329,7 @@ export function MemberProfileView({ memberId, canArchive }: MemberProfileViewPro
         initialValues={toFormValues(member)}
         troopOptions={troopOptions}
         scoutLevelOptions={scoutLevelOptions}
+        restrictToTroopId={ownTroopId}
         onClose={() => setIsEditOpen(false)}
         onSubmit={handleEditSubmit}
       />

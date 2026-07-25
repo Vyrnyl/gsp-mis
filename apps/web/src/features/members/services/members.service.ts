@@ -57,6 +57,7 @@ export interface ListMembersParams {
   search?: string;
   status?: MemberStatusFilter;
   memberType?: MemberTypeFilter;
+  troopId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -72,6 +73,7 @@ function buildQuery(params: ListMembersParams): string {
   if (params.search) query.set('search', params.search);
   if (params.status && params.status !== 'all') query.set('status', params.status);
   if (params.memberType && params.memberType !== 'all') query.set('memberType', params.memberType);
+  if (params.troopId) query.set('troopId', params.troopId);
   if (params.page) query.set('page', String(params.page));
   if (params.pageSize) query.set('pageSize', String(params.pageSize));
   const search = query.toString();

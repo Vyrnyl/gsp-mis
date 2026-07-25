@@ -14,6 +14,13 @@ export interface MemberFormModalProps {
   initialValues?: MemberFormValues;
   troopOptions: TroopOption[];
   scoutLevelOptions: ScoutLevelOption[];
+  /**
+   * Locks the Troop field to a single troop — set for a signed-in Troop Leader (their
+   * own led troop, or `null` if they have none yet). The API enforces this
+   * server-side regardless; this just keeps the picker from offering a choice that
+   * would only come back as a 403.
+   */
+  restrictToTroopId?: string | null;
   onClose: () => void;
   onSubmit: (values: MemberFormValues) => Promise<void>;
 }
@@ -32,9 +39,11 @@ export function MemberFormModal({
   initialValues,
   troopOptions,
   scoutLevelOptions,
+  restrictToTroopId,
   onClose,
   onSubmit,
 }: MemberFormModalProps) {
+  const isRestricted = restrictToTroopId !== undefined;
   const [values, setValues] = useState<MemberFormValues>(initialValues ?? EMPTY_MEMBER_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,19 +51,28 @@ export function MemberFormModal({
 
   useEffect(() => {
     if (isOpen) {
-      setValues(initialValues ?? EMPTY_MEMBER_FORM_VALUES);
+      const next = initialValues ?? EMPTY_MEMBER_FORM_VALUES;
+      setValues(
+        mode === 'create' && isRestricted ? { ...next, troopId: restrictToTroopId ?? '' } : next,
+      );
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
     }
-  }, [isOpen, initialValues]);
+  }, [isOpen, initialValues, mode, isRestricted, restrictToTroopId]);
 
   function set<K extends keyof MemberFormValues>(key: K, value: MemberFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
 
   const isScout = values.memberType === 'scout';
-  const troopSelectOptions = troopOptions.map((troop) => ({ value: troop.id, label: `${troop.troopCode} — ${troop.name}` }));
+  const availableTroopOptions = isRestricted
+    ? troopOptions.filter((troop) => troop.id === restrictToTroopId)
+    : troopOptions;
+  const troopSelectOptions = availableTroopOptions.map((troop) => ({
+    value: troop.id,
+    label: `${troop.troopCode} — ${troop.name}`,
+  }));
   const scoutLevelSelectOptions = scoutLevelOptions.map((level) => ({ value: level.id, label: level.name }));
 
   const errors: FieldErrors = submitAttempted
@@ -159,11 +177,17 @@ export function MemberFormModal({
           <FormField label="Birthdate" required error={errors.birthDate}>
             <Input type="date" value={values.birthDate} onChange={(event) => set('birthDate', event.target.value)} />
           </FormField>
-          <FormField label="Troop" required error={errors.troopId}>
+          <FormField
+            label="Troop"
+            required
+            error={errors.troopId}
+            hint={isRestricted ? 'Locked to your own troop.' : undefined}
+          >
             <Select
               options={troopSelectOptions}
-              placeholder="Select troop"
+              placeholder={isRestricted && !restrictToTroopId ? 'No troop assigned to you yet' : 'Select troop'}
               value={values.troopId}
+              disabled={isRestricted}
               onChange={(event) => set('troopId', event.target.value)}
             />
           </FormField>

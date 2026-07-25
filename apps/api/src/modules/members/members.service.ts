@@ -2,6 +2,7 @@ import { writeAuditLog } from '../../shared/utils/audit-log';
 import { ApiError } from '../../shared/utils/api-error';
 import { buildPaginationMeta, type PaginationMeta } from '../../shared/utils/api-response';
 import { notifyUser } from '../../shared/utils/notify';
+import type { RoleName } from '../../shared/constants/roles';
 import type { MemberWithRelations } from './members.repository';
 import { membersRepository } from './members.repository';
 import type {
@@ -62,35 +63,68 @@ async function requireMember(id: string): Promise<MemberWithRelations> {
   return member;
 }
 
+type RequestingUser = { id: string; role: RoleName };
+
+/** Troop Leader is scoped to their own led troop; Admin/Executive Council see every troop. */
+async function scopeToOwnTroop(user: RequestingUser): Promise<string[] | undefined> {
+  if (user.role !== 'troop_leader') return undefined;
+  const troops = await membersRepository.findTroopIdsLedBy(user.id);
+  return troops.map((troop) => troop.id);
+}
+
+function requireTroopIdInScope(troopId: string | null, troopIds: string[] | undefined): void {
+  if (troopIds !== undefined && (!troopId || !troopIds.includes(troopId))) {
+    throw ApiError.forbidden('You can only manage members in your own troop.');
+  }
+}
+
 export const membersService = {
-  async list(query: ListMembersQuery): Promise<{ members: MemberSummary[]; meta: PaginationMeta }> {
-    const { rows, total } = await membersRepository.list(query);
+  async list(query: ListMembersQuery, user: RequestingUser): Promise<{ members: MemberSummary[]; meta: PaginationMeta }> {
+    const troopIds = await scopeToOwnTroop(user);
+    const { rows, total } = await membersRepository.list(query, troopIds);
     return {
       members: rows.map(toSummary),
       meta: buildPaginationMeta(query.page, query.pageSize, total),
     };
   },
 
-  async getById(id: string): Promise<MemberDetail> {
+  /**
+   * `user` is omitted for internal reuse (archive/restore/renew/approve/reject's
+   * trailing refetch after an already-authorized mutation) — those routes are either
+   * role-gated away from Troop Leader entirely, or scope-checked earlier in the same
+   * call. The `GET /:id` route itself always passes `user` and gets scoped.
+   */
+  async getById(id: string, user?: RequestingUser): Promise<MemberDetail> {
     const member = await requireMember(id);
+    if (user) {
+      const troopIds = await scopeToOwnTroop(user);
+      requireTroopIdInScope(member.troopId, troopIds);
+    }
     const councilName = member.troopId ? (await membersRepository.findTroopById(member.troopId))?.council.name ?? null : null;
     return toDetail(member, councilName);
   },
 
   /** New registrations always start `pending` — feature 1.4 approves/rejects them. */
-  async create(input: CreateMemberInput): Promise<MemberDetail> {
+  async create(input: CreateMemberInput, user: RequestingUser): Promise<MemberDetail> {
     const troop = await membersRepository.findTroopById(input.troopId);
     if (!troop) throw ApiError.badRequest('Selected troop does not exist.');
+
+    const troopIds = await scopeToOwnTroop(user);
+    requireTroopIdInScope(input.troopId, troopIds);
 
     const statusId = await requireStatusId('pending');
     const created = await membersRepository.create(input, statusId, troop.councilId);
     return toDetail(created, troop.council.name);
   },
 
-  async update(id: string, input: UpdateMemberInput): Promise<MemberDetail> {
-    await requireMember(id);
+  async update(id: string, input: UpdateMemberInput, user: RequestingUser): Promise<MemberDetail> {
+    const existing = await requireMember(id);
     const troop = await membersRepository.findTroopById(input.troopId);
     if (!troop) throw ApiError.badRequest('Selected troop does not exist.');
+
+    const troopIds = await scopeToOwnTroop(user);
+    requireTroopIdInScope(existing.troopId, troopIds);
+    requireTroopIdInScope(input.troopId, troopIds);
 
     const updated = await membersRepository.update(id, input, troop.councilId);
     return toDetail(updated, troop.council.name);
@@ -111,8 +145,11 @@ export const membersService = {
   },
 
   /** Writes a new `memberships` term rather than mutating the current one — history stays intact. */
-  async renew(id: string, input: RenewMembershipInput): Promise<MemberDetail> {
-    await requireMember(id);
+  async renew(id: string, input: RenewMembershipInput, user: RequestingUser): Promise<MemberDetail> {
+    const existing = await requireMember(id);
+    const troopIds = await scopeToOwnTroop(user);
+    requireTroopIdInScope(existing.troopId, troopIds);
+
     await membersRepository.renew(id, input.startDate, input.endDate);
     const activeStatusId = await requireStatusId('active');
     await membersRepository.setStatus(id, activeStatusId);
