@@ -72,7 +72,6 @@ export function AnnouncementsView({ user }: AnnouncementsViewProps) {
     <div>
       <Card>
         <CardHeader
-          title="Announcements"
           subtitle={viewState === 'ready' ? `${totalItems.toLocaleString()} posted` : undefined}
           actions={
             canPost ? (

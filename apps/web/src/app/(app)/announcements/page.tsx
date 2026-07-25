@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 
 import { AnnouncementsView } from '@/features/announcements/components/announcements-view';
 import { getSession } from '@/features/auth/services/session.service';
-import { PageHeader } from '@/shared/components/layout/page-header';
 
 export const metadata: Metadata = { title: 'Announcements' };
 
@@ -12,13 +11,5 @@ export default async function AnnouncementsPage() {
   // narrows the type for what follows.
   if (!user) return null;
 
-  return (
-    <>
-      <PageHeader
-        title="Announcements"
-        description="Council notices and updates for every troop."
-      />
-      <AnnouncementsView user={user} />
-    </>
-  );
+  return <AnnouncementsView user={user} />;
 }

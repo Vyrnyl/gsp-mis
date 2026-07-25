@@ -2,7 +2,6 @@
 
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { MenuIcon } from '@/shared/components/icons';
-import { SearchInput } from '@/shared/components/ui/search-input';
 
 export interface TopbarProps {
   title: string;
@@ -35,13 +34,6 @@ export function Topbar({ title, onOpenSidebar, isSidebarOpen }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
-        <SearchInput
-          label="Search the portal"
-          placeholder="Search…"
-          className="hidden w-[140px] sm:block md:w-[220px]"
-          disabled
-          title="Global search arrives with Phase 1"
-        />
         <NotificationBell />
       </div>
     </header>

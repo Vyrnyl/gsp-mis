@@ -107,7 +107,7 @@ export function ActivityReportsView({ user }: ActivityReportsViewProps) {
   return (
     <Card>
       <CardHeader
-        title={showAllTroops ? 'Activity Reports' : 'My Activity Reports'}
+        title={showAllTroops ? undefined : 'My Activity Reports'}
         subtitle={
           viewState === 'ready'
             ? showAllTroops

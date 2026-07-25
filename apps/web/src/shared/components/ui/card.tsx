@@ -16,7 +16,8 @@ export function Card({ className, children, ...props }: CardProps) {
 }
 
 export interface CardHeaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
-  title: ReactNode;
+  /** Omit when the page's own header (topbar) already carries this exact title — avoids a duplicate heading. */
+  title?: ReactNode;
   subtitle?: ReactNode;
   /** Right-aligned actions (buttons, filters). Wraps below the title when narrow. */
   actions?: ReactNode;
@@ -39,7 +40,7 @@ export function CardHeader({
       {...props}
     >
       <div>
-        <Heading className="text-[1.05rem] font-bold text-ink">{title}</Heading>
+        {title ? <Heading className="text-[1.05rem] font-bold text-ink">{title}</Heading> : null}
         {subtitle ? <p className="mt-0.5 text-[0.82rem] text-muted">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

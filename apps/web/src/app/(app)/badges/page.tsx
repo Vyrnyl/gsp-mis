@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 
 import { getSession } from '@/features/auth/services/session.service';
 import { BadgesView } from '@/features/badges/components/badges-view';
-import { PageHeader } from '@/shared/components/layout/page-header';
 
 export const metadata: Metadata = { title: 'Badges' };
 
@@ -12,13 +11,5 @@ export default async function BadgesPage() {
   // narrows the type for what follows.
   if (!user) return null;
 
-  return (
-    <>
-      <PageHeader
-        title="Badge & Achievement Management"
-        description="Track the badge catalog, member progress, and achievement history."
-      />
-      <BadgesView user={user} />
-    </>
-  );
+  return <BadgesView user={user} />;
 }
