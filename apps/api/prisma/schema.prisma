@@ -173,7 +173,7 @@ model Troop {
   councilId String   @map("council_id") @db.Uuid
   name      String
   troopCode String   @unique @map("troop_code")
-  leaderId  String?  @map("leader_id") @db.Uuid
+  leaderId  String?  @unique @map("leader_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -182,7 +182,6 @@ model Troop {
   members Member[]
 
   @@index([councilId])
-  @@index([leaderId])
   @@map("troops")
 }
 

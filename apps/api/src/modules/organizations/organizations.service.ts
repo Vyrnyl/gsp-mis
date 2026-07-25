@@ -100,6 +100,14 @@ async function requireLeaderIsTroopLeader(leaderId: string | undefined): Promise
   }
 }
 
+async function requireLeaderNotAlreadyAssigned(leaderId: string | undefined, excludeTroopId?: string): Promise<void> {
+  if (!leaderId) return;
+  const existing = await organizationsRepository.findTroopByLeaderId(leaderId);
+  if (existing && existing.id !== excludeTroopId) {
+    throw ApiError.conflict('This leader is already assigned to another troop.');
+  }
+}
+
 export const organizationsService = {
   // Councils
   async listCouncils(): Promise<ListCouncilsResponseBody> {
@@ -143,6 +151,7 @@ export const organizationsService = {
   async createTroop(input: CreateTroopInput): Promise<TroopDto> {
     await requireCouncilExists(input.councilId);
     await requireLeaderIsTroopLeader(input.leaderId);
+    await requireLeaderNotAlreadyAssigned(input.leaderId);
 
     const existing = await organizationsRepository.findTroopByCode(input.troopCode.trim());
     if (existing) throw ApiError.conflict('A troop with this code already exists.');
@@ -157,6 +166,7 @@ export const organizationsService = {
 
     await requireCouncilExists(input.councilId);
     await requireLeaderIsTroopLeader(input.leaderId);
+    await requireLeaderNotAlreadyAssigned(input.leaderId, id);
 
     const updated = await organizationsRepository.updateTroop(id, input);
     return toTroopDto(updated);

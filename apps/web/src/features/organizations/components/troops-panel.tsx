@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -21,9 +22,12 @@ import {
   TableWrapper,
   useToast,
 } from '@/shared/components/ui';
+import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
 import type { Council, Troop, TroopFormValues, TroopLeaderOption, ViewState } from '../types';
 import { TroopFormModal } from './troop-form-modal';
+
+const PAGE_SIZE = 8;
 
 export interface TroopsPanelProps {
   viewState: ViewState;
@@ -52,6 +56,7 @@ export function TroopsPanel({
   const [formModal, setFormModal] = useState<{ mode: 'create' } | { mode: 'edit'; troop: Troop } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Troop | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { page, setPage, pageItems, totalItems, pageSize } = usePagedItems(troops, PAGE_SIZE);
 
   async function handleCreate(values: TroopFormValues) {
     await onCreate(values);
@@ -139,7 +144,7 @@ export function TroopsPanel({
               </TableRow>
             </TableHead>
             <TableBody>
-              {troops.map((troop) => (
+              {pageItems.map((troop) => (
                 <TableRow key={troop.id}>
                   <TableCell>
                     <code className="whitespace-nowrap rounded bg-subtle px-1.5 py-0.5 text-[0.8rem]">
@@ -188,6 +193,10 @@ export function TroopsPanel({
         </TableWrapper>
       ) : null}
 
+      {viewState === 'ready' && troops.length > pageSize ? (
+        <Pagination page={page} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} itemLabel="troops" />
+      ) : null}
+
       <TroopFormModal
         isOpen={formModal !== null}
         mode={formModal?.mode ?? 'create'}
@@ -203,6 +212,8 @@ export function TroopsPanel({
         }
         councils={councils}
         leaderOptions={leaderOptions}
+        troops={troops}
+        currentTroopId={formModal?.mode === 'edit' ? formModal.troop.id : undefined}
         onClose={() => setFormModal(null)}
         onSubmit={formModal?.mode === 'edit' ? handleUpdate : handleCreate}
       />

@@ -182,6 +182,53 @@ describe('organizationsService troops', () => {
 
     expect(result.troopLeaders).toEqual([LEADER_USER]);
   });
+
+  it('rejects assigning a leader who already leads a different troop', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'listTroopLeaderUsers').mockResolvedValue([LEADER_USER] as never);
+    vi.spyOn(organizationsRepository, 'findTroopByLeaderId').mockResolvedValue(TROOP as never);
+
+    const input: CreateTroopInput = {
+      troopCode: 'NEW-001',
+      name: 'New Troop',
+      councilId: COUNCIL.id,
+      leaderId: LEADER_USER.id,
+    };
+    await expect(organizationsService.createTroop(input)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('allows keeping a troop’s own current leader on update', async () => {
+    vi.spyOn(organizationsRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'listTroopLeaderUsers').mockResolvedValue([LEADER_USER] as never);
+    vi.spyOn(organizationsRepository, 'findTroopByLeaderId').mockResolvedValue({ ...TROOP, id: TROOP.id } as never);
+    const updateSpy = vi
+      .spyOn(organizationsRepository, 'updateTroop')
+      .mockResolvedValue({ ...TROOP, leader: LEADER_USER } as never);
+
+    await organizationsService.updateTroop(TROOP.id, {
+      name: TROOP.name,
+      councilId: COUNCIL.id,
+      leaderId: LEADER_USER.id,
+    });
+
+    expect(updateSpy).toHaveBeenCalled();
+  });
+
+  it('rejects assigning a leader on update who already leads a different troop', async () => {
+    vi.spyOn(organizationsRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'listTroopLeaderUsers').mockResolvedValue([LEADER_USER] as never);
+    vi.spyOn(organizationsRepository, 'findTroopByLeaderId').mockResolvedValue({ ...TROOP, id: 'other-troop' } as never);
+
+    await expect(
+      organizationsService.updateTroop(TROOP.id, {
+        name: TROOP.name,
+        councilId: COUNCIL.id,
+        leaderId: LEADER_USER.id,
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+  });
 });
 
 describe('organizationsService scout levels', () => {

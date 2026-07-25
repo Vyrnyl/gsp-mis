@@ -69,6 +69,9 @@ export const organizationsRepository = {
   findTroopById(id: string) {
     return prisma.troop.findUnique({ where: { id }, include: troopInclude });
   },
+  findTroopByLeaderId(leaderId: string) {
+    return prisma.troop.findUnique({ where: { leaderId } });
+  },
   createTroop(input: CreateTroopInput) {
     return prisma.troop.create({
       data: {

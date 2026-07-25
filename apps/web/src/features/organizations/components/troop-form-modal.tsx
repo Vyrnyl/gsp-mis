@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Alert, Button, FormField, Input, Modal, Select } from '@/shared/components/ui';
 
 import { EMPTY_TROOP_FORM_VALUES } from '../constants';
-import type { Council, TroopFormValues, TroopLeaderOption } from '../types';
+import type { Council, Troop, TroopFormValues, TroopLeaderOption } from '../types';
 
 export interface TroopFormModalProps {
   isOpen: boolean;
@@ -13,6 +13,10 @@ export interface TroopFormModalProps {
   initialValues?: TroopFormValues;
   councils: Council[];
   leaderOptions: TroopLeaderOption[];
+  /** All troops, used to exclude leaders already assigned elsewhere — a leader can lead only one troop. */
+  troops: Troop[];
+  /** The troop being edited, if any — its own current leader stays selectable. */
+  currentTroopId?: string;
   onClose: () => void;
   onSubmit: (values: TroopFormValues) => Promise<void>;
 }
@@ -25,6 +29,8 @@ export function TroopFormModal({
   initialValues,
   councils,
   leaderOptions,
+  troops,
+  currentTroopId,
   onClose,
   onSubmit,
 }: TroopFormModalProps) {
@@ -38,13 +44,18 @@ export function TroopFormModal({
       setValues(initialValues ?? EMPTY_TROOP_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
+      setIsSubmitting(false);
     }
   }, [isOpen, initialValues]);
 
   const councilOptions = councils.map((council) => ({ value: council.id, label: council.name }));
+  const leadersAssignedElsewhere = new Set(
+    troops.filter((troop) => troop.leaderId && troop.id !== currentTroopId).map((troop) => troop.leaderId),
+  );
+  const availableLeaderOptions = leaderOptions.filter((leader) => !leadersAssignedElsewhere.has(leader.id));
   const leaderSelectOptions = [
     { value: '', label: 'No Leader Assigned' },
-    ...leaderOptions.map((leader) => ({ value: leader.id, label: `${leader.fullName} (${leader.email})` })),
+    ...availableLeaderOptions.map((leader) => ({ value: leader.id, label: `${leader.fullName} (${leader.email})` })),
   ];
 
   const errors: FieldErrors = submitAttempted
@@ -116,7 +127,7 @@ export function TroopFormModal({
           />
         </FormField>
 
-        <FormField label="Troop Leader" hint="Only users with the Troop Leader role appear here">
+        <FormField label="Troop Leader" hint="Only unassigned Troop Leaders appear here — each leader can lead just one troop">
           <Select
             options={leaderSelectOptions}
             value={values.leaderId}
