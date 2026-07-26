@@ -45,6 +45,7 @@ export function MemberFormModal({
 }: MemberFormModalProps) {
   const isRestricted = restrictToTroopId !== undefined;
   const [values, setValues] = useState<MemberFormValues>(initialValues ?? EMPTY_MEMBER_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<MemberFormValues>(initialValues ?? EMPTY_MEMBER_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -59,9 +60,10 @@ export function MemberFormModal({
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
       const next = initialValues ?? EMPTY_MEMBER_FORM_VALUES;
-      setValues(
-        mode === 'create' && isRestricted ? { ...next, troopId: restrictToTroopId ?? '' } : next,
-      );
+      const resetValues =
+        mode === 'create' && isRestricted ? { ...next, troopId: restrictToTroopId ?? '' } : next;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -73,6 +75,7 @@ export function MemberFormModal({
     setValues((current) => ({ ...current, [key]: value }));
   }
 
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const isScout = values.memberType === 'scout';
   const availableTroopOptions = isRestricted
     ? troopOptions.filter((troop) => troop.id === restrictToTroopId)
@@ -128,7 +131,7 @@ export function MemberFormModal({
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="member-form" isLoading={isSubmitting}>
+          <Button type="submit" form="member-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Register Member' : 'Save Changes'}
           </Button>
         </>

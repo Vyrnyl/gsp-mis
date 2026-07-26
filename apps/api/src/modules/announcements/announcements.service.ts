@@ -30,7 +30,10 @@ export const announcementsService = {
 
     const users = await announcementsRepository.listAllUserIds();
     const recipientIds = users.map((user) => user.id).filter((id) => id !== postedById);
-    await notifyUsers(recipientIds, 'New announcement posted', created.title);
+    // The notification carries the announcement's own title/content directly —
+    // /notifications has no click-through to the source post, so this is the only
+    // place a recipient can read what it actually says.
+    await notifyUsers(recipientIds, created.title, created.content);
 
     return toDto(created);
   },

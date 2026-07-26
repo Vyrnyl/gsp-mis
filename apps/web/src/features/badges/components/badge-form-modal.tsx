@@ -27,6 +27,7 @@ export function BadgeFormModal({
   onSubmit,
 }: BadgeFormModalProps) {
   const [values, setValues] = useState<BadgeFormValues>(initialValues ?? EMPTY_BADGE_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<BadgeFormValues>(initialValues ?? EMPTY_BADGE_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -40,13 +41,17 @@ export function BadgeFormModal({
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_BADGE_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_BADGE_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
     }
     wasOpen.current = isOpen;
   }, [isOpen, initialValues]);
+
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
 
   function set<K extends keyof BadgeFormValues>(key: K, value: BadgeFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -114,7 +119,7 @@ export function BadgeFormModal({
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="badge-form" isLoading={isSubmitting}>
+          <Button type="submit" form="badge-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Add Badge' : 'Save Changes'}
           </Button>
         </>

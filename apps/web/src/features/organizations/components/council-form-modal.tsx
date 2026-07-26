@@ -17,6 +17,7 @@ export interface CouncilFormModalProps {
 
 export function CouncilFormModal({ isOpen, mode, initialValues, onClose, onSubmit }: CouncilFormModalProps) {
   const [values, setValues] = useState<CouncilFormValues>(initialValues ?? EMPTY_COUNCIL_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<CouncilFormValues>(initialValues ?? EMPTY_COUNCIL_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -30,7 +31,9 @@ export function CouncilFormModal({ isOpen, mode, initialValues, onClose, onSubmi
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_COUNCIL_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_COUNCIL_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -38,6 +41,7 @@ export function CouncilFormModal({ isOpen, mode, initialValues, onClose, onSubmi
     wasOpen.current = isOpen;
   }, [isOpen, initialValues]);
 
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const nameError = submitAttempted && !values.name.trim() ? 'Council name is required.' : undefined;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -66,7 +70,7 @@ export function CouncilFormModal({ isOpen, mode, initialValues, onClose, onSubmi
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="council-form" isLoading={isSubmitting}>
+          <Button type="submit" form="council-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Add Council' : 'Save Changes'}
           </Button>
         </>

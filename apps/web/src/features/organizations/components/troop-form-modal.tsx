@@ -35,6 +35,7 @@ export function TroopFormModal({
   onSubmit,
 }: TroopFormModalProps) {
   const [values, setValues] = useState<TroopFormValues>(initialValues ?? EMPTY_TROOP_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<TroopFormValues>(initialValues ?? EMPTY_TROOP_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -48,7 +49,9 @@ export function TroopFormModal({
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_TROOP_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_TROOP_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -56,6 +59,7 @@ export function TroopFormModal({
     wasOpen.current = isOpen;
   }, [isOpen, initialValues]);
 
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const councilOptions = councils.map((council) => ({ value: council.id, label: council.name }));
   const leadersAssignedElsewhere = new Set(
     troops.filter((troop) => troop.leaderId && troop.id !== currentTroopId).map((troop) => troop.leaderId),
@@ -102,7 +106,7 @@ export function TroopFormModal({
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="troop-form" isLoading={isSubmitting}>
+          <Button type="submit" form="troop-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Add Troop' : 'Save Changes'}
           </Button>
         </>

@@ -16,11 +16,12 @@ export type ExpenseWithRelations = Prisma.ExpenseGetPayload<{ include: typeof ex
 export type FeeTypeWithCount = Prisma.FeeTypeGetPayload<{ include: typeof feeTypeInclude }>;
 
 export const financeRepository = {
-  // Member options (payment-recording picker) — active members only, same
-  // convention as badges' `listMemberOptions`.
+  // Member options (payment-recording picker) — `expiring` still counts as a
+  // current member (renewal due within 30 days, not yet lapsed), same convention
+  // as badges' `listMemberOptions`; `pending`/`expired`/`archived`/`rejected` excluded.
   listMemberOptions() {
     return prisma.member.findMany({
-      where: { status: { name: 'active' } },
+      where: { status: { name: { in: ['active', 'expiring'] } } },
       include: { troop: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });

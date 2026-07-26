@@ -65,8 +65,8 @@ describe('announcementsService', () => {
       expect(result).toMatchObject({ id: 'ann-1' });
       expect(notifyUsers).toHaveBeenCalledWith(
         ['user-ec', 'user-liza'],
-        'New announcement posted',
         ANNOUNCEMENT_ROW.title,
+        ANNOUNCEMENT_ROW.content,
       );
     });
   });

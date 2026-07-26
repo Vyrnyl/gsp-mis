@@ -28,6 +28,9 @@ export function UserFormModal({ isOpen, mode, initialValues, onClose, onSubmit }
   const [values, setValues] = useState<CreateUserFormValues>(
     initialValues ? { ...initialValues, password: '' } : EMPTY_CREATE_USER_FORM_VALUES,
   );
+  const [snapshot, setSnapshot] = useState<CreateUserFormValues>(
+    initialValues ? { ...initialValues, password: '' } : EMPTY_CREATE_USER_FORM_VALUES,
+  );
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -41,7 +44,9 @@ export function UserFormModal({ isOpen, mode, initialValues, onClose, onSubmit }
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ? { ...initialValues, password: '' } : EMPTY_CREATE_USER_FORM_VALUES);
+      const resetValues = initialValues ? { ...initialValues, password: '' } : EMPTY_CREATE_USER_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -52,6 +57,8 @@ export function UserFormModal({ isOpen, mode, initialValues, onClose, onSubmit }
   function set<K extends keyof CreateUserFormValues>(key: K, value: CreateUserFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
+
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
 
   const errors: FieldErrors = submitAttempted
     ? {
@@ -90,7 +97,7 @@ export function UserFormModal({ isOpen, mode, initialValues, onClose, onSubmit }
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="user-form" isLoading={isSubmitting}>
+          <Button type="submit" form="user-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Add User' : 'Save Changes'}
           </Button>
         </>

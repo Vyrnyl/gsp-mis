@@ -19,6 +19,7 @@ type FieldErrors = Partial<Record<keyof FeeTypeFormValues, string>>;
 
 export function FeeTypeFormModal({ isOpen, mode, initialValues, onClose, onSubmit }: FeeTypeFormModalProps) {
   const [values, setValues] = useState<FeeTypeFormValues>(initialValues ?? EMPTY_FEE_TYPE_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<FeeTypeFormValues>(initialValues ?? EMPTY_FEE_TYPE_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -32,7 +33,9 @@ export function FeeTypeFormModal({ isOpen, mode, initialValues, onClose, onSubmi
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_FEE_TYPE_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_FEE_TYPE_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       // `handleSubmit` only clears this on failure — a successful submit closes the
@@ -46,6 +49,8 @@ export function FeeTypeFormModal({ isOpen, mode, initialValues, onClose, onSubmi
   function set<K extends keyof FeeTypeFormValues>(key: K, value: FeeTypeFormValues[K]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
+
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
 
   const errors: FieldErrors = submitAttempted
     ? {
@@ -82,7 +87,7 @@ export function FeeTypeFormModal({ isOpen, mode, initialValues, onClose, onSubmi
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="fee-type-form" isLoading={isSubmitting}>
+          <Button type="submit" form="fee-type-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Add Fee Type' : 'Save Changes'}
           </Button>
         </>

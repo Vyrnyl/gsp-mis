@@ -30,6 +30,7 @@ export function EventFormModal({
   onSubmit,
 }: EventFormModalProps) {
   const [values, setValues] = useState<EventFormValues>(initialValues ?? EMPTY_EVENT_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<EventFormValues>(initialValues ?? EMPTY_EVENT_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -44,7 +45,9 @@ export function EventFormModal({
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_EVENT_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_EVENT_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -56,6 +59,7 @@ export function EventFormModal({
     setValues((current) => ({ ...current, [key]: value }));
   }
 
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const categorySelectOptions = categoryOptions.map((category) => ({ value: category.id, label: category.name }));
   const organizerSelectOptions = organizerOptions.map((organizer) => ({
     value: organizer.id,
@@ -104,7 +108,7 @@ export function EventFormModal({
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="event-form" isLoading={isSubmitting}>
+          <Button type="submit" form="event-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? 'Create Event' : 'Save Changes'}
           </Button>
         </>

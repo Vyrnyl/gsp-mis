@@ -77,10 +77,12 @@ export const badgesRepository = {
   findTroopIdsLedBy(userId: string) {
     return prisma.troop.findMany({ where: { leaderId: userId }, select: { id: true } });
   },
+  // `expiring` is still a current member (renewal due within 30 days, not yet lapsed) —
+  // only `pending`/`expired`/`archived`/`rejected` are excluded.
   listMemberOptions(troopIds: string[] | undefined) {
     return prisma.member.findMany({
       where: {
-        status: { name: 'active' },
+        status: { name: { in: ['active', 'expiring'] } },
         ...(troopIds ? { troopId: { in: troopIds } } : {}),
       },
       include: { troop: true },

@@ -31,6 +31,7 @@ export function CategoryFormModal({
   onSubmit,
 }: CategoryFormModalProps) {
   const [values, setValues] = useState<CategoryFormValues>(initialValues ?? EMPTY_CATEGORY_FORM_VALUES);
+  const [snapshot, setSnapshot] = useState<CategoryFormValues>(initialValues ?? EMPTY_CATEGORY_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -44,7 +45,9 @@ export function CategoryFormModal({
   const wasOpen = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpen.current) {
-      setValues(initialValues ?? EMPTY_CATEGORY_FORM_VALUES);
+      const resetValues = initialValues ?? EMPTY_CATEGORY_FORM_VALUES;
+      setValues(resetValues);
+      setSnapshot(resetValues);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -52,6 +55,7 @@ export function CategoryFormModal({
     wasOpen.current = isOpen;
   }, [isOpen, initialValues]);
 
+  const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const nameError = submitAttempted && !values.name.trim() ? `${itemNoun} name is required.` : undefined;
   const orderError =
     submitAttempted && showOrder && (values.orderNumber === undefined || values.orderNumber < 1)
@@ -86,7 +90,7 @@ export function CategoryFormModal({
           <Button variant="gray" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="category-form" isLoading={isSubmitting}>
+          <Button type="submit" form="category-form" isLoading={isSubmitting} disabled={!isDirty || isSubmitting}>
             {mode === 'create' ? `Add ${itemNoun}` : 'Save Changes'}
           </Button>
         </>
