@@ -14,6 +14,25 @@ export interface SendEmailInput {
 let transporter: Transporter | undefined;
 let mailtrapClient: MailtrapClient | undefined;
 
+/**
+ * Many PaaS hosts (Render's free plan included) silently drop outbound SMTP
+ * packets instead of refusing the connection, so a blocked port hangs rather
+ * than fails. `forgotPassword` (auth.service.ts) awaits `send()` and treats it
+ * as best-effort via try/catch, but a hang is neither a resolve nor a reject —
+ * it just blocks the HTTP response forever. Bounding every send call here is
+ * what actually makes it best-effort.
+ */
+const EMAIL_SEND_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error(`Email send timed out after ${ms}ms`)), ms);
+    }),
+  ]);
+}
+
 /** Parses the `Name <email>` shape `EMAIL_FROM` is written in; falls back to treating the whole value as the address. */
 function parseFromAddress(): { name: string; email: string } {
   const match = env.EMAIL_FROM.match(/^(.*)<(.+)>$/);
@@ -41,6 +60,9 @@ function getTransporter(): Transporter {
         port: env.SMTP_PORT,
         secure: env.SMTP_PORT === 465,
         auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+        connectionTimeout: EMAIL_SEND_TIMEOUT_MS,
+        greetingTimeout: EMAIL_SEND_TIMEOUT_MS,
+        socketTimeout: EMAIL_SEND_TIMEOUT_MS,
       })
     : nodemailer.createTransport({ jsonTransport: true });
 
@@ -50,24 +72,30 @@ function getTransporter(): Transporter {
 async function send(input: SendEmailInput): Promise<void> {
   if (env.MAILTRAP_API_TOKEN) {
     const { name, email } = parseFromAddress();
-    await getMailtrapClient().send({
-      from: { email, name: name || undefined },
-      to: [{ email: input.to }],
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      category: 'GSP MIS',
-    });
+    await withTimeout(
+      getMailtrapClient().send({
+        from: { email, name: name || undefined },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        category: 'GSP MIS',
+      }),
+      EMAIL_SEND_TIMEOUT_MS,
+    );
     return;
   }
 
-  const info = await getTransporter().sendMail({
-    from: env.EMAIL_FROM,
-    to: input.to,
-    subject: input.subject,
-    html: input.html,
-    text: input.text,
-  });
+  const info = await withTimeout(
+    getTransporter().sendMail({
+      from: env.EMAIL_FROM,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+    }),
+    EMAIL_SEND_TIMEOUT_MS,
+  );
 
   if (!env.SMTP_HOST) {
     console.info(`[email:dev] SMTP not configured — logging instead of sending.\n${info.message.toString()}`);
