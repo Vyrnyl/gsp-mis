@@ -76,7 +76,22 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
-export type SignupResponse = LoginResponse;
+/**
+ * Mirrors `SignupResponseBody` in `auth.types.ts` — Executive Council/Troop Leader
+ * signups land `pending` (no session yet, needs Administrator approval); Admin stays
+ * `active` and signs in immediately, same as before.
+ */
+export interface SignupActiveResponse {
+  status: 'active';
+  user: AuthUser;
+}
+
+export interface SignupPendingResponse {
+  status: 'pending';
+  message: string;
+}
+
+export type SignupResponse = SignupActiveResponse | SignupPendingResponse;
 
 export interface ForgotPasswordResponse {
   message: string;

@@ -160,8 +160,14 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
     setIsSubmitting(true);
 
     try {
-      const { user } = await signup(payload);
-      showToast(`Account created for ${user.fullName}.`, 'success');
+      const result = await signup(payload);
+      if (result.status === 'pending') {
+        showToast(result.message, 'info', 8000);
+        setIsSubmitting(false);
+        onSwitchToLogin();
+        return;
+      }
+      showToast(`Account created for ${result.user.fullName}.`, 'success');
       router.push('/dashboard');
     } catch (err) {
       setIsSubmitting(false);

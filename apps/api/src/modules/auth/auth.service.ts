@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import { env } from '../../config/env';
 import { emailService } from '../../shared/utils/email';
 import { ApiError } from '../../shared/utils/api-error';
+import { writeAuditLog } from '../../shared/utils/audit-log';
 import { getTokenExpiry, signAccessToken, signRefreshToken, verifyRefreshToken } from '../../shared/utils/jwt';
 import { hashPassword, verifyPassword } from '../../shared/utils/password';
 import type { RoleName } from '../../shared/constants/roles';
@@ -118,6 +119,14 @@ export const authService = {
    * validated by `signupSchema` but have nowhere relational to live yet — linking a
    * troop leader to a real `Troop` or an executive to a `Council` is an admin action in
    * feature 1.6 (Organization Management), not something self-signup can assert.
+   *
+   * Security gate: Executive Council and Troop Leader are otherwise fully open
+   * self-signup with no verification of the affiliation they typed in, which would
+   * let anyone grant themselves live approval/finance/reporting access. They land
+   * `isActive: false` and get no session; an Administrator must activate them from
+   * Settings > Users & Access (3.4's existing activate/deactivate action) before they
+   * can log in. Admin signup keeps its original behavior — the shared
+   * `ADMIN_SIGNUP_KEY` is its gate instead of a queue.
    */
   async signup(input: SignupInput): Promise<SignupResponseBody> {
     const email = input.email.trim().toLowerCase();
@@ -136,16 +145,36 @@ export const authService = {
       throw ApiError.internal(`Role "${input.role}" is not seeded.`);
     }
 
+    const requiresApproval = input.role === 'executive_council' || input.role === 'troop_leader';
+
     const passwordHash = await hashPassword(input.password);
     const created = await authRepository.createUserWithRole(
-      { fullName: `${input.firstName.trim()} ${input.lastName.trim()}`, email, passwordHash },
+      {
+        fullName: `${input.firstName.trim()} ${input.lastName.trim()}`,
+        email,
+        passwordHash,
+        isActive: !requiresApproval,
+      },
       role.id,
     );
+
+    if (requiresApproval) {
+      await writeAuditLog({
+        userId: created.id,
+        action: 'user.signup_pending',
+        entityType: 'user',
+        entityId: created.id,
+      });
+      return {
+        status: 'pending',
+        message: 'Account created. An administrator must approve your account before you can sign in.',
+      };
+    }
 
     const resolvedRole = resolveSingleRole(created);
     const tokens = await issueTokenPair(created.id, resolvedRole);
 
-    return { user: toAuthUser(created, resolvedRole), tokens };
+    return { status: 'active', user: toAuthUser(created, resolvedRole), tokens };
   },
 
   /** Best-effort revoke — logout must succeed even if the token is already gone, so the client can always clear its cookies. */

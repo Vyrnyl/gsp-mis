@@ -39,7 +39,25 @@ export interface LoginResponseBody {
   tokens: AuthTokens;
 }
 
-export type SignupResponseBody = LoginResponseBody;
+/**
+ * Executive Council and Troop Leader self-signups self-assert an affiliation
+ * (council/troop name) with nothing yet to verify it against, so they land
+ * `pending` — no tokens, no session — until an Administrator activates the
+ * account from Settings > Users & Access. Admin signup stays `active`; the
+ * shared `ADMIN_SIGNUP_KEY` is its gate instead.
+ */
+export interface SignupActiveResponseBody {
+  status: 'active';
+  user: AuthUser;
+  tokens: AuthTokens;
+}
+
+export interface SignupPendingResponseBody {
+  status: 'pending';
+  message: string;
+}
+
+export type SignupResponseBody = SignupActiveResponseBody | SignupPendingResponseBody;
 
 export interface RefreshResponseBody {
   tokens: AuthTokens;

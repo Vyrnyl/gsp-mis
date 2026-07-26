@@ -5,15 +5,21 @@ import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '@/features/auth/const
 import type { SignupRequest } from '@/features/auth/types';
 import { getJwtExpirySeconds } from '@/shared/utils/jwt';
 
+type ApiSignupData =
+  | { status: 'active'; user: unknown; tokens: { accessToken: string; refreshToken: string } }
+  | { status: 'pending'; message: string };
+
 interface ApiEnvelope {
   success: boolean;
-  data?: { user: unknown; tokens: { accessToken: string; refreshToken: string } };
+  data?: ApiSignupData;
   error?: { code: string; message: string; details?: Record<string, string[]> };
 }
 
 /**
- * BFF route: forwards to `POST /api/v1/auth/signup`, then — same as login — strips the
- * returned tokens into httpOnly cookies so the new account is signed in immediately.
+ * BFF route: forwards to `POST /api/v1/auth/signup`. Executive Council/Troop Leader
+ * signups come back `pending` (no `tokens` — the account needs Administrator approval
+ * first), so only `active` (Admin, gated by its own secret key) gets cookies and an
+ * immediate session, same as before.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as SignupRequest;
@@ -29,8 +35,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(json, { status: apiResponse.status });
   }
 
+  if (json.data.status === 'pending') {
+    return NextResponse.json({ success: true, data: json.data }, { status: 201 });
+  }
+
   const { user, tokens } = json.data;
-  const response = NextResponse.json({ success: true, data: { user } }, { status: 201 });
+  const response = NextResponse.json({ success: true, data: { status: 'active', user } }, { status: 201 });
   const isProduction = process.env.NODE_ENV === 'production';
 
   response.cookies.set(ACCESS_TOKEN_COOKIE, tokens.accessToken, {

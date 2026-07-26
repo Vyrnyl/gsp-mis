@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../src/shared/utils/audit-log', () => ({ writeAuditLog: vi.fn() }));
+
 import { env } from '../src/config/env';
 import { authRepository } from '../src/modules/auth/auth.repository';
 import { authService } from '../src/modules/auth/auth.service';
+import { writeAuditLog } from '../src/shared/utils/audit-log';
 import { emailService } from '../src/shared/utils/email';
 import { hashPassword } from '../src/shared/utils/password';
 
 const ROLE_ADMIN = { id: 'role-admin', name: 'admin', description: null };
 const ROLE_TROOP_LEADER = { id: 'role-troop-leader', name: 'troop_leader', description: null };
+const ROLE_EXECUTIVE_COUNCIL = { id: 'role-executive-council', name: 'executive_council', description: null };
 
 function buildUser(overrides: {
   id?: string;
@@ -96,21 +100,66 @@ describe('authService.signup', () => {
     homeCouncilName: 'Catanduanes Council',
   };
 
-  it('creates a user with exactly one role and returns tokens', async () => {
+  it('creates a Troop Leader as inactive and pending, with no tokens issued', async () => {
     vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
     vi.spyOn(authRepository, 'findRoleByName').mockResolvedValue(ROLE_TROOP_LEADER);
     const createSpy = vi
       .spyOn(authRepository, 'createUserWithRole')
-      .mockResolvedValue(buildUser({ id: 'user-2', email: 'ana@example.com', role: ROLE_TROOP_LEADER }));
+      .mockResolvedValue(
+        buildUser({ id: 'user-2', email: 'ana@example.com', role: ROLE_TROOP_LEADER, isActive: false }),
+      );
 
     const result = await authService.signup(troopLeaderInput);
 
     expect(createSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ fullName: 'Ana Reyes', email: 'ana@example.com' }),
+      expect.objectContaining({ fullName: 'Ana Reyes', email: 'ana@example.com', isActive: false }),
       ROLE_TROOP_LEADER.id,
     );
-    expect(result.user).toMatchObject({ email: 'ana@example.com', role: 'troop_leader' });
-    expect(result.tokens.accessToken).toEqual(expect.any(String));
+    expect(result).toMatchObject({ status: 'pending' });
+    expect(result).not.toHaveProperty('tokens');
+    expect(writeAuditLog).toHaveBeenCalledWith({
+      userId: 'user-2',
+      action: 'user.signup_pending',
+      entityType: 'user',
+      entityId: 'user-2',
+    });
+  });
+
+  it('creates an Executive Council account as inactive and pending too', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
+    vi.spyOn(authRepository, 'findRoleByName').mockResolvedValue(ROLE_EXECUTIVE_COUNCIL);
+    const createSpy = vi
+      .spyOn(authRepository, 'createUserWithRole')
+      .mockResolvedValue(
+        buildUser({ id: 'user-4', email: 'liza@example.com', role: ROLE_EXECUTIVE_COUNCIL, isActive: false }),
+      );
+
+    const result = await authService.signup({
+      role: 'executive_council',
+      firstName: 'Liza',
+      lastName: 'Bagadiong',
+      email: 'liza@example.com',
+      password: 'StrongPass1!',
+      councilName: 'Catanduanes Council',
+      region: 'region-5',
+      councilCode: 'CAT-001',
+    });
+
+    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }), ROLE_EXECUTIVE_COUNCIL.id);
+    expect(result).toMatchObject({ status: 'pending' });
+  });
+
+  it('rejects login for a pending (not-yet-approved) account with the same generic message', async () => {
+    const passwordHash = await hashPassword('StrongPass1!');
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(
+      buildUser({ email: 'ana@example.com', passwordHash, isActive: false, role: ROLE_TROOP_LEADER }),
+    );
+    vi.spyOn(authRepository, 'updateLastLogin').mockResolvedValue({} as never);
+    vi.spyOn(authRepository, 'createRefreshToken').mockResolvedValue({} as never);
+
+    await expect(
+      authService.login({ email: 'ana@example.com', password: 'StrongPass1!' }),
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('rejects a duplicate email', async () => {
@@ -152,7 +201,9 @@ describe('authService.signup', () => {
       adminSecretKey: env.ADMIN_SIGNUP_KEY,
     });
 
-    expect(result.user.role).toBe('admin');
+    expect(result).toMatchObject({ status: 'active', user: { role: 'admin' } });
+    if (result.status !== 'active') throw new Error('expected an active signup result');
+    expect(result.tokens.accessToken).toEqual(expect.any(String));
   });
 });
 

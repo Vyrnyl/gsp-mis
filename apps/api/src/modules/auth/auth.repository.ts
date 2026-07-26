@@ -22,9 +22,14 @@ export const authRepository = {
     });
   },
 
-  /** Creates the user and its single role assignment atomically — never one without the other. */
+  /**
+   * Creates the user and its single role assignment atomically — never one without
+   * the other. `isActive` defaults to the schema's `true` when omitted (admin signup,
+   * settings-panel-created users); self-signup passes `false` explicitly for roles
+   * that require administrator approval before first login.
+   */
   createUserWithRole(
-    data: { fullName: string; email: string; passwordHash: string },
+    data: { fullName: string; email: string; passwordHash: string; isActive?: boolean },
     roleId: string,
   ) {
     return prisma.user.create({
