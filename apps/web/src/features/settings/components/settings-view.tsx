@@ -113,6 +113,13 @@ export function SettingsView({ user }: SettingsViewProps) {
         page: userPage,
         pageSize: PAGE_SIZE,
       });
+      const totalPages = Math.max(1, Math.ceil(result.totalItems / PAGE_SIZE));
+      if (userPage > totalPages) {
+        // Deleting the last row on a page beyond the first shrinks totalPages
+        // below the current page — clamp back instead of showing an empty page.
+        setUserPage(totalPages);
+        return;
+      }
       setUsers(result.items);
       setUsersTotal(result.totalItems);
       setUsersState('ready');
