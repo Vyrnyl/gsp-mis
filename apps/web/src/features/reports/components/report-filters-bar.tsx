@@ -2,6 +2,7 @@
 
 import { Button, FormField, Input, Select, type SelectOption } from '@/shared/components/ui';
 
+import { MAX_REPORT_RANGE_DAYS } from '../constants';
 import type { ReportFilters } from '../types';
 
 export interface ReportFiltersBarProps {
@@ -11,6 +12,12 @@ export interface ReportFiltersBarProps {
   isGenerating: boolean;
   /** Admin/Executive Council only — Troop Leader is implicitly scoped to their own troop. */
   troopOptions: SelectOption[] | null;
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 /** Date-range + optional troop filter row. Native `<input type="date">`, matching
@@ -23,6 +30,7 @@ export function ReportFiltersBar({ filters, onChange, onGenerate, isGenerating, 
           type="date"
           value={filters.dateFrom}
           max={filters.dateTo}
+          min={addDaysIso(filters.dateTo, -MAX_REPORT_RANGE_DAYS)}
           onChange={(event) => onChange({ ...filters, dateFrom: event.target.value })}
         />
       </FormField>
@@ -31,6 +39,7 @@ export function ReportFiltersBar({ filters, onChange, onGenerate, isGenerating, 
           type="date"
           value={filters.dateTo}
           min={filters.dateFrom}
+          max={addDaysIso(filters.dateFrom, MAX_REPORT_RANGE_DAYS)}
           onChange={(event) => onChange({ ...filters, dateTo: event.target.value })}
         />
       </FormField>

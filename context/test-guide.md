@@ -559,8 +559,19 @@ past 2026-07-25).
 - [ ] 🅐 Admin: generate one report of each of the 6 types (Membership, Attendance,
       Badge, Financial, Activity, Executive), each with a date range and, where
       applicable, a Troop filter. Preview stat cards + table for each.
-- [ ] **Export**: export at least one to PDF and one to Excel. Confirm both show up in
-      **Report History**, and re-downloading from history works.
+- [ ] **Export**: only an **Export PDF** button should be visible — Excel export was
+      pulled (2026-07-26, "for now"). Export at least one report and confirm it shows
+      up in **Report History**, and re-downloading from history works.
+- [ ] Open the downloaded PDF and confirm the styled design: a green branded header
+      banner (title + date range + generated timestamp), Summary as gold-accented stat
+      cards (not a plain label list), and a Detail table with a green header row,
+      alternating row banding, cell borders, and a page-numbered footer. Generate a
+      report with an empty date range (no data) and confirm the Detail section shows a
+      "No records found for this date range." row instead of a blank table.
+- [ ] **Date-range cap (2026-07-26):** try to push the "To" field more than ~2 years
+      past "From" (or vice versa) — the native date picker should stop you before you
+      can even select it (the input's own `min`/`max` narrows as you change the other
+      field). This is a client-side mirror of a server-side cap, not just a UI nicety.
 - [ ] 🅔 EC: generate + export a report → same capability as Admin here.
 - [ ] 🅣 Liza: confirm the type picker offers only **Membership, Attendance, Badge,
       Activity** (no Financial/Executive), any report is scoped to her own troop, and

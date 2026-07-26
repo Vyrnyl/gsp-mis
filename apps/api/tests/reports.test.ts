@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { reportsRepository } from '../src/modules/reports/reports.repository';
+import { exportSchema, previewQuerySchema } from '../src/modules/reports/reports.schema';
 import { reportsService } from '../src/modules/reports/reports.service';
 import { reportsStorage } from '../src/modules/reports/reports.storage';
 
@@ -303,5 +304,30 @@ describe('reportsService export + download', () => {
     expect(result.buffer.toString()).toBe('fake-bytes');
     expect(result.mimeType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(result.filename).toBe('Membership-Report.xlsx');
+  });
+});
+
+describe('reports schema date-range cap', () => {
+  it('accepts this feature\'s own default range (start-of-year to today, mid-year)', () => {
+    expect(previewQuerySchema.safeParse({ reportType: 'membership', ...RANGE }).success).toBe(true);
+  });
+
+  it('accepts a literal two-year span that crosses a leap day', () => {
+    const result = previewQuerySchema.safeParse({ reportType: 'membership', dateFrom: '2024-01-01', dateTo: '2026-01-01' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a range one day past the two-year cap', () => {
+    const result = previewQuerySchema.safeParse({ reportType: 'membership', dateFrom: '2024-01-01', dateTo: '2026-01-02' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['dateTo']);
+      expect(result.error.issues[0]?.message).toMatch(/cannot exceed/);
+    }
+  });
+
+  it('applies the same cap to the export schema', () => {
+    const result = exportSchema.safeParse({ reportType: 'membership', dateFrom: '2020-01-01', dateTo: '2026-01-01', format: 'pdf' });
+    expect(result.success).toBe(false);
   });
 });

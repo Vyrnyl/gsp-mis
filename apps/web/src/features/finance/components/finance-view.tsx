@@ -28,6 +28,8 @@ import type {
   FinanceTabId,
   MemberOption,
   PaymentFormValues,
+  PaymentMethod,
+  PaymentStatus,
   PaymentSummary,
   ViewState,
 } from '../types';
@@ -37,6 +39,7 @@ import { FinanceOverviewPanel } from './finance-overview-panel';
 import { PaymentsPanel } from './payments-panel';
 
 const PAGE_SIZE = 8;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export interface FinanceViewProps {
   canManage: boolean;
@@ -65,6 +68,20 @@ export function FinanceView({ canManage }: FinanceViewProps) {
   const [payments, setPayments] = useState<PaymentSummary[]>([]);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsSearch, setPaymentsSearch] = useState('');
+  const [debouncedPaymentsSearch, setDebouncedPaymentsSearch] = useState('');
+  const [paymentsFeeTypeFilter, setPaymentsFeeTypeFilter] = useState('all');
+  const [paymentsMethodFilter, setPaymentsMethodFilter] = useState('all');
+  const [paymentsStatusFilter, setPaymentsStatusFilter] = useState('all');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedPaymentsSearch(paymentsSearch), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [paymentsSearch]);
+
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [debouncedPaymentsSearch, paymentsFeeTypeFilter, paymentsMethodFilter, paymentsStatusFilter]);
 
   const [expensesState, setExpensesState] = useState<ViewState>('loading');
   const [expenses, setExpenses] = useState<ExpenseSummary[]>([]);
@@ -91,14 +108,21 @@ export function FinanceView({ canManage }: FinanceViewProps) {
   const fetchPayments = useCallback(async () => {
     setPaymentsState('loading');
     try {
-      const result = await listPayments({ page: paymentsPage, pageSize: PAGE_SIZE });
+      const result = await listPayments({
+        page: paymentsPage,
+        pageSize: PAGE_SIZE,
+        search: debouncedPaymentsSearch || undefined,
+        feeTypeId: paymentsFeeTypeFilter !== 'all' ? paymentsFeeTypeFilter : undefined,
+        paymentMethod: paymentsMethodFilter !== 'all' ? (paymentsMethodFilter as PaymentMethod) : undefined,
+        status: paymentsStatusFilter !== 'all' ? (paymentsStatusFilter as PaymentStatus) : undefined,
+      });
       setPayments(result.payments);
       setPaymentsTotal(result.totalItems);
       setPaymentsState('ready');
     } catch {
       setPaymentsState('error');
     }
-  }, [paymentsPage]);
+  }, [paymentsPage, debouncedPaymentsSearch, paymentsFeeTypeFilter, paymentsMethodFilter, paymentsStatusFilter]);
 
   const fetchExpenses = useCallback(async () => {
     setExpensesState('loading');
@@ -203,6 +227,15 @@ export function FinanceView({ canManage }: FinanceViewProps) {
           canManage={canManage}
           onRetry={fetchPayments}
           onRecordPayment={handleRecordPayment}
+          feeTypes={feeTypes}
+          search={paymentsSearch}
+          onSearchChange={setPaymentsSearch}
+          feeTypeFilter={paymentsFeeTypeFilter}
+          onFeeTypeFilterChange={setPaymentsFeeTypeFilter}
+          methodFilter={paymentsMethodFilter}
+          onMethodFilterChange={setPaymentsMethodFilter}
+          statusFilter={paymentsStatusFilter}
+          onStatusFilterChange={setPaymentsStatusFilter}
         />
       ) : null}
 

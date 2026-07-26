@@ -7,6 +7,8 @@ import type {
   FinanceOverview,
   MemberOption,
   PaymentFormValues,
+  PaymentMethod,
+  PaymentStatus,
   PaymentSummary,
 } from '../types';
 
@@ -69,10 +71,23 @@ export interface ListPaymentsResult {
   totalItems: number;
 }
 
-export async function listPayments(params: { page?: number; pageSize?: number } = {}): Promise<ListPaymentsResult> {
+export async function listPayments(
+  params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    feeTypeId?: string;
+    paymentMethod?: PaymentMethod;
+    status?: PaymentStatus;
+  } = {},
+): Promise<ListPaymentsResult> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.pageSize) query.set('pageSize', String(params.pageSize));
+  if (params.search) query.set('search', params.search);
+  if (params.feeTypeId) query.set('feeTypeId', params.feeTypeId);
+  if (params.paymentMethod) query.set('paymentMethod', params.paymentMethod);
+  if (params.status) query.set('status', params.status);
   const search = query.toString();
 
   const { data, meta } = await request<{ payments: PaymentSummary[] }>(`/api/finance/payments${search ? `?${search}` : ''}`);

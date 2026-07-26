@@ -1,4 +1,4 @@
-import type { GeneratedReport, ReportFilters, ReportFormat, ReportPreview, ReportTypeId } from '../types';
+import type { ExportFormat, GeneratedReport, ReportFilters, ReportPreview, ReportTypeId } from '../types';
 
 interface PaginationMeta {
   page: number;
@@ -73,7 +73,7 @@ export async function listReportHistory(params: { page?: number; pageSize?: numb
 export async function exportReport(
   reportType: ReportTypeId,
   filters: ReportFilters,
-  format: ReportFormat,
+  format: ExportFormat,
 ): Promise<GeneratedReport> {
   const { data } = await request<{ report: GeneratedReport }>('/api/reports/export', {
     method: 'POST',

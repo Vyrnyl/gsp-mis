@@ -133,6 +133,22 @@ describe('financeService payments', () => {
     expect(result.meta).toEqual({ page: 1, pageSize: 20, totalItems: 1, totalPages: 1 });
   });
 
+  it('forwards search/feeTypeId/paymentMethod/status filters to the repository', async () => {
+    const listSpy = vi.spyOn(financeRepository, 'listPayments').mockResolvedValue({ rows: [PAYMENT], total: 1 } as never);
+
+    const query = {
+      page: 1,
+      pageSize: 20,
+      search: 'Faith',
+      feeTypeId: FEE_TYPE.id,
+      paymentMethod: 'cash' as const,
+      status: 'paid' as const,
+    };
+    await financeService.listPayments(query);
+
+    expect(listSpy).toHaveBeenCalledWith(query);
+  });
+
   it('rejects recording a payment for a member that does not exist', async () => {
     vi.spyOn(financeRepository, 'findMemberById').mockResolvedValue(null);
 

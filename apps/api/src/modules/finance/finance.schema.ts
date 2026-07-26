@@ -9,7 +9,7 @@ import { z } from 'zod';
  * Contracted routes (mounted under `/api/v1/finance`):
  *   GET    /summaries          — no query
  *   GET    /member-options      — no query
- *   GET    /payments            — listPaymentsQuerySchema
+ *   GET    /payments            — listPaymentsQuerySchema (search matches member name; feeTypeId/paymentMethod/status are exact filters)
  *   POST   /payments            — createPaymentSchema
  *   GET    /expenses            — listExpensesQuerySchema
  *   POST   /expenses            — createExpenseSchema
@@ -25,8 +25,15 @@ export const paymentStatusSchema = z.enum(['pending', 'paid', 'refunded', 'cance
 export const listPaymentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().optional(),
+  feeTypeId: z.string().uuid().optional(),
+  paymentMethod: paymentMethodSchema.optional(),
+  status: paymentStatusSchema.optional(),
 });
-export const listExpensesQuerySchema = listPaymentsQuerySchema;
+export const listExpensesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
 
 export const createPaymentSchema = z.object({
   memberId: z.string().uuid('Select a member.'),

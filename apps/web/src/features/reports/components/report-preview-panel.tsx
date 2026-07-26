@@ -18,7 +18,7 @@ import {
 } from '@/shared/components/ui';
 import { usePagedItems } from '@/shared/hooks/use-paged-items';
 
-import type { ReportFormat, ReportPreview, ViewState } from '../types';
+import type { ExportFormat, ReportPreview, ViewState } from '../types';
 
 const PAGE_SIZE = 10;
 
@@ -27,9 +27,9 @@ export interface ReportPreviewPanelProps {
   preview: ReportPreview | null;
   reportLabel: string;
   canExport: boolean;
-  isExporting: ReportFormat | null;
+  isExporting: ExportFormat | null;
   onRetry: () => void;
-  onExport: (format: ReportFormat) => void;
+  onExport: (format: ExportFormat) => void;
 }
 
 /** Generic across all 6 report types — columns/rows/stats are already shaped server-side (or by the mock),
@@ -95,28 +95,16 @@ export function ReportPreviewPanel({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canExport ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                leadingIcon={<DownloadIcon aria-hidden />}
-                isLoading={isExporting === 'pdf'}
-                disabled={isExporting !== null && isExporting !== 'pdf'}
-                onClick={() => onExport('pdf')}
-              >
-                Export PDF
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                leadingIcon={<DownloadIcon aria-hidden />}
-                isLoading={isExporting === 'excel'}
-                disabled={isExporting !== null && isExporting !== 'excel'}
-                onClick={() => onExport('excel')}
-              >
-                Export Excel
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              leadingIcon={<DownloadIcon aria-hidden />}
+              isLoading={isExporting === 'pdf'}
+              disabled={isExporting !== null}
+              onClick={() => onExport('pdf')}
+            >
+              Export PDF
+            </Button>
           ) : (
             <p className="text-[0.8rem] text-muted">Ask an administrator or council member to export this report.</p>
           )}

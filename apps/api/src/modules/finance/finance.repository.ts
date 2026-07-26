@@ -1,7 +1,32 @@
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '../../config/prisma';
-import type { CreateExpenseInput, CreateFeeTypeInput, CreatePaymentInput, UpdateFeeTypeInput } from './finance.schema';
+import type {
+  CreateExpenseInput,
+  CreateFeeTypeInput,
+  CreatePaymentInput,
+  ListPaymentsQuery,
+  UpdateFeeTypeInput,
+} from './finance.schema';
+
+function buildPaymentsWhere(query: ListPaymentsQuery): Prisma.PaymentWhereInput {
+  const where: Prisma.PaymentWhereInput = {};
+
+  if (query.feeTypeId) where.feeTypeId = query.feeTypeId;
+  if (query.paymentMethod) where.paymentMethod = query.paymentMethod;
+  if (query.status) where.status = query.status;
+  if (query.search) {
+    const term = query.search.trim();
+    where.member = {
+      OR: [
+        { firstName: { contains: term, mode: 'insensitive' } },
+        { lastName: { contains: term, mode: 'insensitive' } },
+      ],
+    };
+  }
+
+  return where;
+}
 
 const paymentInclude = {
   member: { include: { troop: true } },
@@ -59,15 +84,17 @@ export const financeRepository = {
   },
 
   // Payments
-  async listPayments(page: number, pageSize: number): Promise<{ rows: PaymentWithRelations[]; total: number }> {
+  async listPayments(query: ListPaymentsQuery): Promise<{ rows: PaymentWithRelations[]; total: number }> {
+    const where = buildPaymentsWhere(query);
     const [rows, total] = await Promise.all([
       prisma.payment.findMany({
+        where,
         include: paymentInclude,
         orderBy: { paymentDate: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
       }),
-      prisma.payment.count(),
+      prisma.payment.count({ where }),
     ]);
     return { rows, total };
   },

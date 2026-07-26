@@ -50,6 +50,13 @@ export const REPORT_FORMAT_LABELS: Record<ReportFormat, string> = {
   excel: 'Excel',
 };
 
+/** Mirrors `MAX_REPORT_RANGE_DAYS` in `apps/api/.../reports.schema.ts` — no repository
+ * query behind a report type is paginated, so an unbounded range pulls the whole table
+ * into memory before PDF/Excel generation runs. Used to cap the date inputs' min/max
+ * so the browser never lets a user pick an out-of-range combination in the first place.
+ * 731 not 730 — a literal Jan-1-to-Jan-1 two-year span crosses one leap day. */
+export const MAX_REPORT_RANGE_DAYS = 731;
+
 /** Report types the signed-in role may generate — filters `REPORT_TYPES` by permission. */
 export function getAvailableReportTypes(role: AuthRoleId): ReportTypeDef[] {
   return REPORT_TYPES.filter((type) => {

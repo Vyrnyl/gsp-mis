@@ -14,7 +14,7 @@ import {
   listReportHistory,
   ReportsRequestError,
 } from '../services/reports.service';
-import type { GeneratedReport, HistoryViewState, ReportFilters, ReportFormat, ReportPreview, ReportTypeId, ViewState } from '../types';
+import type { ExportFormat, GeneratedReport, HistoryViewState, ReportFilters, ReportPreview, ReportTypeId, ViewState } from '../types';
 import { ReportFiltersBar } from './report-filters-bar';
 import { ReportHistoryPanel } from './report-history-panel';
 import { ReportPreviewPanel } from './report-preview-panel';
@@ -45,7 +45,7 @@ export function ReportsView({ role, canExport }: ReportsViewProps) {
 
   const [previewState, setPreviewState] = useState<ViewState>('idle');
   const [preview, setPreview] = useState<ReportPreview | null>(null);
-  const [isExporting, setIsExporting] = useState<ReportFormat | null>(null);
+  const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
 
   const [historyState, setHistoryState] = useState<HistoryViewState>('loading');
   const [history, setHistory] = useState<GeneratedReport[]>([]);
@@ -101,11 +101,11 @@ export function ReportsView({ role, canExport }: ReportsViewProps) {
     }
   }
 
-  async function handleExport(format: ReportFormat) {
+  async function handleExport(format: ExportFormat) {
     setIsExporting(format);
     try {
       await exportReport(activeType, filters, format);
-      showToast(`Report exported as ${format === 'pdf' ? 'PDF' : 'Excel'}.`, 'success');
+      showToast('Report exported as PDF.', 'success');
       await fetchHistory();
     } catch (error) {
       const message = error instanceof ReportsRequestError ? error.message : 'Could not export this report.';

@@ -137,7 +137,7 @@ export const financeService = {
 
   // Payments
   async listPayments(query: ListPaymentsQuery): Promise<{ payments: PaymentSummaryDto[]; meta: PaginationMeta }> {
-    const { rows, total } = await financeRepository.listPayments(query.page, query.pageSize);
+    const { rows, total } = await financeRepository.listPayments(query);
     return { payments: rows.map(toPaymentSummaryDto), meta: buildPaginationMeta(query.page, query.pageSize, total) };
   },
 

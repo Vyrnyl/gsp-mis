@@ -3,7 +3,11 @@ export type HistoryViewState = 'loading' | 'error' | 'ready';
 
 export type ReportTypeId = 'membership' | 'attendance' | 'badge' | 'financial' | 'activity' | 'executive';
 
+/** Full set a stored `GeneratedReport` can have — includes `excel` so history/download of
+ * previously-exported Excel files (generated before the export option below was pulled) keeps working. */
 export type ReportFormat = 'pdf' | 'excel';
+/** Excel export is temporarily disabled — only `pdf` can be requested for a *new* export. */
+export type ExportFormat = 'pdf';
 
 export interface ReportTypeDef {
   id: ReportTypeId;

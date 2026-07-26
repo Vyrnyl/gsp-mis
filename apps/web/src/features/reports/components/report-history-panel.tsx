@@ -64,7 +64,7 @@ export function ReportHistoryPanel({
         <EmptyState
           icon={ReportIcon}
           title="No reports generated yet"
-          description="Reports you export as PDF or Excel will be listed here for re-download."
+          description="Reports you export will be listed here for re-download."
         />
       ) : null}
 
