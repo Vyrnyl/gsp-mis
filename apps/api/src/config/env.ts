@@ -38,9 +38,15 @@ const envSchema = z.object({
   /**
    * Shared EmailService (build-plan.md §7, open decision #7). All optional — when none
    * are set, the service logs emails to the console instead of failing boot, so dev/test
-   * never needs real mail credentials. `MAILTRAP_API_TOKEN` takes priority over SMTP_*
-   * when both happen to be set (email.ts picks Mailtrap's HTTP API first).
+   * never needs real mail credentials. Checked in order (email.ts): Gmail API (OAuth2)
+   * first, then Mailtrap's HTTP API, then SMTP, then a console-logging fallback. Gmail
+   * API and Mailtrap both send over HTTPS, so neither depends on outbound SMTP ports
+   * being reachable — SMTP_HOST is best-effort only, since some hosts (Render's free
+   * plan included) silently drop that traffic.
    */
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  GMAIL_REFRESH_TOKEN: z.string().optional(),
   MAILTRAP_API_TOKEN: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

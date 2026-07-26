@@ -1,3 +1,6 @@
+import { randomBytes } from 'node:crypto';
+
+import { OAuth2Client } from 'google-auth-library';
 import { MailtrapClient } from 'mailtrap';
 import nodemailer, { type Transporter } from 'nodemailer';
 
@@ -13,6 +16,7 @@ export interface SendEmailInput {
 
 let transporter: Transporter | undefined;
 let mailtrapClient: MailtrapClient | undefined;
+let gmailOAuthClient: OAuth2Client | undefined;
 
 /**
  * Many PaaS hosts (Render's free plan included) silently drop outbound SMTP
@@ -44,12 +48,71 @@ function getMailtrapClient(): MailtrapClient {
   return mailtrapClient;
 }
 
+function getGmailOAuthClient(): OAuth2Client {
+  if (!gmailOAuthClient) {
+    gmailOAuthClient = new OAuth2Client(env.GMAIL_CLIENT_ID, env.GMAIL_CLIENT_SECRET);
+    gmailOAuthClient.setCredentials({ refresh_token: env.GMAIL_REFRESH_TOKEN });
+  }
+  return gmailOAuthClient;
+}
+
+/** Builds the RFC 2822 message the Gmail API's `messages.send` expects as base64url in its `raw` field. */
+function buildGmailRawMessage(input: SendEmailInput): string {
+  const boundary = `gsp-mis-${randomBytes(8).toString('hex')}`;
+  const message = [
+    `From: ${env.EMAIL_FROM}`,
+    `To: ${input.to}`,
+    `Subject: ${input.subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    input.text,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    input.html,
+    '',
+    `--${boundary}--`,
+  ].join('\r\n');
+
+  return Buffer.from(message, 'utf8').toString('base64url');
+}
+
 /**
- * Shared EmailService (build-plan.md §7, open decision #7). Three tiers, checked in
- * order: Mailtrap's HTTP API (`MAILTRAP_API_TOKEN`) if set, then real SMTP (`SMTP_HOST`,
- * works with any provider — Gmail, SendGrid, SES's SMTP interface, ...), then
- * nodemailer's `jsonTransport` as the dev/test default, which never touches the network
- * and logs the message instead — so nothing here ever throws for lack of credentials.
+ * Sends through the Gmail API over HTTPS instead of raw SMTP, using the account behind
+ * `GMAIL_REFRESH_TOKEN`. Unlike SMTP, this isn't affected by hosts (Render's free plan
+ * included) that silently drop outbound SMTP traffic, and unlike Mailtrap's shared
+ * sending domain, it isn't restricted to the account owner's own inbox — it sends as a
+ * real Gmail account, so it can reach any recipient exactly like Gmail's own web UI can.
+ */
+async function sendViaGmailApi(input: SendEmailInput): Promise<void> {
+  const { token } = await getGmailOAuthClient().getAccessToken();
+  if (!token) throw new Error('Failed to obtain a Gmail API access token from the refresh token');
+
+  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw: buildGmailRawMessage(input) }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gmail API send failed (${response.status}): ${await response.text()}`);
+  }
+}
+
+/**
+ * Shared EmailService (build-plan.md §7, open decision #7). Checked in order: the Gmail
+ * API (`GMAIL_CLIENT_ID`/`GMAIL_CLIENT_SECRET`/`GMAIL_REFRESH_TOKEN`) if set, then
+ * Mailtrap's HTTP API (`MAILTRAP_API_TOKEN`), then real SMTP (`SMTP_HOST`, works with
+ * any provider), then nodemailer's `jsonTransport` as the dev/test default, which never
+ * touches the network and logs the message instead — so nothing here ever throws for
+ * lack of credentials.
  */
 function getTransporter(): Transporter {
   if (transporter) return transporter;
@@ -70,6 +133,11 @@ function getTransporter(): Transporter {
 }
 
 async function send(input: SendEmailInput): Promise<void> {
+  if (env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN) {
+    await withTimeout(sendViaGmailApi(input), EMAIL_SEND_TIMEOUT_MS);
+    return;
+  }
+
   if (env.MAILTRAP_API_TOKEN) {
     const { name, email } = parseFromAddress();
     await withTimeout(
