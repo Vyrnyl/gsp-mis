@@ -2,7 +2,6 @@ import type { AuthRoleId } from '@/features/auth/types';
 import {
   ActivityIcon,
   AdminIcon,
-  BackupIcon,
   CouncilIcon,
   MembersIcon,
   SettingsIcon,
@@ -13,11 +12,12 @@ import type { BadgeTone, TabItem } from '@/shared/components/ui';
 
 import type { CreateUserFormValues, SystemSettingsFormValues, UserFormValues } from './types';
 
+// 'backups' tab hidden for now (2026-07-26) — panel, service, and API routes are
+// untouched, so restoring it is just adding the entry back below.
 export const SETTINGS_TABS: TabItem[] = [
   { id: 'system', label: 'System Settings', icon: SettingsIcon },
   { id: 'users', label: 'Users & Access', icon: MembersIcon },
   { id: 'audit', label: 'Audit Log', icon: ActivityIcon },
-  { id: 'backups', label: 'Backups', icon: BackupIcon },
 ];
 
 /**

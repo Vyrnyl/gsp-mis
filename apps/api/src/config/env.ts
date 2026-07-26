@@ -36,10 +36,12 @@ const envSchema = z.object({
   ADMIN_SIGNUP_KEY: z.string().min(1, 'ADMIN_SIGNUP_KEY is required'),
 
   /**
-   * Shared EmailService (build-plan.md §7, open decision #7). SMTP is optional —
-   * when unset, the service logs emails to the console instead of failing boot, so
-   * dev/test never needs real mail credentials. Set all three to send for real.
+   * Shared EmailService (build-plan.md §7, open decision #7). All optional — when none
+   * are set, the service logs emails to the console instead of failing boot, so dev/test
+   * never needs real mail credentials. `MAILTRAP_API_TOKEN` takes priority over SMTP_*
+   * when both happen to be set (email.ts picks Mailtrap's HTTP API first).
    */
+  MAILTRAP_API_TOKEN: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),

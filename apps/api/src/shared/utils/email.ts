@@ -1,6 +1,8 @@
+import { MailtrapClient } from 'mailtrap';
 import nodemailer, { type Transporter } from 'nodemailer';
 
 import { env } from '../../config/env';
+import { renderEmailButton, renderEmailFallbackLink, renderEmailLayout, renderEmailParagraph } from './email-templates';
 
 export interface SendEmailInput {
   to: string;
@@ -10,14 +12,25 @@ export interface SendEmailInput {
 }
 
 let transporter: Transporter | undefined;
+let mailtrapClient: MailtrapClient | undefined;
+
+/** Parses the `Name <email>` shape `EMAIL_FROM` is written in; falls back to treating the whole value as the address. */
+function parseFromAddress(): { name: string; email: string } {
+  const match = env.EMAIL_FROM.match(/^(.*)<(.+)>$/);
+  return match ? { name: (match[1] ?? '').trim(), email: (match[2] ?? '').trim() } : { name: '', email: env.EMAIL_FROM };
+}
+
+function getMailtrapClient(): MailtrapClient {
+  if (!mailtrapClient) mailtrapClient = new MailtrapClient({ token: env.MAILTRAP_API_TOKEN! });
+  return mailtrapClient;
+}
 
 /**
- * Shared EmailService (build-plan.md §7, open decision #7). SMTP transport works with
- * any provider (Gmail, SendGrid, Mailtrap, SES's SMTP interface, ...) so no proprietary
- * SDK is tied to this file. When `SMTP_HOST` is unset (dev/test, and any environment
- * that hasn't configured it yet), falls back to nodemailer's `jsonTransport`, which
- * never touches the network — the message is logged instead of sent, so nothing here
- * ever throws for lack of credentials.
+ * Shared EmailService (build-plan.md §7, open decision #7). Three tiers, checked in
+ * order: Mailtrap's HTTP API (`MAILTRAP_API_TOKEN`) if set, then real SMTP (`SMTP_HOST`,
+ * works with any provider — Gmail, SendGrid, SES's SMTP interface, ...), then
+ * nodemailer's `jsonTransport` as the dev/test default, which never touches the network
+ * and logs the message instead — so nothing here ever throws for lack of credentials.
  */
 function getTransporter(): Transporter {
   if (transporter) return transporter;
@@ -35,6 +48,19 @@ function getTransporter(): Transporter {
 }
 
 async function send(input: SendEmailInput): Promise<void> {
+  if (env.MAILTRAP_API_TOKEN) {
+    const { name, email } = parseFromAddress();
+    await getMailtrapClient().send({
+      from: { email, name: name || undefined },
+      to: [{ email: input.to }],
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      category: 'GSP MIS',
+    });
+    return;
+  }
+
   const info = await getTransporter().sendMail({
     from: env.EMAIL_FROM,
     to: input.to,
@@ -57,11 +83,16 @@ export const emailService = {
       to,
       subject: 'Reset your GSP MIS password',
       text: `We received a request to reset your password. Open this link to choose a new one (expires in 1 hour): ${resetUrl}\n\nIf you didn't request this, you can safely ignore this email.`,
-      html: `
-        <p>We received a request to reset your password.</p>
-        <p><a href="${resetUrl}">Click here to choose a new password</a> (expires in 1 hour).</p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
-      `,
+      html: renderEmailLayout({
+        previewText: 'Use this link to choose a new password. It expires in 1 hour.',
+        heading: 'Reset your password',
+        bodyHtml: [
+          renderEmailParagraph('We received a request to reset the password on your GSP MIS account.'),
+          renderEmailButton(resetUrl, 'Choose a new password'),
+          renderEmailParagraph('This link expires in <strong>1 hour</strong>. If you didn’t request this, you can safely ignore this email — your password won’t change.'),
+          renderEmailFallbackLink(resetUrl),
+        ].join('\n'),
+      }),
     });
   },
 };

@@ -614,8 +614,8 @@ past 2026-07-25).
       → blocked with an explanatory error.
 - [ ] **Audit Log**: confirm the approvals, user changes, and settings edits you just made
       all show up, searchable and paginated.
-- [ ] **Backups**: run **Run Backup Now**, confirm it appears in backup history (and in
-      the Audit Log trail).
+- [ ] ~~**Backups**: run **Run Backup Now**, confirm it appears in backup history (and
+      in the Audit Log trail).~~ Backups tab hidden for now (2026-07-26) — skip.
 - [ ] 🅔 EC, 🅣 Liza: directly visit `/settings` → redirected to Dashboard, no sidebar item.
 
 ---

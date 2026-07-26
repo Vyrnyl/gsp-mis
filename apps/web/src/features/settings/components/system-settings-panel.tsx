@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { Button, Card, CardHeader, CardSkeleton, ErrorState, FormField, Input, ToggleSwitch } from '@/shared/components/ui';
+import { Button, Card, CardHeader, CardSkeleton, ErrorState, FormField, Input } from '@/shared/components/ui';
 
 import type { SystemSettingsFormValues, ViewState } from '../types';
 
@@ -96,21 +96,10 @@ export function SystemSettingsPanel({ viewState, values, isSaving, onRetry, onSa
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Notifications" subtitle="Portal-wide defaults, not a single user's preferences" />
-        <div className="flex items-center justify-between border-b border-hairline-faint py-3 last:border-b-0">
-          <div>
-            <p className="text-[0.92rem] font-semibold text-ink">Email Notifications</p>
-            <p className="text-[0.8rem] text-muted">Send email notifications for announcements and approvals</p>
-          </div>
-          <ToggleSwitch
-            label="Email Notifications"
-            hideLabel
-            checked={draft.emailNotificationsEnabled}
-            onChange={(event) => set('emailNotificationsEnabled', event.target.checked)}
-          />
-        </div>
-      </Card>
+      {/* Notifications card (Email Notifications toggle) hidden for now (2026-07-26) —
+          the setting isn't wired to any real send path yet (announcements only write
+          in-app Notification rows). `draft`/`values` still carry `emailNotificationsEnabled`
+          unchanged, so restoring this card is the only step needed to bring it back. */}
 
       <div className="flex justify-end gap-2.5">
         <Button type="button" variant="gray" disabled={!isDirty || isSaving} onClick={() => setDraft(values)}>
