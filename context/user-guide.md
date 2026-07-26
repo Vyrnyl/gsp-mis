@@ -1,7 +1,7 @@
 # GSP Management Information System — User Guide
 
 **Girl Scouts of the Philippines — Membership, Activities & Administration Portal**
-Version 1.0 · 2026-07-25
+Version 1.1 · 2026-07-26
 
 ---
 
@@ -48,10 +48,20 @@ Each role collects different account details:
 | Employee ID | — | — | ✅ |
 | Admin secret key | — | — | ✅ (issued by IT/system owner) |
 
-> A new account is created immediately and signs you in — but a Troop Leader or
-> Executive Council signup is not yet linked to a real troop/council record. An
-> Administrator must assign you to your troop/council afterward (**Councils & Troops**
-> screen) before troop- or council-scoped data (dashboard, roster) will show anything.
+> **Administrator** signup creates the account immediately and signs you in.
+>
+> **Troop Leader** and **Executive Council** signups are different: since nothing yet
+> verifies the troop/council you typed in, the account is created but held **inactive** —
+> you're signed out, not signed in — until an Administrator reviews and activates it
+> (**Settings → Users & Access**). Trying to log in before that shows the same generic
+> "Invalid email or password" message you'd get from a wrong password; that's expected,
+> not an error on your end. Once activated, log in normally with the email/password you
+> chose at signup.
+>
+> Either way, a Troop Leader or Executive Council account is not yet linked to a real
+> troop/council record just from signing up. An Administrator must assign you to your
+> troop/council separately (**Councils & Troops** screen) before troop- or council-scoped
+> data (dashboard, roster) will show anything.
 
 ### 2.2 Logging in
 
@@ -305,6 +315,9 @@ Four tabs:
   or delete them. The system will not let you deactivate, delete, or demote the **last
   remaining Administrator** — this guard exists so the portal can never be left with no
   one able to manage it.
+  A new Troop Leader or Executive Council **self-signup** (§2.1) also lands here, shown
+  as **Inactive** — the same **Activate** button used to reinstate a deactivated account
+  is how you approve a pending signup; there's no separate approval queue for accounts.
 - **Audit Log** — a read-only, searchable, paginated record of who did what and when
   (approvals, user changes, settings changes, backups, etc.).
 - **Backups** — a manual "Run Backup Now" action and a history of past runs, both sourced
@@ -357,6 +370,14 @@ The sidebar only shows what your role can use. Compare against the permission ta
 Your account likely isn't linked to a troop/council yet. This happens for self-signed-up
 accounts (§2.1) until an Administrator assigns you under **Councils & Troops**.
 
+**"I signed up but can't log in — it says my email or password is wrong, but I'm sure
+they're right."**
+Troop Leader and Executive Council accounts created through self-signup are held
+inactive until an Administrator approves them (§2.1, §5.13) — this looks identical to a
+wrong password on purpose, so the login form never confirms or denies that an account
+exists. Contact your Administrator to have the account activated under **Settings →
+Users & Access**, then try again.
+
 **"I got signed out unexpectedly."**
 Sessions expire after a period of inactivity for security. Simply log back in — nothing
 is lost, since the system saves as you go (there are no unsaved drafts to lose).
@@ -372,6 +393,6 @@ Troop Leader on Events) — viewing and doing are governed by separate permissio
 
 ---
 
-*This guide reflects the system as of 2026-07-25. If a screen you're using doesn't match
+*This guide reflects the system as of 2026-07-26. If a screen you're using doesn't match
 this description, check with your system administrator — the portal may have been
 updated since.*

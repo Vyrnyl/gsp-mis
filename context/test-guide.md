@@ -201,17 +201,39 @@ excluded there and are useful for testing those exclusions.
 | Employee ID | GSP-EMP-1044 |
 | Admin secret key | *(the real `ADMIN_SIGNUP_KEY` from `apps/api/.env`, not a placeholder)* |
 
-- [ ] Open **Sign Up**, pick **Troop Leader**, fill with the row above → submit → land
-      signed-in on the Dashboard.
-- [ ] Log out. Sign up as **Executive Council** using the EC row above.
-- [ ] Log out. Sign up as **Administrator** using the Admin row above.
-- [ ] For the new **Troop Leader**: confirm the dashboard shows **"No Troop Assigned"**
-      rather than roster numbers — expected (not linked to a real troop yet, that's a 1.6
-      admin action), not a bug.
-- [ ] For the new **Executive Council** and **Administrator** signups: the dashboard shows
-      real, non-zero numbers even though the account isn't linked to anything — also
-      expected. There's no per-user council assignment yet, so both roles fall back to
-      council-wide data (there's only one council in the schema/seed today). Not a bug.
+> **Changed 2026-07-26 (`a796cca`):** Troop Leader and Executive Council signups no
+> longer auto-activate — they were a fully open path to a live session with no
+> verification of the affiliation entered. Both now land `isActive: false` with **no**
+> session issued; an Administrator must activate the account (Settings → Users &
+> Access) before it can log in. Administrator signup is unchanged — its secret-key gate
+> stands in for a queue.
+
+- [ ] Open **Sign Up**, pick **Troop Leader**, fill with the Imelda row above → submit →
+      toast reads *"Account created. An administrator must approve your account before
+      you can sign in."* and you land back on the **Log In** tab, signed out (no
+      redirect to the Dashboard).
+- [ ] Immediately try to log in as Imelda with the exact password you just set → generic
+      **"Invalid email or password."** — same message as a wrong password, deliberately
+      (no way to tell "wrong password" from "not yet approved" from the outside).
+- [ ] Sign up as **Executive Council** using the Precious row above → same pending toast,
+      same login-blocked check.
+- [ ] Sign up as **Administrator** using the Ronald row above → this one **does** sign you
+      in immediately (secret-key gate, not the approval queue) and lands on the
+      Dashboard. Log out.
+- [ ] Log in as 🅐 `admin@gsp-catanduanes.ph`, open **Settings → Users & Access**, search
+      "Imelda" → confirm her row shows **Troop Leader / Inactive**. Click **Activate** →
+      confirm dialog → row flips to Active. Repeat for **Precious** (Executive Council /
+      Inactive → Active). Log out.
+- [ ] Log in as Imelda with her original password → now succeeds, real session, sidebar
+      shows Troop Leader. Log out. Repeat for Precious (Executive Council).
+- [ ] For the now-activated **Troop Leader** (Imelda): confirm the dashboard shows **"No
+      Troop Assigned"** rather than roster numbers — expected (not linked to a real troop
+      yet, that's a §3 Organizations admin action), not a bug.
+- [ ] For the now-activated **Executive Council** (Precious) and the **Administrator**
+      (Ronald) signups: the dashboard shows real, non-zero numbers even though the
+      account isn't linked to anything — also expected. There's no per-user council
+      assignment yet, so both roles fall back to council-wide data (there's only one
+      council in the schema/seed today). Not a bug.
 - [ ] Validation: retry any one signup with a password under 8 characters → rejected.
 - [ ] Validation: sign up again with an email you just used → conflict error.
 
@@ -297,8 +319,8 @@ Log in as 🅐 Admin for all Create/Update/Delete steps.
       Troop 4 — Bato (already-assigned leaders are filtered out of the picker). If you
       force her ID through some other path, expect a conflict error: *"This leader is
       already assigned to another troop."* Then assign an actually-unassigned Troop Leader
-      account (e.g. Imelda Cadag from §1.1, once an Admin has approved/linked her) to
-      confirm the happy path still works.
+      account (e.g. Imelda Cadag from §1.1 — already activated there, so she'll appear in
+      the picker) to confirm the happy path still works.
 - [ ] **Scout Levels**: create "Ambassador Girl Scout". Update its order number. Delete:
       try deleting a level in use by a member → blocked.
 - [ ] **Badge Categories**: create "Environmental Stewardship". Same update/delete-in-use
@@ -613,7 +635,9 @@ past 2026-07-25).
 - [ ] **RBAC guard**: try to deactivate/delete/demote the **last remaining Administrator**
       → blocked with an explanatory error.
 - [ ] **Audit Log**: confirm the approvals, user changes, and settings edits you just made
-      all show up, searchable and paginated.
+      all show up, searchable and paginated — including the **"Signup Pending"** and
+      **"Activate"** entries for Imelda/Precious from §1.1 if you haven't checked those
+      already.
 - [ ] ~~**Backups**: run **Run Backup Now**, confirm it appears in backup history (and
       in the Audit Log trail).~~ Backups tab hidden for now (2026-07-26) — skip.
 - [ ] 🅔 EC, 🅣 Liza: directly visit `/settings` → redirected to Dashboard, no sidebar item.
