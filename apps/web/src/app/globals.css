@@ -28,8 +28,18 @@
 }
 
 @layer base {
+  /**
+   * Mobile Safari computes its "ideal viewport width" from fixed-position
+   * elements' untransformed layout box, ignoring `transform` — so `Sidebar`'s
+   * off-canvas panel (`fixed left-0 w-sidebar`, hidden via
+   * `-translate-x-full`) still counts as on-screen content needing room below
+   * `md`, and the whole page renders zoomed out to fit it. `overflow-x: hidden`
+   * on the root forces the viewport back to device-width regardless of any
+   * off-canvas fixed content.
+   */
   html {
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
   }
 
   body {
