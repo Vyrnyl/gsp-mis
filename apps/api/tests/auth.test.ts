@@ -204,6 +204,13 @@ describe('authService.signup', () => {
     expect(result).toMatchObject({ status: 'active', user: { role: 'admin' } });
     if (result.status !== 'active') throw new Error('expected an active signup result');
     expect(result.tokens.accessToken).toEqual(expect.any(String));
+    expect(writeAuditLog).toHaveBeenCalledWith({
+      userId: 'user-3',
+      action: 'user.signup',
+      entityType: 'user',
+      entityId: 'user-3',
+      details: { role: 'admin' },
+    });
   });
 });
 

@@ -14,6 +14,11 @@ export function createApp(): Express {
   const app = express();
 
   app.disable('x-powered-by');
+  // Render (and most PaaS hosts) sit behind a single reverse-proxy hop that sets
+  // X-Forwarded-For; without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+  // on every request in production. `1` trusts exactly one hop rather than the whole chain
+  // (`true` would let a client spoof its own IP and bypass rate limiting).
+  app.set('trust proxy', 1);
   app.use(helmet());
   app.use(
     cors({

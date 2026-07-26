@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: gsp-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: master
+    healthCheckPath: /api/v1/health
+    # Root stays the repo root (not apps/api) — this is an npm workspaces monorepo, so
+    # install/build must run from the workspace root to resolve the shared lockfile.
+    buildCommand: npm ci && npm run db:generate --workspace=apps/api && npm run db:migrate:deploy --workspace=apps/api && npm run build --workspace=apps/api
+    startCommand: npm run start --workspace=apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render injects PORT automatically; env.ts already defaults/reads it.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: COOKIE_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 3h
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # Set to the deployed Vercel URL, e.g. https://gsp-mis.vercel.app (no trailing slash).
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ADMIN_SIGNUP_KEY
+        sync: false
+      - key: MAILTRAP_API_TOKEN
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Same value as CORS_ORIGINS — used to build links inside outgoing emails.
+      - key: WEB_APP_URL
+        sync: false

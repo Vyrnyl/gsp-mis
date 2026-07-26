@@ -171,6 +171,17 @@ export const authService = {
       };
     }
 
+    // Only the admin role reaches this branch (requiresApproval covers the other two) —
+    // the shared ADMIN_SIGNUP_KEY has no other trail, so every admin minted this way
+    // must leave an audit record (build-plan.md decision #8b).
+    await writeAuditLog({
+      userId: created.id,
+      action: 'user.signup',
+      entityType: 'user',
+      entityId: created.id,
+      details: { role: input.role },
+    });
+
     const resolvedRole = resolveSingleRole(created);
     const tokens = await issueTokenPair(created.id, resolvedRole);
 
