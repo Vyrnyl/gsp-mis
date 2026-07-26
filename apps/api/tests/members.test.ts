@@ -51,6 +51,7 @@ function buildMember(overrides: Partial<MemberWithRelations> = {}): MemberWithRe
     phoneNumber: null,
     address: null,
     membershipStatusId: STATUS_ACTIVE.id,
+    preArchiveStatusId: null,
     troopId: TROOP.id,
     councilId: TROOP.councilId,
     scoutLevelId: 'level-1',
@@ -245,18 +246,61 @@ describe('membersService.update', () => {
 describe('membersService.archive / restore', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('archive sets the member status to archived', async () => {
+  it('archive sets the member status to archived and stashes the prior status', async () => {
     vi.spyOn(membersRepository, 'findById')
-      .mockResolvedValueOnce(buildMember())
+      .mockResolvedValueOnce(
+        buildMember({
+          membershipStatusId: 'status-expired',
+          status: { id: 'status-expired', name: 'expired', description: null },
+        }),
+      )
       .mockResolvedValueOnce(buildMember({ status: STATUS_ARCHIVED }));
     vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ARCHIVED);
     vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
-    const setStatusSpy = vi.spyOn(membersRepository, 'setStatus').mockResolvedValue({} as never);
+    const archiveSpy = vi.spyOn(membersRepository, 'archive').mockResolvedValue({} as never);
 
     const result = await membersService.archive('member-1');
 
-    expect(setStatusSpy).toHaveBeenCalledWith('member-1', STATUS_ARCHIVED.id);
+    expect(archiveSpy).toHaveBeenCalledWith('member-1', STATUS_ARCHIVED.id, 'status-expired');
     expect(result.status).toBe('archived');
+  });
+
+  it('archive is a no-op for a member that is already archived', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember({ status: STATUS_ARCHIVED }));
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    const archiveSpy = vi.spyOn(membersRepository, 'archive');
+
+    const result = await membersService.archive('member-1');
+
+    expect(archiveSpy).not.toHaveBeenCalled();
+    expect(result.status).toBe('archived');
+  });
+
+  it('restore brings the member back to the status held before archiving', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ARCHIVED, preArchiveStatusId: 'status-expired' }))
+      .mockResolvedValueOnce(buildMember({ status: { id: 'status-expired', name: 'expired', description: null } }));
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    const restoreSpy = vi.spyOn(membersRepository, 'restore').mockResolvedValue({} as never);
+
+    const result = await membersService.restore('member-1');
+
+    expect(restoreSpy).toHaveBeenCalledWith('member-1', 'status-expired');
+    expect(result.status).toBe('expired');
+  });
+
+  it('restore falls back to active when there is no stashed status', async () => {
+    vi.spyOn(membersRepository, 'findById')
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ARCHIVED, preArchiveStatusId: null }))
+      .mockResolvedValueOnce(buildMember({ status: STATUS_ACTIVE }));
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_ACTIVE);
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    const restoreSpy = vi.spyOn(membersRepository, 'restore').mockResolvedValue({} as never);
+
+    const result = await membersService.restore('member-1');
+
+    expect(restoreSpy).toHaveBeenCalledWith('member-1', STATUS_ACTIVE.id);
+    expect(result.status).toBe('active');
   });
 
   it('restore rejects an unknown member', async () => {

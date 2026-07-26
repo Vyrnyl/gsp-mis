@@ -138,6 +138,22 @@ export const membersRepository = {
     return prisma.member.update({ where: { id }, data: { membershipStatusId: statusId } });
   },
 
+  /** Archiving stashes the current status so `restore` can bring it back exactly. */
+  archive(id: string, archivedStatusId: string, currentStatusId: string) {
+    return prisma.member.update({
+      where: { id },
+      data: { membershipStatusId: archivedStatusId, preArchiveStatusId: currentStatusId },
+    });
+  },
+
+  /** Restoring clears the stash — an already-restored member has nothing to fall back to. */
+  restore(id: string, statusId: string) {
+    return prisma.member.update({
+      where: { id },
+      data: { membershipStatusId: statusId, preArchiveStatusId: null },
+    });
+  },
+
   /** Approval (feature 1.4) — stamps the reviewer alongside the status change. */
   approve(id: string, statusId: string, reviewerId: string) {
     return prisma.member.update({

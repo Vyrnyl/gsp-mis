@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Alert, Button, FormField, Input, Modal, Select, Textarea } from '@/shared/components/ui';
 
@@ -49,8 +49,15 @@ export function MemberFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /**
+   * Resets only on the closed→open transition, not on every re-render while the modal
+   * stays open — `initialValues` is a fresh object from the parent each render, so
+   * keying the reset off its identity would wipe out in-progress edits whenever the
+   * parent re-renders for an unrelated reason (e.g. a background refetch resolving).
+   */
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpen.current) {
       const next = initialValues ?? EMPTY_MEMBER_FORM_VALUES;
       setValues(
         mode === 'create' && isRestricted ? { ...next, troopId: restrictToTroopId ?? '' } : next,
@@ -59,6 +66,7 @@ export function MemberFormModal({
       setSubmitError(null);
       setIsSubmitting(false);
     }
+    wasOpen.current = isOpen;
   }, [isOpen, initialValues, mode, isRestricted, restrictToTroopId]);
 
   function set<K extends keyof MemberFormValues>(key: K, value: MemberFormValues[K]) {

@@ -28,7 +28,7 @@ import {
   useToast,
 } from '@/shared/components/ui';
 
-import { MEMBER_TYPE_LABELS } from '../constants';
+import { MEMBER_STATUS_LABELS, MEMBER_TYPE_LABELS } from '../constants';
 import {
   archiveMember,
   getMember,
@@ -148,8 +148,8 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
         await archiveMember(memberId);
         showToast('Member archived.', 'success');
       } else {
-        await restoreMember(memberId);
-        showToast('Member restored to active.', 'success');
+        const restored = await restoreMember(memberId);
+        showToast(`Member restored to ${MEMBER_STATUS_LABELS[restored.status]}.`, 'success');
       }
       setConfirmTone(null);
       fetchMember();
@@ -354,7 +354,8 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
             </>
           ) : (
             <>
-              <strong>{fullName}</strong> will be set back to Active on the roster.
+              <strong>{fullName}</strong> will be restored to the roster with the status they held before being
+              archived.
             </>
           )
         }

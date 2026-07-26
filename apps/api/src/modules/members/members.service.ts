@@ -130,17 +130,20 @@ export const membersService = {
     return toDetail(updated, troop.council.name);
   },
 
+  /** Stashes the member's current status so `restore` can bring back that exact status rather than forcing `active`. */
   async archive(id: string): Promise<MemberDetail> {
-    await requireMember(id);
-    const statusId = await requireStatusId('archived');
-    await membersRepository.setStatus(id, statusId);
+    const member = await requireMember(id);
+    if (member.status.name === 'archived') return membersService.getById(id);
+    const archivedStatusId = await requireStatusId('archived');
+    await membersRepository.archive(id, archivedStatusId, member.membershipStatusId);
     return membersService.getById(id);
   },
 
+  /** Falls back to `active` when there's no stashed status (e.g. a member archived before this was tracked). */
   async restore(id: string): Promise<MemberDetail> {
-    await requireMember(id);
-    const statusId = await requireStatusId('active');
-    await membersRepository.setStatus(id, statusId);
+    const member = await requireMember(id);
+    const statusId = member.preArchiveStatusId ?? (await requireStatusId('active'));
+    await membersRepository.restore(id, statusId);
     return membersService.getById(id);
   },
 

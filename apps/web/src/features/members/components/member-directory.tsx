@@ -35,7 +35,7 @@ import {
   useToast,
 } from '@/shared/components/ui';
 
-import { MEMBER_STATUS_FILTER_OPTIONS, MEMBER_TYPE_LABELS } from '../constants';
+import { MEMBER_STATUS_FILTER_OPTIONS, MEMBER_STATUS_LABELS, MEMBER_TYPE_LABELS } from '../constants';
 import {
   archiveMember,
   createMember,
@@ -205,8 +205,11 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
     if (!restoreTarget) return;
     setIsConfirming(true);
     try {
-      await restoreMember(restoreTarget.id);
-      showToast(`${restoreTarget.firstName} ${restoreTarget.lastName} restored to active.`, 'success');
+      const restored = await restoreMember(restoreTarget.id);
+      showToast(
+        `${restoreTarget.firstName} ${restoreTarget.lastName} restored to ${MEMBER_STATUS_LABELS[restored.status]}.`,
+        'success',
+      );
       setRestoreTarget(null);
       fetchMembers();
     } catch (err) {
@@ -461,7 +464,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
         description={
           <>
             <strong>{restoreTarget ? `${restoreTarget.firstName} ${restoreTarget.lastName}` : ''}</strong>{' '}
-            will be set back to Active on the roster.
+            will be restored to the roster with the status they held before being archived.
           </>
         }
         confirmLabel="Restore"

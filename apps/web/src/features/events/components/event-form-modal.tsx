@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Alert, Button, FormField, Input, Modal, Select, Textarea } from '@/shared/components/ui';
 
@@ -34,13 +34,22 @@ export function EventFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /**
+   * Resets only on the closed→open transition, not on every re-render while the modal
+   * stays open. `initialValues` is a fresh object literal from the parent each render
+   * (`toFormValues(...)`), so keying the reset off its identity would wipe out
+   * in-progress edits whenever the parent re-renders for an unrelated reason — e.g. the
+   * background refetch after the previous save resolving mid-edit.
+   */
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpen.current) {
       setValues(initialValues ?? EMPTY_EVENT_FORM_VALUES);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
     }
+    wasOpen.current = isOpen;
   }, [isOpen, initialValues]);
 
   function set<K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) {

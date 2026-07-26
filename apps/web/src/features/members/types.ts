@@ -7,8 +7,8 @@ export type Gender = 'female' | 'male' | 'other' | 'undisclosed';
 /**
  * Mirrors the seeded `member_statuses` rows. `pending`/`rejected` are driven by the
  * 1.4 approval workflow, not editable here — this feature only ever writes
- * `active` (on create), `archived`/`active` (archive/restore), or lets a Membership
- * term roll a member into `expiring`/`expired`.
+ * `archived` (on archive, which restores back to the pre-archive status), or lets a
+ * Membership term roll a member into `expiring`/`expired`.
  */
 export type MemberStatusId = 'pending' | 'active' | 'expiring' | 'expired' | 'archived' | 'rejected';
 

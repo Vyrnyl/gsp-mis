@@ -224,7 +224,8 @@ model MemberStatus {
   name        String  @unique // pending | active | expiring | expired | archived | rejected
   description String?
 
-  members Member[]
+  members             Member[]
+  preArchiveOfMembers Member[] @relation("MemberPreArchiveStatus")
 
   @@map("member_statuses")
 }
@@ -264,6 +265,10 @@ model Member {
   councilId          String? @map("council_id") @db.Uuid
   scoutLevelId       String? @map("scout_level_id") @db.Uuid
 
+  // Archive/restore (feature 1.2) — the status held before archiving, so restoring
+  // brings the member back to it instead of forcing `active`.
+  preArchiveStatusId String? @map("pre_archive_status_id") @db.Uuid
+
   // Approval workflow (feature 1.4).
   reviewedById    String?   @map("reviewed_by_id") @db.Uuid
   reviewedAt      DateTime? @map("reviewed_at")
@@ -272,11 +277,12 @@ model Member {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  status     MemberStatus   @relation(fields: [membershipStatusId], references: [id])
-  troop      Troop?         @relation(fields: [troopId], references: [id], onDelete: SetNull)
-  council    Council?       @relation(fields: [councilId], references: [id], onDelete: SetNull)
-  scoutLevel ScoutLevel?    @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
-  reviewedBy User?          @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  status           MemberStatus   @relation(fields: [membershipStatusId], references: [id])
+  preArchiveStatus MemberStatus?  @relation("MemberPreArchiveStatus", fields: [preArchiveStatusId], references: [id], onDelete: SetNull)
+  troop            Troop?         @relation(fields: [troopId], references: [id], onDelete: SetNull)
+  council          Council?       @relation(fields: [councilId], references: [id], onDelete: SetNull)
+  scoutLevel       ScoutLevel?    @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
+  reviewedBy       User?          @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   profile           MemberProfile?
   memberships       Membership[]
