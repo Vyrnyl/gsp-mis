@@ -20,10 +20,21 @@ export const ROLE_OPTIONS: RoleOption[] = [
   { id: 'troop_leader', label: 'Troop Leader', icon: TroopLeaderIcon },
 ];
 
+/**
+ * Signup's subset — Administrator is omitted because self-signup for that role was
+ * removed (2026-07-27); `signupSchema` rejects it server-side, so offering the option
+ * would only produce a 400. Login keeps the full `ROLE_OPTIONS`: existing
+ * Administrators still sign in normally, and that selector is presentational anyway
+ * (`loginSchema` is email + password only — the role comes from the database).
+ */
+export const SIGNUP_ROLE_OPTIONS: RoleOption[] = ROLE_OPTIONS.filter((option) => option.id !== 'admin');
+
 export interface RoleSelectorProps {
   legend: string;
   value: AuthRoleId;
   onChange: (id: AuthRoleId) => void;
+  /** Defaults to all three roles; signup passes `SIGNUP_ROLE_OPTIONS`. */
+  options?: RoleOption[];
   className?: string;
 }
 
@@ -33,13 +44,13 @@ export interface RoleSelectorProps {
  * keyboard and screen-reader semantics for free instead of the prototype's
  * `onclick`-only `<div>`s.
  */
-export function RoleSelector({ legend, value, onChange, className }: RoleSelectorProps) {
+export function RoleSelector({ legend, value, onChange, options = ROLE_OPTIONS, className }: RoleSelectorProps) {
   const name = useId();
 
   return (
     <fieldset className={cn('mb-5 flex gap-2 border-0 p-0', className)}>
       <legend className="sr-only">{legend}</legend>
-      {ROLE_OPTIONS.map((option) => {
+      {options.map((option) => {
         const inputId = `${name}-${option.id}`;
         const Icon = option.icon;
 

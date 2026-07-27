@@ -23,6 +23,19 @@ export function AuthCard() {
   const loginPanelId = useId();
   const signupPanelId = useId();
 
+  /**
+   * The role is shared across both tabs, but login still offers Administrator while
+   * signup does not (self-signup for that role was removed 2026-07-27). Without this,
+   * picking Administrator on Log In and then switching to Sign Up would leave the
+   * signup form on a role its own selector can't display and its payload builder
+   * can't fill — a dead form with no visible selection. Fall back to the first role
+   * signup does offer.
+   */
+  function openSignup() {
+    if (role === 'admin') setRole('executive_council');
+    setActiveTab('signup');
+  }
+
   return (
     <div className="w-full max-w-[500px] overflow-hidden rounded-auth bg-surface shadow-overlay">
       <div className="bg-brand-gradient px-8 py-8 text-center text-white">
@@ -63,7 +76,7 @@ export function AuthCard() {
           id={`${signupPanelId}-tab`}
           aria-selected={activeTab === 'signup'}
           aria-controls={signupPanelId}
-          onClick={() => setActiveTab('signup')}
+          onClick={openSignup}
           className={cn(
             '-mb-0.5 flex-1 border-b-[3px] py-3.5 text-center text-[0.95rem] font-semibold transition',
             activeTab === 'signup'
@@ -81,7 +94,7 @@ export function AuthCard() {
             <LoginForm
               role={role}
               onRoleChange={setRole}
-              onSwitchToSignup={() => setActiveTab('signup')}
+              onSwitchToSignup={openSignup}
               onForgotPassword={() => setIsForgotOpen(true)}
             />
           ) : null}

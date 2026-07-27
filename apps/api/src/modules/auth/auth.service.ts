@@ -125,8 +125,14 @@ export const authService = {
    * let anyone grant themselves live approval/finance/reporting access. They land
    * `isActive: false` and get no session; an Administrator must activate them from
    * Settings > Users & Access (3.4's existing activate/deactivate action) before they
-   * can log in. Admin signup keeps its original behavior — the shared
-   * `ADMIN_SIGNUP_KEY` is its gate instead of a queue.
+   * can log in.
+   *
+   * Since Administrator self-signup was removed (2026-07-27 — `signupSchema` no longer
+   * accepts `role: "admin"`, so it 400s at validation), those two roles are the only
+   * ones that reach here and *every* signup is now pending-approval. This method
+   * therefore never returns the `status: "active"` arm of `SignupResponseBody`; that
+   * arm is kept on the type so the BFF's cookie-setting branch and the web client stay
+   * intact if admin self-signup is ever restored.
    */
   async signup(input: SignupInput): Promise<SignupResponseBody> {
     const email = input.email.trim().toLowerCase();
@@ -136,16 +142,10 @@ export const authService = {
       throw ApiError.conflict('An account with this email already exists.');
     }
 
-    if (input.role === 'admin' && input.adminSecretKey !== env.ADMIN_SIGNUP_KEY) {
-      throw ApiError.forbidden('Invalid admin secret key.');
-    }
-
     const role = await authRepository.findRoleByName(input.role);
     if (!role) {
       throw ApiError.internal(`Role "${input.role}" is not seeded.`);
     }
-
-    const requiresApproval = input.role === 'executive_council' || input.role === 'troop_leader';
 
     const passwordHash = await hashPassword(input.password);
     const created = await authRepository.createUserWithRole(
@@ -153,39 +153,22 @@ export const authService = {
         fullName: `${input.firstName.trim()} ${input.lastName.trim()}`,
         email,
         passwordHash,
-        isActive: !requiresApproval,
+        isActive: false,
       },
       role.id,
     );
 
-    if (requiresApproval) {
-      await writeAuditLog({
-        userId: created.id,
-        action: 'user.signup_pending',
-        entityType: 'user',
-        entityId: created.id,
-      });
-      return {
-        status: 'pending',
-        message: 'Account created. An administrator must approve your account before you can sign in.',
-      };
-    }
-
-    // Only the admin role reaches this branch (requiresApproval covers the other two) —
-    // the shared ADMIN_SIGNUP_KEY has no other trail, so every admin minted this way
-    // must leave an audit record (build-plan.md decision #8b).
     await writeAuditLog({
       userId: created.id,
-      action: 'user.signup',
+      action: 'user.signup_pending',
       entityType: 'user',
       entityId: created.id,
-      details: { role: input.role },
     });
 
-    const resolvedRole = resolveSingleRole(created);
-    const tokens = await issueTokenPair(created.id, resolvedRole);
-
-    return { status: 'active', user: toAuthUser(created, resolvedRole), tokens };
+    return {
+      status: 'pending',
+      message: 'Account created. An administrator must approve your account before you can sign in.',
+    };
   },
 
   /** Best-effort revoke — logout must succeed even if the token is already gone, so the client can always clear its cookies. */

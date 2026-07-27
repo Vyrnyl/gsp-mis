@@ -37,7 +37,13 @@ interface SignupRequestBase {
 /**
  * Discriminated by `role`, mirroring `signupSchema` in `auth.schema.ts` — each role
  * collects different account-specific fields, matching signup-form.tsx's conditional
- * fields for troop leader / executive council / admin.
+ * fields for troop leader / executive council.
+ *
+ * No `admin` variant: self-signup for the Administrator role was removed 2026-07-27
+ * and the API's `signupSchema` rejects it with a 400. Note this is narrower than
+ * `AuthRoleId` above, which deliberately keeps `admin` — Administrators still log in
+ * and still hold sessions; they are simply created by the seed or by another
+ * Administrator via Settings > Users & Access rather than by signing themselves up.
  */
 export type SignupRequest =
   | (SignupRequestBase & {
@@ -51,11 +57,6 @@ export type SignupRequest =
       councilName: string;
       region: string;
       councilCode: string;
-    })
-  | (SignupRequestBase & {
-      role: 'admin';
-      employeeId: string;
-      adminSecretKey: string;
     });
 
 export interface ForgotPasswordRequest {
@@ -77,9 +78,12 @@ export interface LoginResponse {
 }
 
 /**
- * Mirrors `SignupResponseBody` in `auth.types.ts` — Executive Council/Troop Leader
- * signups land `pending` (no session yet, needs Administrator approval); Admin stays
- * `active` and signs in immediately, same as before.
+ * Mirrors `SignupResponseBody` in `auth.types.ts`. Every signup now lands `pending`
+ * (no session yet, needs Administrator approval) — Executive Council and Troop Leader
+ * are the only self-signup roles left since Administrator self-signup was removed
+ * 2026-07-27, so `SignupActiveResponse` is currently unreachable. It is kept, rather
+ * than deleted, so the BFF's cookie-setting branch still compiles and restoring admin
+ * self-signup stays a schema-only change.
  */
 export interface SignupActiveResponse {
   status: 'active';

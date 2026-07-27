@@ -9,7 +9,7 @@ import type { SelectOption } from '@/shared/components/ui';
 import { AuthRequestError, signup } from '../services/auth.service';
 import type { AuthRoleId, SignupRequest } from '../types';
 import { PasswordStrengthMeter } from './password-strength-meter';
-import { RoleSelector } from './role-selector';
+import { RoleSelector, SIGNUP_ROLE_OPTIONS } from './role-selector';
 
 const REGIONS: SelectOption[] = [
   { value: 'car', label: 'CAR' },
@@ -67,9 +67,6 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
   const [primaryScoutLevel, setPrimaryScoutLevel] = useState('');
   const [homeCouncilName, setHomeCouncilName] = useState('');
 
-  const [employeeId, setEmployeeId] = useState('');
-  const [adminSecretKey, setAdminSecretKey] = useState('');
-
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,13 +111,12 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
       ? 'Home council is required.'
       : undefined;
 
-  const employeeIdError =
-    submitAttempted && role === 'admin' && employeeId.trim().length === 0 ? 'Employee ID is required.' : undefined;
-  const adminSecretKeyError =
-    submitAttempted && role === 'admin' && adminSecretKey.length === 0
-      ? 'Admin secret key is required.'
-      : undefined;
-
+  /**
+   * Returns null for `admin` — self-signup for that role was removed (2026-07-27) and
+   * `SignupRequest` no longer has an admin variant, so there is nothing valid to build.
+   * `AuthCard` already normalizes the shared role away from `admin` when the signup tab
+   * opens, so this is a belt-and-braces guard rather than a reachable path.
+   */
   function buildPayload(): SignupRequest | null {
     const base = { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), password };
 
@@ -138,8 +134,7 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
         homeCouncilName: homeCouncilName.trim(),
       };
     }
-    if (!employeeId.trim() || !adminSecretKey) return null;
-    return { ...base, role, employeeId: employeeId.trim(), adminSecretKey };
+    return null;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -177,7 +172,12 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <RoleSelector legend="Register as" value={role} onChange={onRoleChange} />
+      <RoleSelector
+        legend="Register as"
+        value={role}
+        onChange={onRoleChange}
+        options={SIGNUP_ROLE_OPTIONS}
+      />
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 
@@ -253,30 +253,6 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
               placeholder="e.g. Catanduanes Council"
               value={homeCouncilName}
               onChange={(event) => setHomeCouncilName(event.target.value)}
-            />
-          </FormField>
-        </>
-      ) : null}
-
-      {role === 'admin' ? (
-        <>
-          <FormField label="Employee ID" required error={employeeIdError}>
-            <Input
-              placeholder="EMP-00123"
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-            />
-          </FormField>
-          <FormField
-            label="Admin Secret Key"
-            required
-            hint="Contact the national office for the key"
-            error={adminSecretKeyError}
-          >
-            <PasswordInput
-              placeholder="••••••••"
-              value={adminSecretKey}
-              onChange={(event) => setAdminSecretKey(event.target.value)}
             />
           </FormField>
         </>

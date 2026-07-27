@@ -4,6 +4,7 @@ vi.mock('../src/shared/utils/audit-log', () => ({ writeAuditLog: vi.fn() }));
 
 import { env } from '../src/config/env';
 import { authRepository } from '../src/modules/auth/auth.repository';
+import { signupSchema } from '../src/modules/auth/auth.schema';
 import { authService } from '../src/modules/auth/auth.service';
 import { writeAuditLog } from '../src/shared/utils/audit-log';
 import { emailService } from '../src/shared/utils/email';
@@ -168,49 +169,62 @@ describe('authService.signup', () => {
     await expect(authService.signup(troopLeaderInput)).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  it('rejects admin signup with the wrong secret key', async () => {
-    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
+});
 
-    await expect(
-      authService.signup({
-        role: 'admin',
-        firstName: 'Rey',
-        lastName: 'Cruz',
-        email: 'rey@example.com',
-        password: 'StrongPass1!',
-        employeeId: 'EMP-1',
-        adminSecretKey: 'wrong-key',
-      }),
-    ).rejects.toMatchObject({ statusCode: 403 });
+/**
+ * Administrator self-signup was removed 2026-07-27. The enforcement point is the
+ * schema (the route's validator), not the hidden UI option — so these assert at the
+ * `signupSchema` level via `.safeParse`, matching the schema-test precedent in
+ * `reports.test.ts`/`organizations.test.ts`. A request reaching `authService.signup`
+ * with `role: "admin"` is now unrepresentable in the type system, so there is no
+ * service-level case left to write.
+ */
+describe('signupSchema — admin self-signup is blocked', () => {
+  const adminPayload = {
+    role: 'admin',
+    firstName: 'Rey',
+    lastName: 'Cruz',
+    email: 'rey@example.com',
+    password: 'StrongPass1!',
+    employeeId: 'EMP-1',
+    adminSecretKey: 'any-key-at-all',
+  };
+
+  it('rejects role "admin" outright, whatever secret key is supplied', () => {
+    expect(signupSchema.safeParse(adminPayload).success).toBe(false);
   });
 
-  it('accepts admin signup with the correct secret key', async () => {
-    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
-    vi.spyOn(authRepository, 'findRoleByName').mockResolvedValue(ROLE_ADMIN);
-    vi.spyOn(authRepository, 'createUserWithRole').mockResolvedValue(
-      buildUser({ id: 'user-3', email: 'rey@example.com', role: ROLE_ADMIN }),
-    );
+  it('rejects role "admin" even when no secret key is supplied at all', () => {
+    const { adminSecretKey: _omitted, ...withoutKey } = adminPayload;
+    expect(signupSchema.safeParse(withoutKey).success).toBe(false);
+  });
 
-    const result = await authService.signup({
-      role: 'admin',
-      firstName: 'Rey',
-      lastName: 'Cruz',
-      email: 'rey@example.com',
-      password: 'StrongPass1!',
-      employeeId: 'EMP-1',
-      adminSecretKey: env.ADMIN_SIGNUP_KEY,
-    });
+  it('still accepts the two self-signup roles', () => {
+    expect(
+      signupSchema.safeParse({
+        role: 'troop_leader',
+        firstName: 'Ana',
+        lastName: 'Reyes',
+        email: 'ana@example.com',
+        password: 'StrongPass1!',
+        troopNumber: 'T-2045',
+        primaryScoutLevel: 'junior',
+        homeCouncilName: 'Catanduanes Council',
+      }).success,
+    ).toBe(true);
 
-    expect(result).toMatchObject({ status: 'active', user: { role: 'admin' } });
-    if (result.status !== 'active') throw new Error('expected an active signup result');
-    expect(result.tokens.accessToken).toEqual(expect.any(String));
-    expect(writeAuditLog).toHaveBeenCalledWith({
-      userId: 'user-3',
-      action: 'user.signup',
-      entityType: 'user',
-      entityId: 'user-3',
-      details: { role: 'admin' },
-    });
+    expect(
+      signupSchema.safeParse({
+        role: 'executive_council',
+        firstName: 'Lito',
+        lastName: 'Vega',
+        email: 'lito@example.com',
+        password: 'StrongPass1!',
+        councilName: 'Catanduanes Council',
+        region: 'region-5',
+        councilCode: 'CAT-001',
+      }).success,
+    ).toBe(true);
   });
 });
 

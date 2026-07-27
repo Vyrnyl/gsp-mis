@@ -31,8 +31,16 @@ const signupBaseSchema = z.object({
 });
 
 /**
- * Discriminated by `role` because each of the three roles collects different
- * account-specific fields on signup (signup-form.tsx renders them conditionally).
+ * Discriminated by `role` because each self-signup role collects different
+ * account-specific fields (signup-form.tsx renders them conditionally).
+ *
+ * `admin` is deliberately NOT a member of this union — self-signup for the
+ * Administrator role was removed 2026-07-27. Because the union is the route's
+ * validator, `role: "admin"` now fails with a 400 before reaching the service;
+ * this schema is the actual enforcement point, not the hidden UI option.
+ * Administrators are created by (a) the seed, for bootstrap, and (b) an existing
+ * Administrator via Settings > Users & Access, which is attributable to a real
+ * actor and audit-logged — unlike the shared `ADMIN_SIGNUP_KEY` this replaces.
  */
 export const signupSchema = z.discriminatedUnion('role', [
   signupBaseSchema.extend({
@@ -46,11 +54,6 @@ export const signupSchema = z.discriminatedUnion('role', [
     councilName: z.string().trim().min(1, 'Council name is required.'),
     region: z.string().trim().min(1, 'Region is required.'),
     councilCode: z.string().trim().min(1, 'Council code is required.'),
-  }),
-  signupBaseSchema.extend({
-    role: z.literal('admin'),
-    employeeId: z.string().trim().min(1, 'Employee ID is required.'),
-    adminSecretKey: z.string().min(1, 'Admin secret key is required.'),
   }),
 ]);
 

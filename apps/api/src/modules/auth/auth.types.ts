@@ -43,8 +43,13 @@ export interface LoginResponseBody {
  * Executive Council and Troop Leader self-signups self-assert an affiliation
  * (council/troop name) with nothing yet to verify it against, so they land
  * `pending` — no tokens, no session — until an Administrator activates the
- * account from Settings > Users & Access. Admin signup stays `active`; the
- * shared `ADMIN_SIGNUP_KEY` is its gate instead.
+ * account from Settings > Users & Access.
+ *
+ * Since Administrator self-signup was removed (2026-07-27), those are the only two
+ * roles `signupSchema` accepts, so `authService.signup` always returns the `pending`
+ * arm. `SignupActiveResponseBody` is retained — unreachable but not deleted — so the
+ * BFF's cookie-setting branch and the web client keep compiling and admin self-signup
+ * can be restored by re-adding the schema variant alone.
  */
 export interface SignupActiveResponseBody {
   status: 'active';
