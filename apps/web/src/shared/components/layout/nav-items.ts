@@ -4,7 +4,6 @@ import {
   ApprovalIcon,
   AttendanceIcon,
   BadgeIcon,
-  ConfigIcon,
   DashboardIcon,
   DocumentIcon,
   EventIcon,
@@ -91,15 +90,13 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/profile', label: 'My Profile', icon: ProfileIcon },
       { href: '/settings', label: 'Settings', icon: SettingsIcon, permission: 'settings:manage' },
-      { href: '/gallery', label: 'Component Gallery', icon: ConfigIcon },
     ],
   },
 ];
 
 /**
  * Filters `NAV_SECTIONS` down to what `role` may see, dropping any section left
- * with no items. Gallery is the component QA page, not a real module — it has no
- * permission gate and stays visible to every authenticated role.
+ * with no items.
  */
 export function getNavSectionsForRole(role: AuthRoleId): NavSection[] {
   return NAV_SECTIONS.map((section) => ({
