@@ -19,6 +19,12 @@ services:
       # Render injects PORT automatically; env.ts already defaults/reads it.
       - key: DATABASE_URL
         sync: false
+      # Direct (unpooled) Neon URL — same as DATABASE_URL with `-pooler` dropped from the
+      # host. Used by Prisma Migrate only; the runtime keeps the pooled DATABASE_URL above.
+      # Without this, `migrate deploy` fails the build with P1002 (advisory lock timeout),
+      # because Neon's pooler is transaction-mode and can't hold a session-level lock.
+      - key: DIRECT_DATABASE_URL
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: JWT_REFRESH_SECRET

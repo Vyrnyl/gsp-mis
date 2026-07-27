@@ -22,6 +22,13 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
+  /**
+   * Direct, unpooled connection used by Prisma Migrate only (see `prisma.config.ts`) — the
+   * runtime never reads it. Optional: falls back to `DATABASE_URL` when unset, which is
+   * correct for a local postgres with no pooler in front of it.
+   */
+  DIRECT_DATABASE_URL: z.string().min(1).optional(),
+
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 characters'),
