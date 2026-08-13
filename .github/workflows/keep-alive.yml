@@ -1,0 +1,17 @@
+name: Keep Render service alive
+
+on:
+  schedule:
+    # Every 10 minutes — Render's free tier spins down after ~15 minutes idle,
+    # and GitHub's scheduler can run a few minutes late under load, so 10 keeps
+    # a safety margin under that window.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API health endpoint
+        run: |
+          curl -sf --max-time 30 https://gsp-api-4c5k.onrender.com/api/v1/health
