@@ -11,16 +11,20 @@ services:
     # --include=dev: Render sets NODE_ENV=production during the build too, which makes
     # plain `npm ci` omit devDependencies — but the TS build needs typescript, prisma,
     # and every @types/* package, none of which are needed at runtime.
-    # db:migrate:deploy is wrapped in two retries (15s, then 30s backoff). Even routed
-    # through DIRECT_DATABASE_URL, Prisma Migrate's advisory-lock acquisition has a
-    # hard-coded, non-configurable 10s timeout (P1002), and Neon's compute can cold-start
-    # from autosuspend on the very connection Migrate opens — eating enough of that 10s
-    # budget to fail even when nothing is actually contending for the lock. Confirmed
-    # intermittent in practice: a plain redeploy would fail here while a from-scratch
-    # "Clear cache and rebuild" (slower, more elapsed time before this step runs) would
-    # pass on the same commit. Retrying in place removes the need to rely on that timing
-    # accident.
-    buildCommand: npm ci --include=dev && npm run db:generate --workspace=apps/api && (npm run db:migrate:deploy --workspace=apps/api || (sleep 15 && npm run db:migrate:deploy --workspace=apps/api) || (sleep 30 && npm run db:migrate:deploy --workspace=apps/api)) && npm run build --workspace=apps/api
+    # db:migrate:deploy runs with PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true. Even routed
+    # through DIRECT_DATABASE_URL, real builds still hit P1002 (advisory-lock acquisition,
+    # hard-coded 10s timeout, not configurable) on every one of 3 retries spaced ~90s
+    # apart — ruling out a simple cold-start/timing fluke. Root cause: Prisma doesn't
+    # reliably release this lock when a migrate run fails/is killed (prisma/prisma#12999),
+    # so a stuck session from one failed build blocks every subsequent attempt until
+    # Postgres independently notices the dead connection, which is what made "Clear cache
+    # and rebuild" (slower, more elapsed time between manual attempts) look like a fix
+    # when it was really just waiting it out. Disabling the lock removes the failure mode
+    # entirely; the coordination it exists for (two migrations racing on the same schema)
+    # can't happen here — Render only ever runs one build at a time for this service, and
+    # there's a single developer. The retry wrapper stays as a harmless safety net for
+    # unrelated transient network blips.
+    buildCommand: npm ci --include=dev && npm run db:generate --workspace=apps/api && (PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npm run db:migrate:deploy --workspace=apps/api || (sleep 15 && PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npm run db:migrate:deploy --workspace=apps/api) || (sleep 30 && PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npm run db:migrate:deploy --workspace=apps/api)) && npm run build --workspace=apps/api
     startCommand: npm run start --workspace=apps/api
     envVars:
       - key: NODE_ENV
