@@ -5,6 +5,7 @@ import type {
   MemberSummary,
   MemberTypeFilter,
   RenewMembershipValues,
+  SchoolOption,
   ScoutLevelOption,
   TroopOption,
 } from '../types';
@@ -107,6 +108,7 @@ function toRequestBody(values: MemberFormValues) {
     address: values.address || undefined,
     troopId: values.troopId,
     scoutLevelId: values.memberType === 'scout' ? values.scoutLevelId : undefined,
+    schoolId: values.schoolId || undefined,
     emergencyContactName: values.emergencyContactName || undefined,
     emergencyContactPhone: values.emergencyContactPhone || undefined,
     notes: values.notes || undefined,
@@ -188,4 +190,9 @@ export async function listTroops(): Promise<TroopOption[]> {
 export async function listScoutLevels(): Promise<ScoutLevelOption[]> {
   const { data } = await request<{ scoutLevels: ScoutLevelOption[] }>('/api/organizations/scout-levels');
   return data.scoutLevels;
+}
+
+export async function listSchools(): Promise<SchoolOption[]> {
+  const { data } = await request<{ schools: SchoolOption[] }>('/api/organizations/schools');
+  return data.schools;
 }

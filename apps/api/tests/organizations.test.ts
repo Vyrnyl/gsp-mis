@@ -7,6 +7,7 @@ import type {
   CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
+  CreateSchoolInput,
   CreateScoutLevelInput,
   CreateTroopInput,
 } from '../src/modules/organizations/organizations.schema';
@@ -51,6 +52,16 @@ const BADGE_CATEGORY = {
   _count: { badges: 0 },
 };
 const ACTIVITY_CATEGORY = { id: 'activity-cat-1', name: 'Camping', description: null, _count: { events: 0 } };
+
+const SCHOOL = {
+  id: 'school-1',
+  name: 'Catanduanes State University (CATSU)',
+  councilId: COUNCIL.id,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+  council: COUNCIL,
+  _count: { members: 0 },
+};
 
 describe('organizationsService councils', () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -318,5 +329,87 @@ describe('organizationsService activity categories', () => {
     await organizationsService.deleteActivityCategory(ACTIVITY_CATEGORY.id);
 
     expect(deleteSpy).toHaveBeenCalledWith(ACTIVITY_CATEGORY.id);
+  });
+});
+
+describe('organizationsService schools', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('lists schools with council names and member counts mapped to the DTO', async () => {
+    vi.spyOn(organizationsRepository, 'listSchools').mockResolvedValue([
+      { ...SCHOOL, _count: { members: 5 } },
+    ] as never);
+
+    const result = await organizationsService.listSchools();
+
+    expect(result.schools[0]).toMatchObject({
+      name: SCHOOL.name,
+      councilName: COUNCIL.name,
+      memberCount: 5,
+    });
+  });
+
+  it('rejects creating a school under an unknown council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(null);
+
+    const input: CreateSchoolInput = { name: 'New School', councilId: 'missing-council' };
+    await expect(organizationsService.createSchool(input)).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects a duplicate school name within the same council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findSchoolByCouncilAndName').mockResolvedValue(SCHOOL as never);
+
+    const input: CreateSchoolInput = { name: SCHOOL.name, councilId: COUNCIL.id };
+    await expect(organizationsService.createSchool(input)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('creates a school when the name is free within the council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findSchoolByCouncilAndName').mockResolvedValue(null);
+    const createSpy = vi.spyOn(organizationsRepository, 'createSchool').mockResolvedValue(SCHOOL as never);
+
+    const input: CreateSchoolInput = { name: SCHOOL.name, councilId: COUNCIL.id };
+    const result = await organizationsService.createSchool(input);
+
+    expect(createSpy).toHaveBeenCalledWith(input);
+    expect(result.name).toBe(SCHOOL.name);
+  });
+
+  it('rejects updating a school that does not exist', async () => {
+    vi.spyOn(organizationsRepository, 'findSchoolById').mockResolvedValue(null);
+
+    await expect(
+      organizationsService.updateSchool('missing', { name: 'X', councilId: COUNCIL.id }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('allows a school to keep its own name on update', async () => {
+    vi.spyOn(organizationsRepository, 'findSchoolById').mockResolvedValue(SCHOOL as never);
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findSchoolByCouncilAndName').mockResolvedValue(SCHOOL as never);
+    const updateSpy = vi.spyOn(organizationsRepository, 'updateSchool').mockResolvedValue(SCHOOL as never);
+
+    await organizationsService.updateSchool(SCHOOL.id, { name: SCHOOL.name, councilId: COUNCIL.id });
+
+    expect(updateSpy).toHaveBeenCalled();
+  });
+
+  it('blocks deleting a school still assigned to members', async () => {
+    vi.spyOn(organizationsRepository, 'findSchoolById').mockResolvedValue({
+      ...SCHOOL,
+      _count: { members: 2 },
+    } as never);
+
+    await expect(organizationsService.deleteSchool(SCHOOL.id)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('deletes a school with no members assigned', async () => {
+    vi.spyOn(organizationsRepository, 'findSchoolById').mockResolvedValue(SCHOOL as never);
+    const deleteSpy = vi.spyOn(organizationsRepository, 'deleteSchool').mockResolvedValue(undefined as never);
+
+    await organizationsService.deleteSchool(SCHOOL.id);
+
+    expect(deleteSpy).toHaveBeenCalledWith(SCHOOL.id);
   });
 });

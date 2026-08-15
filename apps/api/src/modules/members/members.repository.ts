@@ -7,6 +7,7 @@ const memberInclude = {
   status: true,
   troop: true,
   scoutLevel: true,
+  school: true,
   profile: true,
   memberships: { orderBy: { startDate: 'desc' as const } },
 } satisfies Prisma.MemberInclude;
@@ -70,6 +71,10 @@ export const membersRepository = {
     return prisma.troop.findUnique({ where: { id }, include: { council: true } });
   },
 
+  findSchoolById(id: string) {
+    return prisma.school.findUnique({ where: { id } });
+  },
+
   findTroopIdsLedBy(userId: string) {
     return prisma.troop.findMany({ where: { leaderId: userId }, select: { id: true } });
   },
@@ -98,6 +103,7 @@ export const membersRepository = {
         troopId: input.troopId,
         councilId,
         scoutLevelId: input.memberType === 'scout' ? input.scoutLevelId : null,
+        schoolId: input.schoolId ?? null,
         profile: hasProfile ? { create: profileFields } : undefined,
       },
       include: memberInclude,
@@ -126,6 +132,7 @@ export const membersRepository = {
         troopId: input.troopId,
         councilId,
         scoutLevelId: input.memberType === 'scout' ? input.scoutLevelId : null,
+        schoolId: input.schoolId ?? null,
         profile: {
           upsert: { create: profileFields, update: profileFields },
         },

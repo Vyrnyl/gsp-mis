@@ -5,11 +5,13 @@ import type {
   CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
+  CreateSchoolInput,
   CreateScoutLevelInput,
   CreateTroopInput,
   UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
+  UpdateSchoolInput,
   UpdateScoutLevelInput,
   UpdateTroopInput,
 } from './organizations.schema';
@@ -23,12 +25,14 @@ const troopInclude = {
 const scoutLevelInclude = { _count: { select: { members: true } } } satisfies Prisma.ScoutLevelInclude;
 const badgeCategoryInclude = { _count: { select: { badges: true } } } satisfies Prisma.BadgeCategoryInclude;
 const activityCategoryInclude = { _count: { select: { events: true } } } satisfies Prisma.ActivityCategoryInclude;
+const schoolInclude = { council: true, _count: { select: { members: true } } } satisfies Prisma.SchoolInclude;
 
 export type CouncilWithCounts = Prisma.CouncilGetPayload<{ include: typeof councilInclude }>;
 export type TroopWithRelations = Prisma.TroopGetPayload<{ include: typeof troopInclude }>;
 export type ScoutLevelWithCount = Prisma.ScoutLevelGetPayload<{ include: typeof scoutLevelInclude }>;
 export type BadgeCategoryWithCount = Prisma.BadgeCategoryGetPayload<{ include: typeof badgeCategoryInclude }>;
 export type ActivityCategoryWithCount = Prisma.ActivityCategoryGetPayload<{ include: typeof activityCategoryInclude }>;
+export type SchoolWithRelations = Prisma.SchoolGetPayload<{ include: typeof schoolInclude }>;
 
 export const organizationsRepository = {
   // Councils
@@ -180,5 +184,33 @@ export const organizationsRepository = {
   },
   deleteActivityCategory(id: string) {
     return prisma.activityCategory.delete({ where: { id } });
+  },
+
+  // Schools — `listSchools` is also consumed by 1.3's registration-form picker, same
+  // precedent as `listTroops`/`listScoutLevels`.
+  listSchools() {
+    return prisma.school.findMany({ include: schoolInclude, orderBy: { name: 'asc' } });
+  },
+  findSchoolByCouncilAndName(councilId: string, name: string) {
+    return prisma.school.findUnique({ where: { councilId_name: { councilId, name } } });
+  },
+  findSchoolById(id: string) {
+    return prisma.school.findUnique({ where: { id }, include: schoolInclude });
+  },
+  createSchool(input: CreateSchoolInput) {
+    return prisma.school.create({
+      data: { name: input.name.trim(), councilId: input.councilId },
+      include: schoolInclude,
+    });
+  },
+  updateSchool(id: string, input: UpdateSchoolInput) {
+    return prisma.school.update({
+      where: { id },
+      data: { name: input.name.trim(), councilId: input.councilId },
+      include: schoolInclude,
+    });
+  },
+  deleteSchool(id: string) {
+    return prisma.school.delete({ where: { id } });
   },
 };

@@ -25,6 +25,7 @@ export interface MembershipTermDto {
 interface MemberRelations {
   troop: { id: string; troopCode: string; name: string } | null;
   scoutLevel: { id: string; name: string } | null;
+  school: { id: string; name: string } | null;
 }
 
 /** `GET /members` row shape — light enough for a paginated directory table. */

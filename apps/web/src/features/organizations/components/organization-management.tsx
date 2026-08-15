@@ -7,9 +7,18 @@ import { TabPanel, Tabs } from '@/shared/components/ui';
 
 import { ORGANIZATION_TABS } from '../constants';
 import * as organizationsService from '../services/organizations.service';
-import type { CategoryItem, Council, OrganizationTabId, Troop, TroopLeaderOption, ViewState } from '../types';
+import type {
+  CategoryItem,
+  Council,
+  OrganizationTabId,
+  School,
+  Troop,
+  TroopLeaderOption,
+  ViewState,
+} from '../types';
 import { CategoryPanel } from './category-panel';
 import { CouncilsPanel } from './councils-panel';
+import { SchoolsPanel } from './schools-panel';
 import { TroopsPanel } from './troops-panel';
 
 export interface OrganizationManagementProps {
@@ -44,6 +53,7 @@ export function OrganizationManagement({ canManage }: OrganizationManagementProp
   const councils = useResourceList<Council>(organizationsService.listCouncils);
   const troops = useResourceList<Troop>(organizationsService.listTroops);
   const troopLeaders = useResourceList<TroopLeaderOption>(organizationsService.listTroopLeaders);
+  const schools = useResourceList<School>(organizationsService.listSchools);
   const scoutLevels = useResourceList<CategoryItem>(organizationsService.listScoutLevels);
   const badgeCategories = useResourceList<CategoryItem>(organizationsService.listBadgeCategories);
   const activityCategories = useResourceList<CategoryItem>(organizationsService.listActivityCategories);
@@ -103,6 +113,30 @@ export function OrganizationManagement({ canManage }: OrganizationManagementProp
               await organizationsService.deleteTroop(id);
               await troops.refetch();
               await councils.refetch();
+            }}
+          />
+        </TabPanel>
+      ) : null}
+
+      {activeTab === 'schools' ? (
+        <TabPanel id="schools">
+          <SchoolsPanel
+            viewState={schools.viewState}
+            schools={schools.items}
+            councils={councils.items}
+            canManage={canManage}
+            onRetry={schools.refetch}
+            onCreate={async (values) => {
+              await organizationsService.createSchool(values);
+              await schools.refetch();
+            }}
+            onUpdate={async (id, values) => {
+              await organizationsService.updateSchool(id, values);
+              await schools.refetch();
+            }}
+            onDelete={async (id) => {
+              await organizationsService.deleteSchool(id);
+              await schools.refetch();
             }}
           />
         </TabPanel>

@@ -135,6 +135,7 @@ export function ApprovalReviewModal({ isOpen, member, onClose, onApprove, onReje
         {member.memberType === 'scout' ? (
           <ReviewField label="Scout Level" value={member.scoutLevel?.name ?? '—'} />
         ) : null}
+        <ReviewField label="School" value={member.school?.name ?? '—'} />
         <ReviewField label="Council" value={member.councilName ?? '—'} />
         <ReviewField label="Emergency Contact" value={member.emergencyContactName ?? '—'} />
         <ReviewField label="Emergency Phone" value={member.emergencyContactPhone ?? '—'} />

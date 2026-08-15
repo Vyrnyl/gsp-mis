@@ -3,6 +3,8 @@ import type {
   CategoryItem,
   Council,
   CouncilFormValues,
+  School,
+  SchoolFormValues,
   Troop,
   TroopFormValues,
   TroopLeaderOption,
@@ -197,4 +199,33 @@ export async function updateActivityCategory(id: string, values: CategoryFormVal
 
 export async function deleteActivityCategory(id: string): Promise<void> {
   await request<{ deleted: true }>(`/api/organizations/activity-categories/${id}`, { method: 'DELETE' });
+}
+
+function toSchoolRequestBody(values: SchoolFormValues) {
+  return { name: values.name, councilId: values.councilId };
+}
+
+export async function listSchools(): Promise<School[]> {
+  const data = await request<{ schools: School[] }>('/api/organizations/schools');
+  return data.schools;
+}
+
+export async function createSchool(values: SchoolFormValues): Promise<School> {
+  const data = await request<{ school: School }>('/api/organizations/schools', {
+    method: 'POST',
+    body: JSON.stringify(toSchoolRequestBody(values)),
+  });
+  return data.school;
+}
+
+export async function updateSchool(id: string, values: SchoolFormValues): Promise<School> {
+  const data = await request<{ school: School }>(`/api/organizations/schools/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(toSchoolRequestBody(values)),
+  });
+  return data.school;
+}
+
+export async function deleteSchool(id: string): Promise<void> {
+  await request<{ deleted: true }>(`/api/organizations/schools/${id}`, { method: 'DELETE' });
 }

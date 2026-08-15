@@ -25,6 +25,7 @@ function toSummary(member: MemberWithRelations): MemberSummary {
     status: member.status.name as MemberSummary['status'],
     troop: member.troop ? { id: member.troop.id, troopCode: member.troop.troopCode, name: member.troop.name } : null,
     scoutLevel: member.scoutLevel ? { id: member.scoutLevel.id, name: member.scoutLevel.name } : null,
+    school: member.school ? { id: member.school.id, name: member.school.name } : null,
     createdAt: member.createdAt.toISOString(),
   };
 }
@@ -61,6 +62,16 @@ async function requireMember(id: string): Promise<MemberWithRelations> {
   const member = await membersRepository.findById(id);
   if (!member) throw ApiError.notFound('Member not found.');
   return member;
+}
+
+/** School is optional; when supplied it must exist and belong to the troop's own council. */
+async function requireSchoolInCouncil(schoolId: string | undefined, councilId: string): Promise<void> {
+  if (!schoolId) return;
+  const school = await membersRepository.findSchoolById(schoolId);
+  if (!school) throw ApiError.badRequest('Selected school does not exist.');
+  if (school.councilId !== councilId) {
+    throw ApiError.badRequest('Selected school does not belong to this troop’s council.');
+  }
 }
 
 type RequestingUser = { id: string; role: RoleName };
@@ -108,6 +119,7 @@ export const membersService = {
   async create(input: CreateMemberInput, user: RequestingUser): Promise<MemberDetail> {
     const troop = await membersRepository.findTroopById(input.troopId);
     if (!troop) throw ApiError.badRequest('Selected troop does not exist.');
+    await requireSchoolInCouncil(input.schoolId, troop.councilId);
 
     const troopIds = await scopeToOwnTroop(user);
     requireTroopIdInScope(input.troopId, troopIds);
@@ -121,6 +133,7 @@ export const membersService = {
     const existing = await requireMember(id);
     const troop = await membersRepository.findTroopById(input.troopId);
     if (!troop) throw ApiError.badRequest('Selected troop does not exist.');
+    await requireSchoolInCouncil(input.schoolId, troop.councilId);
 
     const troopIds = await scopeToOwnTroop(user);
     requireTroopIdInScope(existing.troopId, troopIds);

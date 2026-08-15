@@ -30,6 +30,13 @@ export interface ScoutLevelOption {
   orderNumber: number;
 }
 
+/** A sponsoring school/institution — scoped to a council, same shape as `TroopOption`. */
+export interface SchoolOption {
+  id: string;
+  name: string;
+  councilId: string;
+}
+
 /** One term on the member's `memberships` history — renewal appends a new row. */
 export interface MembershipTerm {
   id: string;
@@ -50,6 +57,7 @@ export interface MemberSummary {
   status: MemberStatusId;
   troop: { id: string; troopCode: string; name: string } | null;
   scoutLevel: { id: string; name: string } | null;
+  school: { id: string; name: string } | null;
   createdAt: string;
 }
 
@@ -79,6 +87,7 @@ export interface MemberFormValues {
   address: string;
   troopId: string;
   scoutLevelId: string;
+  schoolId: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
   notes: string;

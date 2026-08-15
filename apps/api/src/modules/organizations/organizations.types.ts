@@ -43,6 +43,15 @@ export interface ActivityCategoryDto {
   usageCount: number;
 }
 
+export interface SchoolDto {
+  id: string;
+  name: string;
+  councilId: string;
+  councilName: string;
+  memberCount: number;
+  createdAt: string;
+}
+
 export interface TroopLeaderOptionDto {
   id: string;
   fullName: string;
@@ -71,4 +80,8 @@ export interface ListActivityCategoriesResponseBody {
 
 export interface ListTroopLeadersResponseBody {
   troopLeaders: TroopLeaderOptionDto[];
+}
+
+export interface ListSchoolsResponseBody {
+  schools: SchoolDto[];
 }

@@ -6,7 +6,7 @@ import { Alert, Button, FormField, Input, Modal, Select, Textarea } from '@/shar
 
 import { EMPTY_MEMBER_FORM_VALUES, GENDER_OPTIONS, MEMBER_TYPE_OPTIONS } from '../constants';
 import { MembersRequestError } from '../services/members.service';
-import type { MemberFormValues, ScoutLevelOption, TroopOption } from '../types';
+import type { MemberFormValues, SchoolOption, ScoutLevelOption, TroopOption } from '../types';
 
 export interface MemberFormModalProps {
   isOpen: boolean;
@@ -14,6 +14,7 @@ export interface MemberFormModalProps {
   initialValues?: MemberFormValues;
   troopOptions: TroopOption[];
   scoutLevelOptions: ScoutLevelOption[];
+  schoolOptions: SchoolOption[];
   /**
    * Locks the Troop field to a single troop — set for a signed-in Troop Leader (their
    * own led troop, or `null` if they have none yet). The API enforces this
@@ -39,6 +40,7 @@ export function MemberFormModal({
   initialValues,
   troopOptions,
   scoutLevelOptions,
+  schoolOptions,
   restrictToTroopId,
   onClose,
   onSubmit,
@@ -85,6 +87,25 @@ export function MemberFormModal({
     label: `${troop.troopCode} — ${troop.name}`,
   }));
   const scoutLevelSelectOptions = scoutLevelOptions.map((level) => ({ value: level.id, label: level.name }));
+
+  /** Schools are scoped to a council, same as the troop picker — filtered to the selected troop's own council. */
+  const selectedTroopCouncilId = troopOptions.find((troop) => troop.id === values.troopId)?.councilId;
+  const availableSchoolOptions = selectedTroopCouncilId
+    ? schoolOptions.filter((school) => school.councilId === selectedTroopCouncilId)
+    : [];
+  const schoolSelectOptions = availableSchoolOptions.map((school) => ({ value: school.id, label: school.name }));
+
+  function handleTroopChange(troopId: string) {
+    const nextCouncilId = troopOptions.find((troop) => troop.id === troopId)?.councilId;
+    const currentSchoolStillValid = schoolOptions.some(
+      (school) => school.id === values.schoolId && school.councilId === nextCouncilId,
+    );
+    setValues((current) => ({
+      ...current,
+      troopId,
+      schoolId: currentSchoolStillValid ? current.schoolId : '',
+    }));
+  }
 
   const errors: FieldErrors = submitAttempted
     ? {
@@ -199,10 +220,27 @@ export function MemberFormModal({
               placeholder={isRestricted && !restrictToTroopId ? 'No troop assigned to you yet' : 'Select troop'}
               value={values.troopId}
               disabled={isRestricted}
-              onChange={(event) => set('troopId', event.target.value)}
+              onChange={(event) => handleTroopChange(event.target.value)}
             />
           </FormField>
         </div>
+
+        <FormField
+          label="School"
+          hint={
+            values.troopId
+              ? 'Optional — filtered to the selected troop’s council'
+              : 'Optional — select a troop first'
+          }
+        >
+          <Select
+            options={schoolSelectOptions}
+            placeholder={values.troopId ? 'No school affiliation' : 'Select a troop first'}
+            value={values.schoolId}
+            disabled={!values.troopId}
+            onChange={(event) => set('schoolId', event.target.value)}
+          />
+        </FormField>
 
         {isScout ? (
           <FormField label="Scout Level" required error={errors.scoutLevelId}>

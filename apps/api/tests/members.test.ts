@@ -38,6 +38,16 @@ const TROOP = {
   council: { id: 'council-1', name: 'Catanduanes Council', description: null, createdAt: new Date(), updatedAt: new Date() },
 };
 
+const SCHOOL = {
+  id: 'school-1',
+  councilId: TROOP.councilId,
+  name: 'Catanduanes State University (CATSU)',
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+const SCHOOL_OTHER_COUNCIL = { ...SCHOOL, id: 'school-2', councilId: 'council-2' };
+
 function buildMember(overrides: Partial<MemberWithRelations> = {}): MemberWithRelations {
   return {
     id: 'member-1',
@@ -63,6 +73,7 @@ function buildMember(overrides: Partial<MemberWithRelations> = {}): MemberWithRe
     status: STATUS_ACTIVE,
     troop: { id: TROOP.id, troopCode: TROOP.troopCode, name: TROOP.name },
     scoutLevel: { id: 'level-1', name: 'Senior Girl Scout' },
+    school: null,
     profile: null,
     memberships: [],
     ...overrides,
@@ -196,6 +207,37 @@ describe('membersService.create', () => {
 
     await expect(membersService.create(CREATE_SCOUT_INPUT, TROOP_LEADER)).rejects.toMatchObject({ statusCode: 403 });
   });
+
+  it('registers a member with a school affiliation belonging to the troop’s own council', async () => {
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findSchoolById').mockResolvedValue(SCHOOL as never);
+    vi.spyOn(membersRepository, 'findStatusIdByName').mockResolvedValue(STATUS_PENDING);
+    const createSpy = vi
+      .spyOn(membersRepository, 'create')
+      .mockResolvedValue(buildMember({ status: STATUS_PENDING, school: SCHOOL as never }));
+
+    const input = { ...CREATE_SCOUT_INPUT, schoolId: SCHOOL.id };
+    const result = await membersService.create(input, ADMIN);
+
+    expect(createSpy).toHaveBeenCalledWith(input, STATUS_PENDING.id, TROOP.councilId);
+    expect(result.school).toEqual({ id: SCHOOL.id, name: SCHOOL.name });
+  });
+
+  it('rejects an unknown school', async () => {
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findSchoolById').mockResolvedValue(null);
+
+    const input = { ...CREATE_SCOUT_INPUT, schoolId: 'missing-school' };
+    await expect(membersService.create(input, ADMIN)).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects a school that belongs to a different council than the troop', async () => {
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findSchoolById').mockResolvedValue(SCHOOL_OTHER_COUNCIL as never);
+
+    const input = { ...CREATE_SCOUT_INPUT, schoolId: SCHOOL_OTHER_COUNCIL.id };
+    await expect(membersService.create(input, ADMIN)).rejects.toMatchObject({ statusCode: 400 });
+  });
 });
 
 describe('membersService.update', () => {
@@ -240,6 +282,16 @@ describe('membersService.update', () => {
     await expect(
       membersService.update('member-1', { ...updateInput, troopId: 'some-other-troop' }, TROOP_LEADER),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('rejects reassigning to a school outside the troop’s own council', async () => {
+    vi.spyOn(membersRepository, 'findById').mockResolvedValue(buildMember());
+    vi.spyOn(membersRepository, 'findTroopById').mockResolvedValue(TROOP as never);
+    vi.spyOn(membersRepository, 'findSchoolById').mockResolvedValue(SCHOOL_OTHER_COUNCIL as never);
+
+    await expect(
+      membersService.update('member-1', { ...updateInput, schoolId: SCHOOL_OTHER_COUNCIL.id }, ADMIN),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 

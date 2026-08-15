@@ -28,6 +28,10 @@ import { z } from 'zod';
  *   POST   /activity-categories         — createCategorySchema
  *   PUT    /activity-categories/:id     — updateCategorySchema
  *   DELETE /activity-categories/:id     — no body
+ *   GET    /schools                     — no query (widened for 1.3's registration-form picker)
+ *   POST   /schools                     — createSchoolSchema
+ *   PUT    /schools/:id                 — updateSchoolSchema
+ *   DELETE /schools/:id                 — no body
  */
 
 /** Empty string from the UI's "No Leader Assigned" option means "no leader" — not a validation error. */
@@ -100,6 +104,13 @@ export const createScoutLevelSchema = createCategorySchema.extend({
 });
 export const updateScoutLevelSchema = createScoutLevelSchema;
 
+/** Scoped to a council, same shape as a troop minus its code/leader — see `createTroopSchema`. */
+export const createSchoolSchema = z.object({
+  name: z.string().trim().min(1, 'School name is required.'),
+  councilId: z.string().uuid('Select a council.'),
+});
+export const updateSchoolSchema = createSchoolSchema;
+
 export type CreateCouncilInput = z.infer<typeof createCouncilSchema>;
 export type UpdateCouncilInput = z.infer<typeof updateCouncilSchema>;
 export type CreateTroopInput = z.infer<typeof createTroopSchema>;
@@ -111,3 +122,5 @@ export type UpdateBadgeCategoryInput = z.infer<typeof updateBadgeCategorySchema>
 export type BadgeCategoryIconKey = (typeof BADGE_CATEGORY_ICON_KEYS)[number];
 export type CreateScoutLevelInput = z.infer<typeof createScoutLevelSchema>;
 export type UpdateScoutLevelInput = z.infer<typeof updateScoutLevelSchema>;
+export type CreateSchoolInput = z.infer<typeof createSchoolSchema>;
+export type UpdateSchoolInput = z.infer<typeof updateSchoolSchema>;

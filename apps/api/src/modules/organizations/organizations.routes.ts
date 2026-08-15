@@ -43,4 +43,9 @@ router.post('/activity-categories', canManage, asyncHandler(organizationsControl
 router.put('/activity-categories/:id', canManage, asyncHandler(organizationsController.updateActivityCategory));
 router.delete('/activity-categories/:id', canManage, asyncHandler(organizationsController.deleteActivityCategory));
 
+router.get('/schools', anyRole, asyncHandler(organizationsController.listSchools));
+router.post('/schools', canManage, asyncHandler(organizationsController.createSchool));
+router.put('/schools/:id', canManage, asyncHandler(organizationsController.updateSchool));
+router.delete('/schools/:id', canManage, asyncHandler(organizationsController.deleteSchool));
+
 export const organizationsRoutes = router;

@@ -163,6 +163,7 @@ model Council {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   troops  Troop[]
+  schools School[]
   members Member[]
 
   @@map("councils")
@@ -183,6 +184,25 @@ model Troop {
 
   @@index([councilId])
   @@map("troops")
+}
+
+/// Sponsoring school/institution a member is affiliated with (e.g. a school-based
+/// troop's host university) — separate from Troop, since a school and a troop are
+/// distinct real-world entities, and not every member has one. Scoped to Council like
+/// Troop, so the picker only offers schools relevant to the member's own council.
+model School {
+  id        String   @id @default(uuid()) @db.Uuid
+  councilId String   @map("council_id") @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  council Council  @relation(fields: [councilId], references: [id])
+  members Member[]
+
+  @@unique([councilId, name])
+  @@index([councilId])
+  @@map("schools")
 }
 
 model ScoutLevel {
@@ -264,6 +284,7 @@ model Member {
   troopId            String? @map("troop_id") @db.Uuid
   councilId          String? @map("council_id") @db.Uuid
   scoutLevelId       String? @map("scout_level_id") @db.Uuid
+  schoolId           String? @map("school_id") @db.Uuid
 
   // Archive/restore (feature 1.2) — the status held before archiving, so restoring
   // brings the member back to it instead of forcing `active`.
@@ -282,6 +303,7 @@ model Member {
   troop            Troop?         @relation(fields: [troopId], references: [id], onDelete: SetNull)
   council          Council?       @relation(fields: [councilId], references: [id], onDelete: SetNull)
   scoutLevel       ScoutLevel?    @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
+  school           School?        @relation(fields: [schoolId], references: [id], onDelete: SetNull)
   reviewedBy       User?          @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   profile           MemberProfile?
@@ -295,6 +317,7 @@ model Member {
   @@index([troopId])
   @@index([membershipStatusId])
   @@index([councilId])
+  @@index([schoolId])
   @@index([lastName, firstName])
   @@map("members")
 }

@@ -41,6 +41,7 @@ import {
   createMember,
   getMember,
   listMembers,
+  listSchools,
   listScoutLevels,
   listTroops,
   MembersRequestError,
@@ -53,6 +54,7 @@ import type {
   MemberStatusFilter,
   MemberSummary,
   MemberTypeFilter,
+  SchoolOption,
   ScoutLevelOption,
   TroopOption,
 } from '../types';
@@ -81,6 +83,7 @@ function toFormValues(member: Member): MemberFormValues {
     address: member.address ?? '',
     troopId: member.troop?.id ?? '',
     scoutLevelId: member.scoutLevel?.id ?? '',
+    schoolId: member.school?.id ?? '',
     emergencyContactName: member.emergencyContactName ?? '',
     emergencyContactPhone: member.emergencyContactPhone ?? '',
     notes: member.notes ?? '',
@@ -116,6 +119,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
 
   const [troopOptions, setTroopOptions] = useState<TroopOption[]>([]);
   const [scoutLevelOptions, setScoutLevelOptions] = useState<ScoutLevelOption[]>([]);
+  const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
 
   const [formModal, setFormModal] = useState<{ mode: 'create' } | { mode: 'edit'; member: Member } | null>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
@@ -156,6 +160,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
   useEffect(() => {
     listTroops().then(setTroopOptions).catch(() => setTroopOptions([]));
     listScoutLevels().then(setScoutLevelOptions).catch(() => setScoutLevelOptions([]));
+    listSchools().then(setSchoolOptions).catch(() => setSchoolOptions([]));
   }, []);
 
   async function handleCreate(values: MemberFormValues) {
@@ -223,7 +228,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
   const ownTroopId = isTroopLeader ? ownTroop?.id ?? null : undefined;
   const hasActiveFilters =
     debouncedSearch.length > 0 || statusFilter !== 'all' || typeFilter !== 'all' || troopFilter !== 'all';
-  const columnCount = isTroopLeader ? 6 : 7;
+  const columnCount = isTroopLeader ? 7 : 8;
 
   return (
     <Card>
@@ -327,6 +332,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
                   <TableHeaderCell>Type</TableHeaderCell>
                   {!isTroopLeader ? <TableHeaderCell>Troop</TableHeaderCell> : null}
                   <TableHeaderCell>Scout Level</TableHeaderCell>
+                  <TableHeaderCell>School</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>Joined</TableHeaderCell>
                   <TableHeaderCell>
@@ -366,6 +372,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
                         </TableCell>
                       ) : null}
                       <TableCell>{member.scoutLevel?.name ?? <span className="text-muted">—</span>}</TableCell>
+                      <TableCell>{member.school?.name ?? <span className="text-muted">—</span>}</TableCell>
                       <TableCell>
                         <MemberStatusBadge status={member.status} />
                       </TableCell>
@@ -435,6 +442,7 @@ export function MemberDirectory({ canArchive, currentUserId, isTroopLeader }: Me
         initialValues={formModal?.mode === 'edit' ? toFormValues(formModal.member) : undefined}
         troopOptions={troopOptions}
         scoutLevelOptions={scoutLevelOptions}
+        schoolOptions={schoolOptions}
         restrictToTroopId={ownTroopId}
         onClose={() => setFormModal(null)}
         onSubmit={formModal?.mode === 'edit' ? handleUpdate : handleCreate}

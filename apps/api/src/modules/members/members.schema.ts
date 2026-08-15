@@ -42,6 +42,14 @@ const memberBaseSchema = z.object({
   phoneNumber: z.string().trim().optional(),
   address: z.string().trim().optional(),
   troopId: z.string().uuid('Select a troop.'),
+  schoolId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine((value) => value === undefined || z.string().uuid().safeParse(value).success, {
+      message: 'Invalid school selection.',
+    }),
   emergencyContactName: z.string().trim().optional(),
   emergencyContactPhone: z.string().trim().optional(),
   notes: z.string().trim().optional(),

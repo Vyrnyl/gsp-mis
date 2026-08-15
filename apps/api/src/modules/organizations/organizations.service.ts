@@ -3,6 +3,7 @@ import type {
   ActivityCategoryWithCount,
   BadgeCategoryWithCount,
   CouncilWithCounts,
+  SchoolWithRelations,
   ScoutLevelWithCount,
   TroopWithRelations,
 } from './organizations.repository';
@@ -11,11 +12,13 @@ import type {
   CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
+  CreateSchoolInput,
   CreateScoutLevelInput,
   CreateTroopInput,
   UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
+  UpdateSchoolInput,
   UpdateScoutLevelInput,
   UpdateTroopInput,
 } from './organizations.schema';
@@ -26,9 +29,11 @@ import type {
   ListActivityCategoriesResponseBody,
   ListBadgeCategoriesResponseBody,
   ListCouncilsResponseBody,
+  ListSchoolsResponseBody,
   ListScoutLevelsResponseBody,
   ListTroopLeadersResponseBody,
   ListTroopsResponseBody,
+  SchoolDto,
   ScoutLevelDto,
   TroopDto,
 } from './organizations.types';
@@ -84,6 +89,17 @@ function toActivityCategoryDto(category: ActivityCategoryWithCount): ActivityCat
     name: category.name,
     description: category.description,
     usageCount: category._count.events,
+  };
+}
+
+function toSchoolDto(school: SchoolWithRelations): SchoolDto {
+  return {
+    id: school.id,
+    name: school.name,
+    councilId: school.councilId,
+    councilName: school.council.name,
+    memberCount: school._count.members,
+    createdAt: school.createdAt.toISOString(),
   };
 }
 
@@ -283,5 +299,45 @@ export const organizationsService = {
       throw ApiError.conflict('Remove all events using this category before deleting it.');
     }
     await organizationsRepository.deleteActivityCategory(id);
+  },
+
+  // Schools — scoped to a council like Troop; name only needs to be unique within
+  // that council, not globally, since two different councils could sponsor
+  // same-named institutions.
+  async listSchools(): Promise<ListSchoolsResponseBody> {
+    const schools = await organizationsRepository.listSchools();
+    return { schools: schools.map(toSchoolDto) };
+  },
+
+  async createSchool(input: CreateSchoolInput): Promise<SchoolDto> {
+    await requireCouncilExists(input.councilId);
+
+    const existing = await organizationsRepository.findSchoolByCouncilAndName(input.councilId, input.name.trim());
+    if (existing) throw ApiError.conflict('A school with this name already exists in this council.');
+
+    const created = await organizationsRepository.createSchool(input);
+    return toSchoolDto(created);
+  },
+
+  async updateSchool(id: string, input: UpdateSchoolInput): Promise<SchoolDto> {
+    const school = await organizationsRepository.findSchoolById(id);
+    if (!school) throw ApiError.notFound('School not found.');
+
+    await requireCouncilExists(input.councilId);
+
+    const existing = await organizationsRepository.findSchoolByCouncilAndName(input.councilId, input.name.trim());
+    if (existing && existing.id !== id) throw ApiError.conflict('A school with this name already exists in this council.');
+
+    const updated = await organizationsRepository.updateSchool(id, input);
+    return toSchoolDto(updated);
+  },
+
+  async deleteSchool(id: string): Promise<void> {
+    const school = await organizationsRepository.findSchoolById(id);
+    if (!school) throw ApiError.notFound('School not found.');
+    if (school._count.members > 0) {
+      throw ApiError.conflict('Reassign members using this school before deleting it.');
+    }
+    await organizationsRepository.deleteSchool(id);
   },
 };

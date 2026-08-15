@@ -6,11 +6,13 @@ import {
   createBadgeCategorySchema,
   createCategorySchema,
   createCouncilSchema,
+  createSchoolSchema,
   createScoutLevelSchema,
   createTroopSchema,
   updateBadgeCategorySchema,
   updateCategorySchema,
   updateCouncilSchema,
+  updateSchoolSchema,
   updateScoutLevelSchema,
   updateTroopSchema,
 } from './organizations.schema';
@@ -118,6 +120,26 @@ export const organizationsController = {
   },
   async deleteActivityCategory(req: Request, res: Response): Promise<void> {
     await organizationsService.deleteActivityCategory(req.params['id']!);
+    sendSuccess(res, { deleted: true });
+  },
+
+  // Schools
+  async listSchools(_req: Request, res: Response): Promise<void> {
+    const result = await organizationsService.listSchools();
+    sendSuccess(res, result);
+  },
+  async createSchool(req: Request, res: Response): Promise<void> {
+    const input = createSchoolSchema.parse(req.body);
+    const school = await organizationsService.createSchool(input);
+    sendSuccess(res, { school }, 201);
+  },
+  async updateSchool(req: Request, res: Response): Promise<void> {
+    const input = updateSchoolSchema.parse(req.body);
+    const school = await organizationsService.updateSchool(req.params['id']!, input);
+    sendSuccess(res, { school });
+  },
+  async deleteSchool(req: Request, res: Response): Promise<void> {
+    await organizationsService.deleteSchool(req.params['id']!);
     sendSuccess(res, { deleted: true });
   },
 };

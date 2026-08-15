@@ -64,6 +64,7 @@ export {
 export {
   FaBullhorn as AnnouncementIcon,
   FaCampground as TroopLeaderIcon,
+  FaGraduationCap as SchoolIcon,
   FaLandmark as CouncilIcon,
 } from 'react-icons/fa6';
 

@@ -266,12 +266,30 @@ async function seedOrganization(users: Record<string, string>) {
     troops[definition.troopCode] = troop.id;
   }
 
-  return { councilId: council.id, troops };
+  const schoolDefinitions = [
+    { name: 'Catanduanes State University (CATSU)' },
+    { name: 'Cavite State University (CAVSU)' },
+    { name: 'Institute of Caraga Studies and Arts (ICSA)' },
+  ];
+
+  const schools: Record<string, string> = {};
+
+  for (const definition of schoolDefinitions) {
+    const school = await prisma.school.upsert({
+      where: { councilId_name: { councilId: council.id, name: definition.name } },
+      update: {},
+      create: { name: definition.name, councilId: council.id },
+    });
+    schools[definition.name] = school.id;
+  }
+
+  return { councilId: council.id, troops, schools };
 }
 
 async function seedMembers(
   councilId: string,
   troops: Record<string, string>,
+  schools: Record<string, string>,
   reviewerId: string | undefined,
 ) {
   const statuses = Object.fromEntries(
@@ -291,6 +309,7 @@ async function seedMembers(
       status: 'active',
       type: 'scout',
       birth: '2009-03-14',
+      school: 'Catanduanes State University (CATSU)',
     },
     {
       first: 'Bea',
@@ -301,6 +320,7 @@ async function seedMembers(
       status: 'pending',
       type: 'scout',
       birth: '2013-07-02',
+      school: null,
     },
     {
       first: 'Cristina',
@@ -311,6 +331,7 @@ async function seedMembers(
       status: 'expiring',
       type: 'scout',
       birth: '2007-11-20',
+      school: null,
     },
     {
       first: 'Dana',
@@ -321,6 +342,7 @@ async function seedMembers(
       status: 'archived',
       type: 'scout',
       birth: '2008-05-09',
+      school: null,
     },
     {
       first: 'Elena',
@@ -331,6 +353,7 @@ async function seedMembers(
       status: 'active',
       type: 'scout',
       birth: '2016-01-28',
+      school: null,
     },
     {
       first: 'Faith',
@@ -341,6 +364,7 @@ async function seedMembers(
       status: 'active',
       type: 'scout',
       birth: '2020-09-16',
+      school: null,
     },
     {
       first: 'Grace',
@@ -351,6 +375,7 @@ async function seedMembers(
       status: 'active',
       type: 'adult_leader',
       birth: '1988-04-11',
+      school: 'Cavite State University (CAVSU)',
     },
     {
       first: 'Liza',
@@ -361,6 +386,7 @@ async function seedMembers(
       status: 'active',
       type: 'adult_leader',
       birth: '1985-12-03',
+      school: 'Institute of Caraga Studies and Arts (ICSA)',
     },
     {
       first: 'Marites',
@@ -371,6 +397,7 @@ async function seedMembers(
       status: 'pending',
       type: 'adult_leader',
       birth: '1991-06-25',
+      school: null,
     },
     {
       first: 'Nadine',
@@ -381,6 +408,7 @@ async function seedMembers(
       status: 'expired',
       type: 'scout',
       birth: '2012-10-30',
+      school: null,
     },
   ] as const;
 
@@ -402,6 +430,7 @@ async function seedMembers(
       councilId,
       troopId: troops[definition.troop] ?? null,
       scoutLevelId: definition.level ? (levels[definition.level] ?? null) : null,
+      schoolId: definition.school ? (schools[definition.school] ?? null) : null,
       reviewedById: isApproved ? (reviewerId ?? null) : null,
       reviewedAt: isApproved ? daysFromToday(-120) : null,
     };
@@ -820,11 +849,11 @@ async function main(): Promise<void> {
   console.info('[seed] reference data…');
   await seedReferenceData();
 
-  console.info('[seed] councils and troops…');
-  const { councilId, troops } = await seedOrganization(users);
+  console.info('[seed] councils, troops and schools…');
+  const { councilId, troops, schools } = await seedOrganization(users);
 
   console.info('[seed] members and memberships…');
-  const memberIds = await seedMembers(councilId, troops, users['council@gsp-catanduanes.ph']);
+  const memberIds = await seedMembers(councilId, troops, schools, users['council@gsp-catanduanes.ph']);
 
   console.info('[seed] badges and achievements…');
   await seedBadges(memberIds, users['leader.virac@gsp-catanduanes.ph']);

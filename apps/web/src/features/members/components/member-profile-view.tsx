@@ -32,6 +32,7 @@ import { MEMBER_STATUS_LABELS, MEMBER_TYPE_LABELS } from '../constants';
 import {
   archiveMember,
   getMember,
+  listSchools,
   listScoutLevels,
   listTroops,
   MembersRequestError,
@@ -39,7 +40,14 @@ import {
   restoreMember,
   updateMember,
 } from '../services/members.service';
-import type { Member, MemberFormValues, RenewMembershipValues, ScoutLevelOption, TroopOption } from '../types';
+import type {
+  Member,
+  MemberFormValues,
+  RenewMembershipValues,
+  SchoolOption,
+  ScoutLevelOption,
+  TroopOption,
+} from '../types';
 import { MemberFormModal } from './member-form-modal';
 import { MemberStatusBadge } from './member-status-badge';
 import { RenewMembershipModal } from './renew-membership-modal';
@@ -69,6 +77,7 @@ function toFormValues(member: Member): MemberFormValues {
     address: member.address ?? '',
     troopId: member.troop?.id ?? '',
     scoutLevelId: member.scoutLevel?.id ?? '',
+    schoolId: member.school?.id ?? '',
     emergencyContactName: member.emergencyContactName ?? '',
     emergencyContactPhone: member.emergencyContactPhone ?? '',
     notes: member.notes ?? '',
@@ -97,6 +106,7 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
   const [member, setMember] = useState<Member | null>(null);
   const [troopOptions, setTroopOptions] = useState<TroopOption[]>([]);
   const [scoutLevelOptions, setScoutLevelOptions] = useState<ScoutLevelOption[]>([]);
+  const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRenewOpen, setIsRenewOpen] = useState(false);
   const [confirmTone, setConfirmTone] = useState<'archive' | 'restore' | null>(null);
@@ -124,6 +134,7 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
   useEffect(() => {
     listTroops().then(setTroopOptions).catch(() => setTroopOptions([]));
     listScoutLevels().then(setScoutLevelOptions).catch(() => setScoutLevelOptions([]));
+    listSchools().then(setSchoolOptions).catch(() => setSchoolOptions([]));
   }, []);
 
   async function handleEditSubmit(values: MemberFormValues) {
@@ -271,6 +282,7 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
             {member.memberType === 'scout' ? (
               <ProfileField label="Scout Level" value={member.scoutLevel?.name ?? '—'} />
             ) : null}
+            <ProfileField label="School" value={member.school?.name ?? '—'} />
             <ProfileField label="Council" value={member.councilName ?? '—'} />
           </dl>
         </Card>
@@ -329,6 +341,7 @@ export function MemberProfileView({ memberId, canArchive, currentUserId, isTroop
         initialValues={toFormValues(member)}
         troopOptions={troopOptions}
         scoutLevelOptions={scoutLevelOptions}
+        schoolOptions={schoolOptions}
         restrictToTroopId={ownTroopId}
         onClose={() => setIsEditOpen(false)}
         onSubmit={handleEditSubmit}

@@ -62,6 +62,7 @@ export const EMPTY_MEMBER_FORM_VALUES = {
   address: '',
   troopId: '',
   scoutLevelId: '',
+  schoolId: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   notes: '',

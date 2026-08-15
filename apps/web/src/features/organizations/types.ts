@@ -1,6 +1,7 @@
 export type OrganizationTabId =
   | 'councils'
   | 'troops'
+  | 'schools'
   | 'scout-levels'
   | 'badge-categories'
   | 'activity-categories';
@@ -45,6 +46,21 @@ export interface TroopFormValues {
   name: string;
   councilId: string;
   leaderId: string;
+}
+
+/** Sponsoring school/institution a member may be affiliated with — scoped to a council like Troop. */
+export interface School {
+  id: string;
+  name: string;
+  councilId: string;
+  councilName: string;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface SchoolFormValues {
+  name: string;
+  councilId: string;
 }
 
 /**
