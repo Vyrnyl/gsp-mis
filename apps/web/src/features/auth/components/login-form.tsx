@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { Alert, Button, FormField, Input, PasswordInput, useToast } from '@/shared/components/ui';
-import { DEMO_ACCOUNTS } from '@/shared/mocks/auth.mock';
 
 import { AuthRequestError, login } from '../services/auth.service';
 import type { AuthRoleId } from '../types';
@@ -34,14 +33,6 @@ export function LoginForm({ role, onRoleChange, onSwitchToSignup, onForgotPasswo
 
   const emailError = submitAttempted && email.trim().length === 0 ? 'Email address is required.' : undefined;
   const passwordError = submitAttempted && password.length === 0 ? 'Password is required.' : undefined;
-
-  function fillDemo() {
-    const demo = DEMO_ACCOUNTS[role];
-    setEmail(demo.email);
-    setPassword(demo.password);
-    setError(null);
-    showToast(`Demo credentials filled for ${demo.name}.`, 'success');
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,16 +90,6 @@ export function LoginForm({ role, onRoleChange, onSwitchToSignup, onForgotPasswo
 
       <Button type="submit" variant="primary" isLoading={isSubmitting}>
         Sign In →
-      </Button>
-
-      <div className="my-4 flex items-center gap-3 text-[0.8rem] text-muted">
-        <span className="h-px flex-1 bg-hairline-subtle" aria-hidden />
-        or use demo account
-        <span className="h-px flex-1 bg-hairline-subtle" aria-hidden />
-      </div>
-
-      <Button type="button" variant="outline" className="w-full justify-center" onClick={fillDemo}>
-        Fill Demo Credentials
       </Button>
 
       <p className="mt-4 text-center text-[0.85rem] text-muted">
