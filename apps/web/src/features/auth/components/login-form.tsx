@@ -1,13 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 import { Alert, Button, FormField, Input, PasswordInput, useToast } from '@/shared/components/ui';
 
 import { AuthRequestError, login } from '../services/auth.service';
+import type { AuthRoleId } from '../types';
+import { RoleSelector } from './role-selector';
 
 export interface LoginFormProps {
+  role: AuthRoleId;
+  onRoleChange: (role: AuthRoleId) => void;
   onSwitchToSignup: () => void;
   onForgotPassword: () => void;
 }
@@ -16,7 +20,7 @@ export interface LoginFormProps {
  * UI + Mock step (Loop step 1): credentials are checked against the local demo
  * fixture, not a real session. `POST /api/v1/auth/login` replaces this at step 4.
  */
-export function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginFormProps) {
+export function LoginForm({ role, onRoleChange, onSwitchToSignup, onForgotPassword }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +28,8 @@ export function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginFormProps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
   const router = useRouter();
+
+  useEffect(() => setError(null), [role]);
 
   const emailError = submitAttempted && email.trim().length === 0 ? 'Email address is required.' : undefined;
   const passwordError = submitAttempted && password.length === 0 ? 'Password is required.' : undefined;
@@ -49,6 +55,8 @@ export function LoginForm({ onSwitchToSignup, onForgotPassword }: LoginFormProps
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      <RoleSelector legend="Sign in as" value={role} onChange={onRoleChange} />
+
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       <FormField label="Email Address" required error={emailError}>
