@@ -91,12 +91,7 @@ export function AuthCard() {
       <div className="p-7">
         <div id={loginPanelId} role="tabpanel" aria-labelledby={`${loginPanelId}-tab`} hidden={activeTab !== 'login'}>
           {activeTab === 'login' ? (
-            <LoginForm
-              role={role}
-              onRoleChange={setRole}
-              onSwitchToSignup={openSignup}
-              onForgotPassword={() => setIsForgotOpen(true)}
-            />
+            <LoginForm onSwitchToSignup={openSignup} onForgotPassword={() => setIsForgotOpen(true)} />
           ) : null}
         </div>
         <div
