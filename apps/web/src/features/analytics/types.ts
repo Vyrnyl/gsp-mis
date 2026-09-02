@@ -2,6 +2,18 @@ export type ViewState = 'loading' | 'error' | 'ready';
 
 export type AnalyticsTabId = 'membership' | 'attendance' | 'participation' | 'badges' | 'financial' | 'organization';
 
+/** Mirrors `analytics.schema.ts`'s `dateRangeSchema` by hand — same cross-workspace
+ * convention as reports/finance/members. Presets rather than free-form dates so the
+ * monthly trend buckets always align to whole calendar months. */
+export type DateRange = '3m' | '6m' | '12m' | 'ytd';
+
+export interface AnalyticsFilters {
+  range: DateRange;
+  /** `'all'` is the UI sentinel for "no troop filter" — normalized to an omitted
+   * query param by the service, never sent as a literal. */
+  troopId: string;
+}
+
 /** Stat cards are presentation-only past `id`/`label`/`value` — icon/tone are looked
  * up client-side in `constants.ts`, matching the finance/dashboard features' convention. */
 export interface AnalyticsStatValue {
@@ -25,13 +37,13 @@ export interface MonthlyFinancePoint {
 
 export interface MembershipAnalytics {
   stats: AnalyticsStatValue[];
-  /** New registrations per month, last 6 calendar months. */
+  /** New registrations per calendar month across the selected range. */
   trend: TrendPoint[];
 }
 
 export interface AttendanceAnalytics {
   stats: AnalyticsStatValue[];
-  /** Average attendance rate (%) per month, last 6 calendar months. */
+  /** Average attendance rate (%) per calendar month across the selected range. */
   trend: TrendPoint[];
 }
 
@@ -51,7 +63,7 @@ export interface ParticipationAnalytics {
 export interface BadgeCompletionSlice {
   badgeId: string;
   badgeName: string;
-  /** % of all members who have earned or verified this badge. */
+  /** % of members *in the current troop scope* who have earned or verified this badge. */
   completionRate: number;
 }
 

@@ -1,4 +1,4 @@
-import type { AnalyticsSnapshot } from '../types';
+import type { AnalyticsFilters, AnalyticsSnapshot } from '../types';
 
 interface RawEnvelope<T> {
   success: boolean;
@@ -25,6 +25,10 @@ async function request<T>(path: string): Promise<T> {
   return json.data;
 }
 
-export function getAnalyticsOverview(): Promise<AnalyticsSnapshot> {
-  return request<AnalyticsSnapshot>('/api/analytics/overview');
+export function getAnalyticsOverview(filters: AnalyticsFilters): Promise<AnalyticsSnapshot> {
+  const params = new URLSearchParams({ range: filters.range });
+  // `'all'` is a UI-only sentinel — the API contract expects the param omitted.
+  if (filters.troopId !== 'all') params.set('troopId', filters.troopId);
+
+  return request<AnalyticsSnapshot>(`/api/analytics/overview?${params.toString()}`);
 }

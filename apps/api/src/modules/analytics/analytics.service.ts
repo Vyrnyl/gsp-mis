@@ -1,4 +1,5 @@
 import { analyticsRepository } from './analytics.repository';
+import type { DateRange, OverviewQuery } from './analytics.schema';
 import type {
   AnalyticsSnapshotDto,
   AnalyticsStatValueDto,
@@ -31,18 +32,49 @@ function rate(present: number, total: number): number {
   return total > 0 ? Math.round((present / total) * 100) : 0;
 }
 
-function sixMonthsAgo(): Date {
+/**
+ * How many calendar months each preset spans, counting the current (partial) month
+ * as one. `ytd` is variable — January is 1 month, December is 12 — so it is resolved
+ * against the current date rather than being a fixed number.
+ */
+function monthSpan(range: DateRange): number {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  switch (range) {
+    case '3m':
+      return 3;
+    case '6m':
+      return 6;
+    case '12m':
+      return 12;
+    case 'ytd':
+      return now.getMonth() + 1;
+  }
 }
 
-/** Last 6 calendar months, oldest first — same bucketing technique as the
- * dashboard/finance features' own monthly-trend builders. */
-function monthBuckets(): { label: string; key: string }[] {
+/** First instant of the oldest calendar month in the range — the cutoff every
+ * date-bound repository query and trend bucket is derived from, so the stat cards and
+ * the chart beneath them always cover exactly the same window. */
+function rangeStart(range: DateRange): Date {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, i) => {
-    const month = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    return { label: month.toLocaleString('en-US', { month: 'short' }), key: `${month.getFullYear()}-${month.getMonth()}` };
+  return new Date(now.getFullYear(), now.getMonth() - (monthSpan(range) - 1), 1);
+}
+
+/** Calendar months in the range, oldest first — same bucketing technique as the
+ * dashboard/finance features' own monthly-trend builders, generalized from a
+ * hardcoded 6 to the selected range. Labels carry the year once the span can cross a
+ * year boundary (12m/ytd), so two different "Jan" bars are never ambiguous. */
+function monthBuckets(range: DateRange): { label: string; key: string }[] {
+  const now = new Date();
+  const span = monthSpan(range);
+  const showYear = span > 6;
+
+  return Array.from({ length: span }, (_, i) => {
+    const month = new Date(now.getFullYear(), now.getMonth() - (span - 1 - i), 1);
+    const label = month.toLocaleString('en-US', { month: 'short' });
+    return {
+      label: showYear ? `${label} ${String(month.getFullYear()).slice(2)}` : label,
+      key: `${month.getFullYear()}-${month.getMonth()}`,
+    };
   });
 }
 
@@ -50,13 +82,16 @@ function monthKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
-function buildMembershipAnalytics(members: MemberRow[]): MembershipAnalyticsDto {
+/** Roster counts (total/active/pending) are point-in-time and stay unfiltered by date
+ * — a member active today is active regardless of the window being viewed. Only
+ * "New" and the registrations trend are date-bound. */
+function buildMembershipAnalytics(members: MemberRow[], range: DateRange): MembershipAnalyticsDto {
   const active = members.filter((m) => m.status.name === 'active').length;
   const pending = members.filter((m) => m.status.name === 'pending').length;
-  const since = sixMonthsAgo();
+  const since = rangeStart(range);
   const newThisPeriod = members.filter((m) => m.createdAt >= since).length;
 
-  const trend: TrendPointDto[] = monthBuckets().map(({ label, key }) => ({
+  const trend: TrendPointDto[] = monthBuckets(range).map(({ label, key }) => ({
     label,
     value: members.filter((m) => monthKey(m.createdAt) === key).length,
   }));
@@ -66,18 +101,18 @@ function buildMembershipAnalytics(members: MemberRow[]): MembershipAnalyticsDto 
       stat('totalMembers', 'Total Members', members.length),
       stat('active', 'Active', active),
       stat('pending', 'Pending', pending),
-      stat('newThisPeriod', 'New (6 mo.)', newThisPeriod),
+      stat('newThisPeriod', 'New (in range)', newThisPeriod),
     ],
     trend,
   };
 }
 
-function buildAttendanceAnalytics(events: EventRow[]): AttendanceAnalyticsDto {
+function buildAttendanceAnalytics(events: EventRow[], range: DateRange): AttendanceAnalyticsDto {
   const heldEvents = events.filter((e) => e.attendanceRecords.length > 0);
   const totalPresent = heldEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'present').length, 0);
   const totalAbsent = heldEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'absent').length, 0);
 
-  const trend: TrendPointDto[] = monthBuckets().map(({ label, key }) => {
+  const trend: TrendPointDto[] = monthBuckets(range).map(({ label, key }) => {
     const bucketEvents = heldEvents.filter((e) => monthKey(e.eventDate) === key);
     const present = bucketEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'present').length, 0);
     const absent = bucketEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'absent').length, 0);
@@ -150,27 +185,38 @@ function buildBadgeAnalytics(catalog: { id: string; name: string }[], memberBadg
 function buildMonthlyFinanceTrend(
   payments: { paymentDate: Date; amount: { toNumber(): number } }[],
   expenses: { expenseDate: Date; amount: { toNumber(): number } }[],
+  range: DateRange,
 ): MonthlyFinancePointDto[] {
-  return monthBuckets().map(({ label, key }) => ({
+  return monthBuckets(range).map(({ label, key }) => ({
     label,
     income: payments.filter((p) => monthKey(p.paymentDate) === key).reduce((sum, p) => sum + p.amount.toNumber(), 0),
     expense: expenses.filter((e) => monthKey(e.expenseDate) === key).reduce((sum, e) => sum + e.amount.toNumber(), 0),
   }));
 }
 
+/**
+ * Stats are summed from the *same in-range rows* that build the trend, not from
+ * all-time aggregates. Before the filter revision these were lifetime totals sitting
+ * above a 6-month chart, which was already mildly inconsistent; with a selectable
+ * range it would have been actively misleading (pick "Last 3 months", watch the chart
+ * change while "Total Income" doesn't). Labels say "in range" so the scope is explicit
+ * — Finance (3.1) remains the place to see all-time council totals.
+ */
 function buildFinancialAnalytics(
-  totalIncome: number,
-  totalExpense: number,
   paymentsSince: { paymentDate: Date; amount: { toNumber(): number } }[],
   expensesSince: { expenseDate: Date; amount: { toNumber(): number } }[],
+  range: DateRange,
 ): FinancialAnalyticsDto {
+  const income = paymentsSince.reduce((sum, p) => sum + p.amount.toNumber(), 0);
+  const expense = expensesSince.reduce((sum, e) => sum + e.amount.toNumber(), 0);
+
   return {
     stats: [
-      stat('income', 'Total Income', totalIncome),
-      stat('expenses', 'Total Expenses', totalExpense),
-      stat('balance', 'Council Balance', totalIncome - totalExpense),
+      stat('income', 'Income (in range)', income),
+      stat('expenses', 'Expenses (in range)', expense),
+      stat('balance', 'Net (in range)', income - expense),
     ],
-    trend: buildMonthlyFinanceTrend(paymentsSince, expensesSince),
+    trend: buildMonthlyFinanceTrend(paymentsSince, expensesSince, range),
   };
 }
 
@@ -215,31 +261,40 @@ export const analyticsService = {
   // same "no stored snapshot" simplification precedent as finance/reports —
   // `AnalyticsSnapshot` the schema model stays unused (build-plan.md never scopes
   // saving/browsing historical snapshots, only live aggregation).
-  async getOverview(): Promise<AnalyticsSnapshotDto> {
-    const since = sixMonthsAgo();
-    const [members, events, badgeCatalog, memberBadges, troops, incomeAgg, expenseAgg, paymentsSince, expensesSince] =
+  async getOverview(query: OverviewQuery): Promise<AnalyticsSnapshotDto> {
+    const { range, troopId } = query;
+    const since = rangeStart(range);
+
+    // The Organization tab is the per-troop comparison itself, so it is built from
+    // deliberately unscoped rows — filtering to one troop would collapse it to a
+    // single row and destroy the only view that answers "how do troops compare?".
+    // The frontend disables the troop filter on that tab to match.
+    const [members, events, badgeCatalog, memberBadges, troops, orgMembers, orgEvents, orgMemberBadges, paymentsSince, expensesSince] =
       await Promise.all([
-        analyticsRepository.listMembers(),
-        analyticsRepository.listEventsWithDetail(),
+        analyticsRepository.listMembers(troopId),
+        analyticsRepository.listEventsWithDetail(since, troopId),
         analyticsRepository.listBadgeCatalog(),
-        analyticsRepository.listMemberBadges(),
+        analyticsRepository.listMemberBadges(troopId),
         analyticsRepository.listTroops(),
-        analyticsRepository.totalIncome(),
-        analyticsRepository.totalExpenses(),
+        troopId ? analyticsRepository.listMembers() : null,
+        troopId ? analyticsRepository.listEventsWithDetail(since) : null,
+        troopId ? analyticsRepository.listMemberBadges() : null,
         analyticsRepository.paymentsSince(since),
         analyticsRepository.expensesSince(since),
       ]);
 
-    const totalIncome = incomeAgg._sum.amount?.toNumber() ?? 0;
-    const totalExpense = expenseAgg._sum.amount?.toNumber() ?? 0;
-
     return {
-      membership: buildMembershipAnalytics(members),
-      attendance: buildAttendanceAnalytics(events),
+      membership: buildMembershipAnalytics(members, range),
+      attendance: buildAttendanceAnalytics(events, range),
       participation: buildParticipationAnalytics(events),
       badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length),
-      financial: buildFinancialAnalytics(totalIncome, totalExpense, paymentsSince, expensesSince),
-      organization: buildOrganizationAnalytics(troops, members, events, memberBadges),
+      financial: buildFinancialAnalytics(paymentsSince, expensesSince, range),
+      organization: buildOrganizationAnalytics(
+        troops,
+        orgMembers ?? members,
+        orgEvents ?? events,
+        orgMemberBadges ?? memberBadges,
+      ),
       generatedAt: new Date().toISOString(),
     };
   },

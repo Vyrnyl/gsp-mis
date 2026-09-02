@@ -17,7 +17,22 @@ import {
 import type { StatCardTone } from '@/shared/components/ui';
 import { palette } from '@/shared/design/tokens';
 
-import type { AnalyticsTabId } from './types';
+import type { AnalyticsTabId, DateRange } from './types';
+
+/** Mirrors `analytics.schema.ts`'s `dateRangeSchema`. Presets rather than free-form
+ * date inputs (Reports' approach) because the trend charts bucket by whole calendar
+ * months — an arbitrary mid-month boundary would render a misleading partial bar. */
+export const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: '3m', label: 'Last 3 months' },
+  { value: '6m', label: 'Last 6 months' },
+  { value: '12m', label: 'Last 12 months' },
+  { value: 'ytd', label: 'This year' },
+];
+
+export const DEFAULT_DATE_RANGE: DateRange = '6m';
+
+/** Sentinel for "no troop filter" — never sent to the API (see `analytics.service`). */
+export const ALL_TROOPS = 'all';
 
 export const ANALYTICS_TABS: { id: AnalyticsTabId; label: string }[] = [
   { id: 'membership', label: 'Membership' },
