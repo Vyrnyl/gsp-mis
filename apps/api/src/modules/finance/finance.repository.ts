@@ -33,7 +33,12 @@ const paymentInclude = {
   feeType: true,
   receivedBy: true,
 } satisfies Prisma.PaymentInclude;
-const expenseInclude = { approvedBy: true } satisfies Prisma.ExpenseInclude;
+const expenseInclude = {
+  approvedBy: true,
+  expenseCategory: true,
+  school: true,
+  event: true,
+} satisfies Prisma.ExpenseInclude;
 const feeTypeInclude = { _count: { select: { payments: true } } } satisfies Prisma.FeeTypeInclude;
 
 export type PaymentWithRelations = Prisma.PaymentGetPayload<{ include: typeof paymentInclude }>;
@@ -132,10 +137,21 @@ export const financeRepository = {
         description: input.description.trim(),
         amount: input.amount,
         expenseDate: new Date(input.expenseDate),
-        category: input.category?.trim() || null,
+        // New expenses categorise through the relation. The legacy free-text column is
+        // left null — it exists only to preserve pre-2026-09-16 rows (see schema).
+        categoryId: input.categoryId ?? null,
+        schoolId: input.schoolId ?? null,
+        eventId: input.eventId ?? null,
         approvedById,
       },
       include: expenseInclude,
+    });
+  },
+
+  listExpenseCategories() {
+    return prisma.expenseCategory.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
     });
   },
 
@@ -161,8 +177,16 @@ export const financeRepository = {
   countPendingPayments() {
     return prisma.payment.count({ where: { status: 'pending' } });
   },
-  expensesByCategory() {
-    return prisma.expense.groupBy({ by: ['category'], _sum: { amount: true } });
+  /**
+   * Returns raw rows rather than a `groupBy`, because an expense can be categorised
+   * two ways: through `expenseCategory` (2026-09-16 onward) or, for rows predating
+   * that, the legacy free-text `category` string. Grouping on either column alone
+   * would drop half the data — the service folds both into one label per row.
+   */
+  expenseCategoryRows() {
+    return prisma.expense.findMany({
+      select: { amount: true, category: true, expenseCategory: { select: { name: true } } },
+    });
   },
   /** Exactly one seeded period today (`FY 2026`) — the most recent one stands in for
    * "the current period" until Phase 3 ever needs multi-period selection. */

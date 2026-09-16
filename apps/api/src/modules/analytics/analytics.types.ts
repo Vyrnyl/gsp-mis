@@ -149,14 +149,52 @@ export interface InsightDto {
   metric: string;
 }
 
+export interface MoneySliceDto {
+  id: string;
+  label: string;
+  amount: number;
+  share: number;
+}
+
+/** Income and expenses side by side for one school, with the resulting net — the
+ * comparison the brief asks for ("compare spending between schools"), derivable since
+ * the 2026-09-16 expense-attribution migration. */
+export interface SchoolFinanceRowDto {
+  id: string;
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+/** A member whose age has moved past their current level's band — the derivable half
+ * of the brief's promotion ask. Promotion *history* is still not recorded anywhere, so
+ * trends over time remain out of reach; this is a point-in-time readiness check. */
+export interface PromotionReadinessRowDto {
+  levelId: string;
+  levelName: string;
+  /** Members above `maxAge` for this level. */
+  overAge: number;
+  memberCount: number;
+  /** Where they should move next, by `orderNumber`. Null at the top level. */
+  nextLevelName: string | null;
+}
+
 export interface DecisionSupportDto {
   insights: InsightDto[];
   /** Groups excluded from ranking for having too few members to judge fairly — shown
    * explicitly so a suppressed group is never mistaken for a healthy one. */
   suppressed: { label: string; memberCount: number; reason: string }[];
-  /** Income by school — the derivable half of the brief's budget breakdown. */
-  incomeBySchool: { id: string; label: string; amount: number; share: number }[];
-  /** Expense totals by their free-text `category` string. Council-wide: expenses
-   * carry no school/troop/event FK, so this cannot be attributed further. */
-  expenseByCategory: { label: string; amount: number; share: number }[];
+  incomeBySchool: MoneySliceDto[];
+  /** Expense totals by category — the controlled `ExpenseCategory` where set, else the
+   * legacy free-text label for rows predating it (2026-09-16). */
+  expenseByCategory: MoneySliceDto[];
+  /** Spending attributed to a school. Rows with no school FK are reported under an
+   * explicit "Council-wide" entry rather than dropped or guessed at. */
+  expenseBySchool: MoneySliceDto[];
+  /** Spending attributed to a specific event/activity. */
+  expenseByEvent: MoneySliceDto[];
+  /** Income vs. spending per school, with net — the direct school-to-school comparison. */
+  schoolFinance: SchoolFinanceRowDto[];
+  promotionReadiness: PromotionReadinessRowDto[];
 }

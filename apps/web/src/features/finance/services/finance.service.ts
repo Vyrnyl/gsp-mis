@@ -1,4 +1,5 @@
 import type {
+  ExpenseCategoryOption,
   ExpenseFormValues,
   ExpenseSummary,
   FeeTypeFormValues,
@@ -120,9 +121,23 @@ export async function listExpenses(params: { page?: number; pageSize?: number } 
 export async function recordExpense(values: ExpenseFormValues): Promise<ExpenseSummary> {
   const { data } = await request<{ expense: ExpenseSummary }>('/api/finance/expenses', {
     method: 'POST',
-    body: JSON.stringify({ ...values, category: values.category || undefined }),
+    // Empty strings are the form's 'nothing selected' sentinel; the API's schema
+    // coerces them away, but omitting them keeps the request honest about intent.
+    body: JSON.stringify({
+      description: values.description,
+      amount: values.amount,
+      expenseDate: values.expenseDate,
+      categoryId: values.categoryId || undefined,
+      schoolId: values.schoolId || undefined,
+      eventId: values.eventId || undefined,
+    }),
   });
   return data.expense;
+}
+
+export async function listExpenseCategories(): Promise<ExpenseCategoryOption[]> {
+  const { data } = await request<{ categories: ExpenseCategoryOption[] }>('/api/finance/expense-categories');
+  return data.categories;
 }
 
 export async function listFeeTypes(): Promise<FeeTypeItem[]> {

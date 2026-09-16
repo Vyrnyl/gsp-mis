@@ -11,6 +11,11 @@ export const financeController = {
     sendSuccess(res, result);
   },
 
+  async listExpenseCategories(_req: Request, res: Response): Promise<void> {
+    const result = await financeService.listExpenseCategories();
+    sendSuccess(res, result);
+  },
+
   async getSummaries(_req: Request, res: Response): Promise<void> {
     const result = await financeService.getSummaries();
     sendSuccess(res, result);

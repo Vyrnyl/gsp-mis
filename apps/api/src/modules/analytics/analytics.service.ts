@@ -13,9 +13,12 @@ import type {
   FinancialAnalyticsDto,
   InsightDto,
   MembershipAnalyticsDto,
+  MoneySliceDto,
   MonthlyFinancePointDto,
   OrganizationAnalyticsDto,
   ParticipationAnalyticsDto,
+  PromotionReadinessRowDto,
+  SchoolFinanceRowDto,
   TrendPointDto,
 } from './analytics.types';
 
@@ -29,9 +32,11 @@ type MemberRow = {
   createdAt: Date;
   troopId: string | null;
   status: { name: string };
+  birthDate: Date | null;
   school: NamedRef;
   scoutLevel: LevelRef;
 };
+type ScoutLevelRow = { id: string; name: string; orderNumber: number; minAge: number | null; maxAge: number | null };
 type AttendanceMemberRef = { troopId: string | null; school: NamedRef; scoutLevel: LevelRef };
 type EventRow = {
   id: string;
@@ -49,7 +54,15 @@ type MemberBadgeRow = {
 };
 type BadgeCatalogRow = { id: string; name: string; category: NamedRef };
 type PaymentRow = { paymentDate: Date; amount: { toNumber(): number }; member: { school: NamedRef } };
-type ExpenseRow = { expenseDate: Date; amount: { toNumber(): number }; category: string | null };
+type ExpenseRow = {
+  expenseDate: Date;
+  amount: { toNumber(): number };
+  /** Legacy free-text label, kept for rows predating the controlled vocabulary. */
+  category: string | null;
+  expenseCategory: NamedRef;
+  school: NamedRef;
+  event: { id: string; title: string } | null;
+};
 
 function stat(id: string, label: string, value: number | string): AnalyticsStatValueDto {
   return { id, label, value };
@@ -293,6 +306,9 @@ function buildOrganizationAnalytics(
 const UNASSIGNED_SCHOOL = 'No school recorded';
 const UNASSIGNED_LEVEL = 'No level assigned';
 const UNCATEGORIZED = 'Uncategorized';
+/** Spending with no school or event attached. A real category — many council costs
+ * genuinely are council-wide — so it is labelled, not hidden. */
+const COUNCIL_WIDE = 'Council-wide';
 
 /**
  * Below this many members a group is not ranked. A school with 2 members at 0%
@@ -499,6 +515,7 @@ function buildDecisionSupport(
   members: MemberRow[],
   payments: PaymentRow[],
   expenses: ExpenseRow[],
+  scoutLevels: ScoutLevelRow[],
 ): DecisionSupportDto {
   const insights: InsightDto[] = [];
   const suppressed: DecisionSupportDto['suppressed'] = [];
@@ -598,33 +615,30 @@ function buildDecisionSupport(
     });
   }
 
-  // ── Budget: income side only ───────────────────────────────
-  // `Expense` carries no school/troop/event FK, so expenses cannot be attributed to
-  // a school and the brief's "which school has the highest expenses" is not
-  // answerable from this schema. Income is attributable (Payment → Member → School),
-  // so that half is built and labelled as such rather than presented as a full picture.
-  const incomeGroups = new Map<string, { label: string; amount: number }>();
-  for (const payment of payments) {
-    const school = payment.member.school;
-    const id = school?.id ?? 'unassigned';
-    const group = incomeGroups.get(id) ?? { label: school?.name ?? UNASSIGNED_SCHOOL, amount: 0 };
-    group.amount += payment.amount.toNumber();
-    incomeGroups.set(id, group);
-  }
-  const totalIncome = Array.from(incomeGroups.values()).reduce((sum, g) => sum + g.amount, 0);
-  const incomeBySchool = Array.from(incomeGroups.entries())
-    .map(([id, group]) => ({ id, label: group.label, amount: group.amount, share: share(group.amount, totalIncome) }))
-    .sort((a, b) => b.amount - a.amount);
+  // ── Budget: both sides, genuinely attributed ───────────────
+  // Before 2026-09-16 only income could be attributed (Payment → Member → School);
+  // `Expense` had no school/event FK at all, so this section was income-only. The
+  // attribution migration made the brief's "which school or activity has the highest
+  // expenses" and "compare spending between schools" actually derivable.
+  const incomeBySchool = sumByDimension(payments, (p) => p.member.school, UNASSIGNED_SCHOOL);
+  const expenseByCategory = sumByDimension(
+    expenses,
+    // Controlled category first, falling back to the legacy free-text label so rows
+    // predating the vocabulary still appear instead of silently dropping out.
+    (e) => e.expenseCategory ?? (e.category?.trim() ? { id: e.category.trim(), name: e.category.trim() } : null),
+    UNCATEGORIZED,
+  );
+  const expenseBySchool = sumByDimension(expenses, (e) => e.school, COUNCIL_WIDE);
+  const expenseByEvent = sumByDimension(
+    expenses,
+    (e) => (e.event ? { id: e.event.id, name: e.event.title } : null),
+    COUNCIL_WIDE,
+  );
 
-  const expenseGroups = new Map<string, number>();
-  for (const expense of expenses) {
-    const label = expense.category?.trim() || UNCATEGORIZED;
-    expenseGroups.set(label, (expenseGroups.get(label) ?? 0) + expense.amount.toNumber());
-  }
-  const totalExpense = Array.from(expenseGroups.values()).reduce((sum, amount) => sum + amount, 0);
-  const expenseByCategory = Array.from(expenseGroups.entries())
-    .map(([label, amount]) => ({ label, amount, share: share(amount, totalExpense) }))
-    .sort((a, b) => b.amount - a.amount);
+  // Income and spending per school, so the two sides can actually be compared. Only
+  // real schools appear — the unattributed buckets on either side are not a school and
+  // would make a meaningless "net" row.
+  const schoolFinance = buildSchoolFinance(incomeBySchool, expenseBySchool);
 
   const topExpense = expenseByCategory[0];
   if (topExpense && expenseByCategory.length > 1) {
@@ -633,9 +647,57 @@ function buildDecisionSupport(
       severity: 'info',
       category: 'budget',
       title: `${topExpense.label} is the largest spending category`,
-      detail: `${topExpense.share}% of all recorded spending in range. Expenses are council-wide — the schema records no school or activity against them, so they cannot be attributed further.`,
+      detail: `${topExpense.share}% of all recorded spending in range.`,
       recommendation: 'Confirm this allocation matches council priorities for the period.',
       metric: `${topExpense.share}% of spend`,
+    });
+  }
+
+  // Which school costs the most to run relative to what it brings in — the brief's
+  // "which school or activity has the highest expenses" / "areas that should receive
+  // more budget" question, now answerable rather than deferred.
+  const deepestDeficit = [...schoolFinance].sort((a, b) => a.net - b.net)[0];
+  if (deepestDeficit && deepestDeficit.net < 0) {
+    insights.push({
+      id: 'school-net-deficit',
+      severity: 'warning',
+      category: 'budget',
+      title: `${deepestDeficit.label} costs more than it brings in`,
+      detail: `${formatAmount(deepestDeficit.expense)} spent against ${formatAmount(deepestDeficit.income)} collected — a net of ${formatAmount(deepestDeficit.net)} in range.`,
+      recommendation: 'Review whether this reflects a deliberate investment or a fee-collection gap worth chasing.',
+      metric: `${formatAmount(deepestDeficit.net)} net`,
+    });
+  }
+
+  const topEventSpend = expenseByEvent.filter((row) => row.id !== 'unassigned')[0];
+  if (topEventSpend) {
+    insights.push({
+      id: 'event-spend-concentration',
+      severity: 'info',
+      category: 'budget',
+      title: `${topEventSpend.label} is the most expensive activity`,
+      detail: `${formatAmount(topEventSpend.amount)} of attributed spending, ${topEventSpend.share}% of all spending in range.`,
+      recommendation: 'Weigh this against the activity’s turnout before budgeting the next one.',
+      metric: `${formatAmount(topEventSpend.amount)}`,
+    });
+  }
+
+  // ── Promotion readiness ────────────────────────────────────
+  // Point-in-time only: `Membership` records renewal, not level changes, so there is
+  // still no promotion *history* to trend. What is derivable since 2026-09-16 is who
+  // has aged past their current level's structured band.
+  const promotionReadiness = buildPromotionReadiness(members, scoutLevels);
+  const dueForPromotion = promotionReadiness.reduce((sum, row) => sum + row.overAge, 0);
+  if (dueForPromotion > 0) {
+    const worst = [...promotionReadiness].sort((a, b) => b.overAge - a.overAge)[0]!;
+    insights.push({
+      id: 'promotion-due',
+      severity: 'warning',
+      category: 'membership',
+      title: `${dueForPromotion} member${dueForPromotion === 1 ? ' has' : 's have'} aged past their level`,
+      detail: `${worst.overAge} in ${worst.levelName} alone${worst.nextLevelName ? `, who should move up to ${worst.nextLevelName}` : ''}.`,
+      recommendation: 'Review these members for promotion so their level reflects their age.',
+      metric: `${dueForPromotion} due`,
     });
   }
 
@@ -643,7 +705,114 @@ function buildDecisionSupport(
   const severityOrder: Record<InsightDto['severity'], number> = { critical: 0, warning: 1, info: 2 };
   insights.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
-  return { insights, suppressed, incomeBySchool, expenseByCategory };
+  return {
+    insights,
+    suppressed,
+    incomeBySchool,
+    expenseByCategory,
+    expenseBySchool,
+    expenseByEvent,
+    schoolFinance,
+    promotionReadiness,
+  };
+}
+
+/** Sums money rows by a nullable named dimension, returning each slice's share of the
+ * total. Rows whose dimension is null land in an explicit bucket (`unassigned`) rather
+ * than being dropped — unattributed spending is a real, reportable category, and
+ * hiding it would make the percentages lie. */
+function sumByDimension<T extends { amount: { toNumber(): number } }>(
+  rows: T[],
+  pick: (row: T) => NamedRef,
+  unassignedLabel: string,
+): MoneySliceDto[] {
+  const groups = new Map<string, { label: string; amount: number }>();
+
+  for (const row of rows) {
+    const ref = pick(row);
+    const id = ref?.id ?? 'unassigned';
+    const group = groups.get(id) ?? { label: ref?.name ?? unassignedLabel, amount: 0 };
+    group.amount += row.amount.toNumber();
+    groups.set(id, group);
+  }
+
+  const total = Array.from(groups.values()).reduce((sum, g) => sum + g.amount, 0);
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({ id, label: group.label, amount: group.amount, share: share(group.amount, total) }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/** Joins the income and expense sides per school. Only real schools appear: the
+ * unattributed bucket exists on both sides but is not a school, so netting it would
+ * produce a row that compares nothing. */
+function buildSchoolFinance(income: MoneySliceDto[], expense: MoneySliceDto[]): SchoolFinanceRowDto[] {
+  const byId = new Map<string, SchoolFinanceRowDto>();
+
+  const ensure = (id: string, label: string) => {
+    let row = byId.get(id);
+    if (!row) {
+      row = { id, label, income: 0, expense: 0, net: 0 };
+      byId.set(id, row);
+    }
+    return row;
+  };
+
+  for (const slice of income) {
+    if (slice.id === 'unassigned') continue;
+    ensure(slice.id, slice.label).income += slice.amount;
+  }
+  for (const slice of expense) {
+    if (slice.id === 'unassigned') continue;
+    ensure(slice.id, slice.label).expense += slice.amount;
+  }
+
+  return Array.from(byId.values())
+    .map((row) => ({ ...row, net: row.income - row.expense }))
+    .sort((a, b) => b.expense - a.expense);
+}
+
+/** Whole years old at `on`, or null when no birth date is recorded. */
+function ageOn(birthDate: Date, on: Date): number {
+  let age = on.getFullYear() - birthDate.getFullYear();
+  const monthDelta = on.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && on.getDate() < birthDate.getDate())) age -= 1;
+  return age;
+}
+
+/**
+ * Counts members who have aged past their current level's `maxAge`. Skips members with
+ * no birth date and levels with no upper bound — both are missing information, and
+ * treating a missing bound as 0 would flag the entire level as over-age.
+ *
+ * This is deliberately a *readiness* check, not a promotion trend: `Membership` records
+ * renewal, not level changes, so the database holds no history of who moved when.
+ */
+function buildPromotionReadiness(members: MemberRow[], levels: ScoutLevelRow[]): PromotionReadinessRowDto[] {
+  const today = new Date();
+  const ordered = [...levels].sort((a, b) => a.orderNumber - b.orderNumber);
+
+  return ordered
+    .filter((level) => level.maxAge !== null)
+    .map((level, index) => {
+      const levelMembers = members.filter((m) => m.scoutLevel?.id === level.id);
+      const overAge = levelMembers.filter((m) => m.birthDate !== null && ageOn(m.birthDate, today) > level.maxAge!).length;
+
+      return {
+        levelId: level.id,
+        levelName: level.name,
+        overAge,
+        memberCount: levelMembers.length,
+        nextLevelName: ordered[index + 1]?.name ?? null,
+      };
+    })
+    .filter((row) => row.memberCount > 0);
+}
+
+/** Peso amounts inside insight prose. The UI formats its own currency; this exists so
+ * a `detail` string reads as money rather than a bare number. */
+function formatAmount(value: number): string {
+  return `₱${Math.round(value).toLocaleString('en-PH')}`;
 }
 
 /** Council-wide badges per member — the baseline a weak level is compared against,
@@ -666,8 +835,19 @@ export const analyticsService = {
     // deliberately unscoped rows — filtering to one troop would collapse it to a
     // single row and destroy the only view that answers "how do troops compare?".
     // The frontend disables the troop filter on that tab to match.
-    const [members, events, badgeCatalog, memberBadges, troops, orgMembers, orgEvents, orgMemberBadges, paymentsSince, expensesSince] =
-      await Promise.all([
+    const [
+      members,
+      events,
+      badgeCatalog,
+      memberBadges,
+      troops,
+      orgMembers,
+      orgEvents,
+      orgMemberBadges,
+      paymentsSince,
+      expensesSince,
+      scoutLevels,
+    ] = await Promise.all([
         analyticsRepository.listMembers(troopId),
         analyticsRepository.listEventsWithDetail(since, troopId),
         analyticsRepository.listBadgeCatalog(),
@@ -678,6 +858,7 @@ export const analyticsService = {
         troopId ? analyticsRepository.listMemberBadges() : null,
         analyticsRepository.paymentsSince(since),
         analyticsRepository.expensesSince(since),
+        analyticsRepository.listScoutLevels(),
       ]);
 
     // Breakdowns follow the page's troop scope (unlike Organization, which is the
@@ -698,7 +879,7 @@ export const analyticsService = {
         orgMemberBadges ?? memberBadges,
       ),
       breakdown,
-      decisionSupport: buildDecisionSupport(breakdown, members, paymentsSince, expensesSince),
+      decisionSupport: buildDecisionSupport(breakdown, members, paymentsSince, expensesSince, scoutLevels),
       generatedAt: new Date().toISOString(),
     };
   },

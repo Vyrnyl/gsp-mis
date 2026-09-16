@@ -213,6 +213,10 @@ describe('financeService expenses', () => {
         amount: 12500,
         expenseDate: '2026-06-10',
         category: 'Camp',
+        // Attribution (2026-09-16) — null here because this fixture is a legacy
+        // free-text expense with no school or event attached.
+        schoolName: null,
+        eventTitle: null,
         approvedByName: 'Marisol Tabuena',
       },
     ]);
@@ -226,7 +230,7 @@ describe('financeService expenses', () => {
       description: 'Camp supplies',
       amount: 12500,
       expenseDate: '2026-06-10',
-      category: 'Camp',
+      categoryId: '11111111-1111-4111-8111-111111111111',
     };
     const result = await financeService.createExpense(input, 'user-1');
 
@@ -242,9 +246,12 @@ describe('financeService summaries', () => {
     vi.spyOn(financeRepository, 'totalIncome').mockResolvedValue({ _sum: { amount: decimal(2100) } } as never);
     vi.spyOn(financeRepository, 'totalExpenses').mockResolvedValue({ _sum: { amount: decimal(20500) } } as never);
     vi.spyOn(financeRepository, 'countPendingPayments').mockResolvedValue(1);
-    vi.spyOn(financeRepository, 'expensesByCategory').mockResolvedValue([
-      { category: 'Camp', _sum: { amount: decimal(12500) } },
-      { category: null, _sum: { amount: decimal(0) } },
+    // Mixes a controlled-category row with a legacy free-text one and an
+    // uncategorised row, so the fold covers all three shapes (2026-09-16).
+    vi.spyOn(financeRepository, 'expenseCategoryRows').mockResolvedValue([
+      { amount: decimal(12500), category: null, expenseCategory: { name: 'Camp' } },
+      { amount: decimal(4800), category: 'Materials', expenseCategory: null },
+      { amount: decimal(99), category: null, expenseCategory: null },
     ] as never);
     vi.spyOn(financeRepository, 'paymentsSince').mockResolvedValue([
       { paymentDate: new Date(), amount: decimal(350) },
@@ -267,7 +274,10 @@ describe('financeService summaries', () => {
       { id: 'balance', label: 'Council Balance', value: -18400 },
       { id: 'pendingPayments', label: 'Pending Payments', value: 1 },
     ]);
-    expect(result.expenseByCategory).toEqual([{ category: 'Camp', amount: 12500 }]);
+    expect(result.expenseByCategory).toEqual([
+      { category: 'Camp', amount: 12500 },
+      { category: 'Materials', amount: 4800 },
+    ]);
     expect(result.monthlyTrend).toHaveLength(6);
     expect(result.monthlyTrend.at(-1)).toMatchObject({ income: 350, expense: 12500 });
     expect(result.period).toEqual({
@@ -285,7 +295,7 @@ describe('financeService summaries', () => {
     vi.spyOn(financeRepository, 'totalIncome').mockResolvedValue({ _sum: { amount: null } } as never);
     vi.spyOn(financeRepository, 'totalExpenses').mockResolvedValue({ _sum: { amount: null } } as never);
     vi.spyOn(financeRepository, 'countPendingPayments').mockResolvedValue(0);
-    vi.spyOn(financeRepository, 'expensesByCategory').mockResolvedValue([] as never);
+    vi.spyOn(financeRepository, 'expenseCategoryRows').mockResolvedValue([] as never);
     vi.spyOn(financeRepository, 'paymentsSince').mockResolvedValue([] as never);
     vi.spyOn(financeRepository, 'expensesSince').mockResolvedValue([] as never);
     vi.spyOn(financeRepository, 'currentPeriod').mockResolvedValue(null);

@@ -93,7 +93,9 @@ export const EMPTY_EXPENSE_FORM_VALUES: ExpenseFormValues = {
   description: '',
   amount: undefined,
   expenseDate: new Date().toISOString().slice(0, 10),
-  category: '',
+  categoryId: '',
+  schoolId: '',
+  eventId: '',
 };
 
 export const EMPTY_FEE_TYPE_FORM_VALUES: FeeTypeFormValues = {

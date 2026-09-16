@@ -73,7 +73,7 @@ export function ExpensesPanel({
         }
       />
 
-      {viewState === 'loading' ? <TableSkeleton rows={4} columns={5} /> : null}
+      {viewState === 'loading' ? <TableSkeleton rows={4} columns={6} /> : null}
 
       {viewState === 'error' ? (
         <ErrorState onRetry={onRetry} description="We could not load expenses. Check your connection and try again." />
@@ -101,6 +101,7 @@ export function ExpensesPanel({
                 <TableRow>
                   <TableHeaderCell>Description</TableHeaderCell>
                   <TableHeaderCell>Category</TableHeaderCell>
+                  <TableHeaderCell>Attributed To</TableHeaderCell>
                   <TableHeaderCell>Amount</TableHeaderCell>
                   <TableHeaderCell>Date</TableHeaderCell>
                   <TableHeaderCell>Approved By</TableHeaderCell>
@@ -112,6 +113,18 @@ export function ExpensesPanel({
                     <TableCell className="font-semibold text-ink">{expense.description}</TableCell>
                     <TableCell>
                       {expense.category ? <Badge tone="gray">{expense.category}</Badge> : <span className="text-muted">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {/* Attribution (2026-09-16). Council-wide costs legitimately have
+                          neither, and say so rather than showing a bare dash. */}
+                      {expense.schoolName || expense.eventTitle ? (
+                        <div className="flex flex-wrap gap-1">
+                          {expense.schoolName ? <Badge tone="blue">{expense.schoolName}</Badge> : null}
+                          {expense.eventTitle ? <Badge tone="green">{expense.eventTitle}</Badge> : null}
+                        </div>
+                      ) : (
+                        <span className="whitespace-nowrap text-muted">Council-wide</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="whitespace-nowrap font-semibold text-ink">{formatCurrency(expense.amount)}</span>

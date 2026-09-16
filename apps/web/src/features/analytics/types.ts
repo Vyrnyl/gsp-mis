@@ -168,11 +168,43 @@ export interface Insight {
   metric: string;
 }
 
+export interface MoneySlice {
+  id: string;
+  label: string;
+  amount: number;
+  share: number;
+}
+
+/** Income vs. spending for one school, with net — the direct comparison the brief
+ * asks for, derivable since the 2026-09-16 expense-attribution migration. */
+export interface SchoolFinanceRow {
+  id: string;
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+/** Members who have aged past their level's band. Point-in-time only — the database
+ * records no promotion history, so trends over time remain underivable. */
+export interface PromotionReadinessRow {
+  levelId: string;
+  levelName: string;
+  overAge: number;
+  memberCount: number;
+  nextLevelName: string | null;
+}
+
 export interface DecisionSupport {
   insights: Insight[];
   /** Groups too small to rank fairly — shown so "insufficient data" never reads as
    * "healthy". */
   suppressed: { label: string; memberCount: number; reason: string }[];
-  incomeBySchool: { id: string; label: string; amount: number; share: number }[];
-  expenseByCategory: { label: string; amount: number; share: number }[];
+  incomeBySchool: MoneySlice[];
+  expenseByCategory: MoneySlice[];
+  /** Spending attributed to a school; unattributed rows appear as "Council-wide". */
+  expenseBySchool: MoneySlice[];
+  expenseByEvent: MoneySlice[];
+  schoolFinance: SchoolFinanceRow[];
+  promotionReadiness: PromotionReadinessRow[];
 }

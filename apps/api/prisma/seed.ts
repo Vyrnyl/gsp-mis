@@ -36,12 +36,26 @@ const MEMBER_STATUSES = [
   { name: 'rejected', description: 'Registration declined by the Council' },
 ];
 
+/** `minAge`/`maxAge` are the authoritative age bands (2026-09-16) — `description`
+ * repeats them for display only. Promotion-readiness reads the columns, never the
+ * prose, so rewording a description can never change who counts as due for promotion. */
 const SCOUT_LEVELS = [
-  { name: 'Twinkler', description: 'Ages 4–6', orderNumber: 1 },
-  { name: 'Star Scout', description: 'Ages 7–9', orderNumber: 2 },
-  { name: 'Junior Girl Scout', description: 'Ages 10–12', orderNumber: 3 },
-  { name: 'Senior Girl Scout', description: 'Ages 13–16', orderNumber: 4 },
-  { name: 'Cadet Girl Scout', description: 'Ages 17–19', orderNumber: 5 },
+  { name: 'Twinkler', description: 'Ages 4–6', orderNumber: 1, minAge: 4, maxAge: 6 },
+  { name: 'Star Scout', description: 'Ages 7–9', orderNumber: 2, minAge: 7, maxAge: 9 },
+  { name: 'Junior Girl Scout', description: 'Ages 10–12', orderNumber: 3, minAge: 10, maxAge: 12 },
+  { name: 'Senior Girl Scout', description: 'Ages 13–16', orderNumber: 4, minAge: 13, maxAge: 16 },
+  { name: 'Cadet Girl Scout', description: 'Ages 17–19', orderNumber: 5, minAge: 17, maxAge: 19 },
+];
+
+/** Controlled expense categories (2026-09-16), replacing free-text `Expense.category`.
+ * 'Camp' deliberately absorbs what was previously also entered as 'Camping' — that
+ * duplication is exactly what this vocabulary exists to prevent. */
+const EXPENSE_CATEGORIES = [
+  { name: 'Camp', description: 'Camps, provisions and campsite costs' },
+  { name: 'Materials', description: 'Badges, printing, supplies and equipment' },
+  { name: 'Transport', description: 'Travel and transport for activities' },
+  { name: 'Training', description: 'Leader and scout training costs' },
+  { name: 'Administrative', description: 'Council running costs not tied to one activity' },
 ];
 
 const BADGE_CATEGORIES = [
@@ -195,8 +209,21 @@ async function seedReferenceData() {
   for (const level of SCOUT_LEVELS) {
     await prisma.scoutLevel.upsert({
       where: { name: level.name },
-      update: { description: level.description, orderNumber: level.orderNumber },
+      update: {
+        description: level.description,
+        orderNumber: level.orderNumber,
+        minAge: level.minAge,
+        maxAge: level.maxAge,
+      },
       create: level,
+    });
+  }
+
+  for (const category of EXPENSE_CATEGORIES) {
+    await prisma.expenseCategory.upsert({
+      where: { name: category.name },
+      update: { description: category.description },
+      create: category,
     });
   }
 
@@ -727,12 +754,30 @@ async function seedFinance(memberIds: string[], receiverId: string | undefined) 
     }
   }
 
-  const expenses = [
+  // Expense attribution (2026-09-16). `school`/`event` are optional by design — a
+  // genuinely council-wide cost (the administrative row below) has neither, which is
+  // why analytics reports an explicit "Council-wide" bucket instead of forcing a guess.
+  const expenseCategoryIds = Object.fromEntries(
+    (await prisma.expenseCategory.findMany()).map((category) => [category.name, category.id]),
+  );
+  const seededSchools = await prisma.school.findMany();
+  const seededEvents = await prisma.event.findMany({ orderBy: { eventDate: 'desc' } });
+  const schoolIdByName = Object.fromEntries(seededSchools.map((school) => [school.name, school.id]));
+
+  const expenses: Array<{
+    description: string;
+    amount: string;
+    offset: number;
+    category: string;
+    schoolName?: string;
+    eventIndex?: number;
+  }> = [
     {
       description: 'Camp supplies and provisions',
       amount: '12500.00',
       offset: -30,
       category: 'Camp',
+      eventIndex: 0,
     },
     {
       description: 'Badge printing — 200 pcs',
@@ -745,6 +790,13 @@ async function seedFinance(memberIds: string[], receiverId: string | undefined) 
       amount: '3200.00',
       offset: -13,
       category: 'Transport',
+      eventIndex: 1,
+    },
+    {
+      description: 'Council insurance and permits',
+      amount: '2600.00',
+      offset: -45,
+      category: 'Administrative',
     },
   ];
 
@@ -754,12 +806,18 @@ async function seedFinance(memberIds: string[], receiverId: string | undefined) 
     });
     if (existing) continue;
 
+    const eventId = expense.eventIndex !== undefined ? (seededEvents[expense.eventIndex]?.id ?? null) : null;
+    const schoolId = expense.schoolName ? (schoolIdByName[expense.schoolName] ?? null) : null;
+
     await prisma.expense.create({
       data: {
         description: expense.description,
         amount: expense.amount,
         expenseDate: daysFromToday(expense.offset),
         category: expense.category,
+        categoryId: expenseCategoryIds[expense.category] ?? null,
+        schoolId,
+        eventId,
         approvedById: receiverId ?? null,
       },
     });

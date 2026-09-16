@@ -65,6 +65,8 @@ export interface ExpenseSummary {
   amount: number;
   expenseDate: string;
   category: string | null;
+  schoolName: string | null;
+  eventTitle: string | null;
   approvedByName: string | null;
 }
 
@@ -72,7 +74,18 @@ export interface ExpenseFormValues {
   description: string;
   amount: number | undefined;
   expenseDate: string;
-  category: string;
+  /** Controlled category id (2026-09-16), replacing the free-text field that let
+   * "Camp" and "Camping" coexist as separate categories. */
+  categoryId: string;
+  /** Attribution. Both optional — a council-wide cost belongs to neither, and forcing
+   * a choice would record a guess rather than a fact. */
+  schoolId: string;
+  eventId: string;
+}
+
+export interface ExpenseCategoryOption {
+  id: string;
+  name: string;
 }
 
 /** One bucket in the Income vs. Expense trend chart. */

@@ -2,10 +2,25 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, Button, FormField, Input, Modal } from '@/shared/components/ui';
+import { listEvents } from '@/features/events/services/events.service';
+import { listSchools } from '@/features/organizations/services/organizations.service';
+import { Alert, Button, FormField, Input, Modal, Select, type SelectOption } from '@/shared/components/ui';
 
 import { EMPTY_EXPENSE_FORM_VALUES } from '../constants';
+import { listExpenseCategories } from '../services/finance.service';
 import type { ExpenseFormValues } from '../types';
+
+/** Attribution is optional by design — a genuinely council-wide cost belongs to no
+ * school or activity, and forcing a choice would record a guess as a fact. */
+const NO_SCHOOL: SelectOption = { value: '', label: 'Council-wide (no school)' };
+const NO_EVENT: SelectOption = { value: '', label: 'Not tied to an activity' };
+const NO_CATEGORY: SelectOption = { value: '', label: 'Uncategorized' };
+
+interface ExpenseFormOptions {
+  categories: SelectOption[];
+  schools: SelectOption[];
+  events: SelectOption[];
+}
 
 export interface ExpenseFormModalProps {
   isOpen: boolean;
@@ -20,6 +35,30 @@ export function ExpenseFormModal({ isOpen, onClose, onSubmit }: ExpenseFormModal
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** `null` while loading — the selects render disabled rather than flashing empty. */
+  const [options, setOptions] = useState<ExpenseFormOptions | null>(null);
+
+  // Loaded when the modal first opens rather than on mount: these three lists are only
+  // needed here, and a closed modal should not cost three requests on every Finance
+  // page view. A failure leaves the pickers disabled — description, amount and date
+  // are all that is actually required, so recording an expense still works.
+  useEffect(() => {
+    if (!isOpen || options !== null) return;
+
+    Promise.all([listExpenseCategories(), listSchools(), listEvents({ pageSize: 100 })])
+      .then(([categories, schools, events]) =>
+        setOptions({
+          categories: categories.map((category) => ({ value: category.id, label: category.name })),
+          schools: schools.map((school) => ({ value: school.id, label: school.name })),
+          events: events.events.map((event) => ({ value: event.id, label: event.title })),
+        }),
+      )
+      .catch(() => setOptions({ categories: [], schools: [], events: [] }));
+  }, [isOpen, options]);
+
+  const categoryOptions = [NO_CATEGORY, ...(options?.categories ?? [])];
+  const schoolOptions = [NO_SCHOOL, ...(options?.schools ?? [])];
+  const eventOptions = [NO_EVENT, ...(options?.events ?? [])];
 
   useEffect(() => {
     if (isOpen) {
@@ -103,8 +142,32 @@ export function ExpenseFormModal({ isOpen, onClose, onSubmit }: ExpenseFormModal
         </div>
 
         <FormField label="Category" hint="Optional">
-          <Input value={values.category} onChange={(event) => set('category', event.target.value)} />
+          <Select
+            options={categoryOptions}
+            value={values.categoryId}
+            disabled={options === null}
+            onChange={(event) => set('categoryId', event.target.value)}
+          />
         </FormField>
+
+        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+          <FormField label="School" hint="Leave blank for a council-wide cost">
+            <Select
+              options={schoolOptions}
+              value={values.schoolId}
+              disabled={options === null}
+              onChange={(event) => set('schoolId', event.target.value)}
+            />
+          </FormField>
+          <FormField label="Activity" hint="Leave blank if not tied to one event">
+            <Select
+              options={eventOptions}
+              value={values.eventId}
+              disabled={options === null}
+              onChange={(event) => set('eventId', event.target.value)}
+            />
+          </FormField>
+        </div>
       </form>
     </Modal>
   );

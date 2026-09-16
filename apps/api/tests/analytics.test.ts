@@ -22,14 +22,27 @@ const SCHOOL_B = { id: 'school-b', name: 'CAVSU' };
 const LEVEL_JUNIOR = { id: 'lvl-3', name: 'Junior Girl Scout', orderNumber: 3 };
 const LEVEL_SENIOR = { id: 'lvl-4', name: 'Senior Girl Scout', orderNumber: 4 };
 
+/** Scout levels with structured age bands (2026-09-16) — promotion readiness reads
+ * these columns, never the prose in `description`. */
+const SCOUT_LEVELS = [
+  { ...LEVEL_JUNIOR, minAge: 10, maxAge: 12 },
+  { ...LEVEL_SENIOR, minAge: 13, maxAge: 16 },
+];
+
+/** 11 years old today — inside Junior's 10-12 band, so not flagged for promotion. */
+const BIRTH_IN_BAND = new Date(NOW.getFullYear() - 11, NOW.getMonth(), 1);
+/** 15 today — past Junior's maxAge of 12, so over-age for that level. */
+const BIRTH_OVER_AGE = new Date(NOW.getFullYear() - 15, NOW.getMonth(), 1);
+
 const MEMBERS = [
-  { id: 'm-1', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
-  { id: 'm-2', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'pending' }, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+  { id: 'm-1', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+  { id: 'm-2', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'pending' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
   {
     id: 'm-3',
     createdAt: new Date('2020-01-01T00:00:00Z'),
     troopId: TROOP_B.id,
     status: { name: 'active' },
+    birthDate: BIRTH_IN_BAND,
     school: SCHOOL_B,
     scoutLevel: LEVEL_SENIOR,
   },
@@ -85,6 +98,8 @@ const MEMBER_BADGES = [
 
 const TROOPS = [TROOP_A, TROOP_B];
 
+const EXPENSE_CAT_CAMP = { id: 'ec-1', name: 'Camp' };
+
 /** Default filters — the pre-revision behavior (6 months, all troops), so the
  * existing assertions below keep testing exactly what they always did. */
 const DEFAULT_QUERY = { range: '6m', troopId: undefined } as const;
@@ -95,11 +110,12 @@ function mockRepository() {
   vi.spyOn(analyticsRepository, 'listBadgeCatalog').mockResolvedValue(BADGE_CATALOG as never);
   vi.spyOn(analyticsRepository, 'listMemberBadges').mockResolvedValue(MEMBER_BADGES as never);
   vi.spyOn(analyticsRepository, 'listTroops').mockResolvedValue(TROOPS as never);
+  vi.spyOn(analyticsRepository, 'listScoutLevels').mockResolvedValue(SCOUT_LEVELS as never);
   vi.spyOn(analyticsRepository, 'paymentsSince').mockResolvedValue([
     { paymentDate: THIS_MONTH, amount: decimal(350), member: { school: SCHOOL_A } },
   ] as never);
   vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([
-    { expenseDate: THIS_MONTH, amount: decimal(12500), category: 'Camp' },
+    { expenseDate: THIS_MONTH, amount: decimal(12500), category: null, expenseCategory: EXPENSE_CAT_CAMP, school: SCHOOL_A, event: null },
   ] as never);
 }
 
@@ -325,7 +341,7 @@ describe('analyticsService.getOverview — breakdown dimensions', () => {
   it('buckets members with no school under an explicit label rather than dropping them', async () => {
     vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
       ...MEMBERS,
-      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, school: null, scoutLevel: null },
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, birthDate: null, school: null, scoutLevel: null },
     ] as never);
 
     const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
@@ -374,8 +390,8 @@ describe('analyticsService.getOverview — decision support', () => {
   it('flags a school with genuinely low participation once it clears the sample threshold', async () => {
     vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
       ...MEMBERS,
-      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
-      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
     ] as never);
 
     const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
@@ -397,24 +413,43 @@ describe('analyticsService.getOverview — decision support', () => {
     expect(severities).toEqual([...severities].sort((a, b) => a - b));
   });
 
-  it('attributes income by school but never attributes expenses further than category', async () => {
+  it('attributes both income and expenses by school, and nets them for comparison', async () => {
     const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
 
     expect(decisionSupport.incomeBySchool).toEqual([{ id: 'school-a', label: 'CATSU', amount: 350, share: 100 }]);
-    // Expenses carry no school/troop/event FK — category is the only dimension the
-    // schema supports, and the service must not invent one.
-    expect(decisionSupport.expenseByCategory).toEqual([{ label: 'Camp', amount: 12500, share: 100 }]);
+    expect(decisionSupport.expenseByCategory).toEqual([{ id: 'ec-1', label: 'Camp', amount: 12500, share: 100 }]);
+    // Attribution became derivable with the 2026-09-16 migration — before it, Expense
+    // had no school FK and this comparison could not be built at all.
+    expect(decisionSupport.expenseBySchool).toEqual([{ id: 'school-a', label: 'CATSU', amount: 12500, share: 100 }]);
+    expect(decisionSupport.schoolFinance).toEqual([
+      { id: 'school-a', label: 'CATSU', income: 350, expense: 12500, net: -12150 },
+    ]);
   });
 
-  it('labels an uncategorized expense rather than dropping it from the total', async () => {
+  it('reports unattributed spending as Council-wide rather than hiding or guessing it', async () => {
     vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([
-      { expenseDate: THIS_MONTH, amount: decimal(100), category: null },
-      { expenseDate: THIS_MONTH, amount: decimal(300), category: '  ' },
+      { expenseDate: THIS_MONTH, amount: decimal(2600), category: null, expenseCategory: null, school: null, event: null },
     ] as never);
 
     const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
 
-    expect(decisionSupport.expenseByCategory).toEqual([{ label: 'Uncategorized', amount: 400, share: 100 }]);
+    expect(decisionSupport.expenseBySchool).toEqual([{ id: 'unassigned', label: 'Council-wide', amount: 2600, share: 100 }]);
+    // "Council-wide" is not a school, so it must never become a comparison row. CATSU
+    // still appears — it has income — but with zero attributed spend against it.
+    expect(decisionSupport.schoolFinance).toEqual([
+      { id: 'school-a', label: 'CATSU', income: 350, expense: 0, net: 350 },
+    ]);
+  });
+
+  it('labels an uncategorized expense rather than dropping it from the total', async () => {
+    vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([
+      { expenseDate: THIS_MONTH, amount: decimal(100), category: null, expenseCategory: null, school: null, event: null },
+      { expenseDate: THIS_MONTH, amount: decimal(300), category: '  ', expenseCategory: null, school: null, event: null },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.expenseByCategory).toEqual([{ id: 'unassigned', label: 'Uncategorized', amount: 400, share: 100 }]);
   });
 
   it('reports pending approvals as an actionable membership insight', async () => {
@@ -480,8 +515,8 @@ describe('analyticsService.getOverview — no-data vs. zero-turnout guards', () 
     // or absent — that is missing data, not a participation problem.
     vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
       ...MEMBERS,
-      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
-      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
     ] as never);
     vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([] as never);
 
@@ -489,5 +524,79 @@ describe('analyticsService.getOverview — no-data vs. zero-turnout guards', () 
 
     expect(breakdown.bySchool.find((r) => r.label === 'CAVSU')).toMatchObject({ attendanceRecords: 0, attendanceRate: 0 });
     expect(decisionSupport.insights.find((i) => i.id === 'school-low-participation')).toBeUndefined();
+  });
+});
+
+describe('analyticsService.getOverview — promotion readiness', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('flags nobody when every member is inside their level age band', async () => {
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.promotionReadiness.every((row) => row.overAge === 0)).toBe(true);
+    expect(decisionSupport.insights.find((i) => i.id === 'promotion-due')).toBeUndefined();
+  });
+
+  it('flags a member who has aged past their level, and names the level above', async () => {
+    // 15 years old but still a Junior Girl Scout (band 10-12). Derivable only since
+    // the 2026-09-16 migration gave ScoutLevel structured minAge/maxAge columns —
+    // previously the band existed only as prose inside `description`.
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      {
+        id: 'm-old',
+        createdAt: THIS_MONTH,
+        troopId: TROOP_A.id,
+        status: { name: 'active' },
+        birthDate: BIRTH_OVER_AGE,
+        school: SCHOOL_A,
+        scoutLevel: LEVEL_JUNIOR,
+      },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const junior = decisionSupport.promotionReadiness.find((row) => row.levelName === 'Junior Girl Scout');
+
+    expect(junior).toMatchObject({ overAge: 1, memberCount: 1, nextLevelName: 'Senior Girl Scout' });
+    expect(decisionSupport.insights.find((i) => i.id === 'promotion-due')).toMatchObject({
+      category: 'membership',
+      metric: '1 due',
+    });
+  });
+
+  it('skips members with no birth date rather than assuming an age', async () => {
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      {
+        id: 'm-nodob',
+        createdAt: THIS_MONTH,
+        troopId: TROOP_A.id,
+        status: { name: 'active' },
+        birthDate: null,
+        school: SCHOOL_A,
+        scoutLevel: LEVEL_JUNIOR,
+      },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const junior = decisionSupport.promotionReadiness.find((row) => row.levelName === 'Junior Girl Scout');
+
+    // Counted as a member of the level, but never as over-age — a missing birth date
+    // is unknown, not old.
+    expect(junior).toMatchObject({ overAge: 0, memberCount: 1 });
+  });
+
+  it('ignores levels with no upper age bound instead of flagging all of them', async () => {
+    // An unbounded level (adult leaders) must not be treated as maxAge 0, which would
+    // report every member in it as over-age.
+    vi.spyOn(analyticsRepository, 'listScoutLevels').mockResolvedValue([
+      { ...LEVEL_JUNIOR, minAge: null, maxAge: null },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.promotionReadiness).toEqual([]);
+    expect(decisionSupport.insights.find((i) => i.id === 'promotion-due')).toBeUndefined();
   });
 });

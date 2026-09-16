@@ -44,11 +44,33 @@ export const createPaymentSchema = z.object({
   status: paymentStatusSchema.default('paid'),
 });
 
+/**
+ * `categoryId` replaced the free-text `category` on 2026-09-16 — the old field let
+ * "Camp" and "Camping" coexist as separate categories, so one kind of spending
+ * reported as two. `schoolId`/`eventId` are the attribution that makes "which school
+ * or activity has the highest expenses" derivable at all; both stay optional because a
+ * genuinely council-wide cost (insurance, permits) belongs to neither, and forcing a
+ * choice would fabricate an attribution rather than record one.
+ */
 export const createExpenseSchema = z.object({
   description: z.string().trim().min(1, 'Description is required.'),
   amount: z.coerce.number().positive('Enter an amount greater than 0.'),
   expenseDate: z.string().trim().min(1, 'Expense date is required.'),
-  category: z.string().trim().optional(),
+  categoryId: z
+    .string()
+    .uuid('Select a category.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  schoolId: z
+    .string()
+    .uuid('Select a school.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  eventId: z
+    .string()
+    .uuid('Select an event.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 
 export const createFeeTypeSchema = z.object({

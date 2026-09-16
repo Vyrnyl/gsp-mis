@@ -10,6 +10,7 @@ import type {
   UpdateFeeTypeInput,
 } from './finance.schema';
 import type {
+  ExpenseCategoryOptionDto,
   ExpenseSummaryDto,
   FeeTypeDto,
   FinanceOverviewDto,
@@ -57,9 +58,36 @@ function toExpenseSummaryDto(expense: ExpenseWithRelations): ExpenseSummaryDto {
     description: expense.description,
     amount: expense.amount.toNumber(),
     expenseDate: expense.expenseDate.toISOString().slice(0, 10),
-    category: expense.category,
+    // Controlled category where set, else the legacy free-text label (2026-09-16) —
+    // so rows recorded before the vocabulary existed still display their category.
+    category: expense.expenseCategory?.name ?? expense.category,
+    schoolName: expense.school?.name ?? null,
+    eventTitle: expense.event?.title ?? null,
     approvedByName: expense.approvedBy?.fullName ?? null,
   };
+}
+
+/**
+ * Sums expense amounts per category label, reading the controlled `expenseCategory`
+ * relation first and falling back to the legacy free-text `category` string for rows
+ * that predate it (2026-09-16). Uncategorised rows are excluded from the donut, same
+ * as before — a slice with no label tells the reader nothing.
+ */
+function aggregateExpenseCategories(
+  rows: { amount: { toNumber(): number }; category: string | null; expenseCategory: { name: string } | null }[],
+): { category: string; amount: number }[] {
+  const totals = new Map<string, number>();
+
+  for (const row of rows) {
+    const label = row.expenseCategory?.name ?? row.category?.trim();
+    if (!label) continue;
+    totals.set(label, (totals.get(label) ?? 0) + row.amount.toNumber());
+  }
+
+  return Array.from(totals.entries())
+    .filter(([, amount]) => amount > 0)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 function sixMonthsAgo(): Date {
@@ -100,6 +128,12 @@ export const financeService = {
   async listMemberOptions(): Promise<ListMemberOptionsResponseBody> {
     const members = await financeRepository.listMemberOptions();
     return { members: members.map(toMemberOptionDto) };
+  },
+
+  /** Controlled expense categories for the record-expense picker (2026-09-16). */
+  async listExpenseCategories(): Promise<{ categories: ExpenseCategoryOptionDto[] }> {
+    const categories = await financeRepository.listExpenseCategories();
+    return { categories };
   },
 
   // Fee types
@@ -172,7 +206,7 @@ export const financeService = {
         financeRepository.totalIncome(),
         financeRepository.totalExpenses(),
         financeRepository.countPendingPayments(),
-        financeRepository.expensesByCategory(),
+        financeRepository.expenseCategoryRows(),
         financeRepository.paymentsSince(sixMonthsAgo()),
         financeRepository.expensesSince(sixMonthsAgo()),
         financeRepository.currentPeriod(),
@@ -189,9 +223,11 @@ export const financeService = {
         { id: 'pendingPayments', label: 'Pending Payments', value: pendingCount },
       ],
       monthlyTrend: buildMonthlyTrend(paymentsSince, expensesSince),
-      expenseByCategory: categoryRows
-        .filter((row) => row.category !== null && (row._sum.amount?.toNumber() ?? 0) > 0)
-        .map((row) => ({ category: row.category as string, amount: row._sum.amount!.toNumber() })),
+      // Folds the two categorisation sources into one label per row: the controlled
+      // `expenseCategory` relation where set, else the legacy free-text string. Doing
+      // this here rather than in SQL keeps pre- and post-2026-09-16 expenses in the
+      // same donut instead of showing only half the council's spending.
+      expenseByCategory: aggregateExpenseCategories(categoryRows),
       period: period
         ? {
             id: period.id,

@@ -24,6 +24,7 @@ router.get('/member-options', canManage, asyncHandler(financeController.listMemb
 router.get('/payments', canRead, asyncHandler(financeController.listPayments));
 router.post('/payments', canManage, asyncHandler(financeController.createPayment));
 
+router.get('/expense-categories', canRead, asyncHandler(financeController.listExpenseCategories));
 router.get('/expenses', canRead, asyncHandler(financeController.listExpenses));
 router.post('/expenses', canManage, asyncHandler(financeController.createExpense));
 

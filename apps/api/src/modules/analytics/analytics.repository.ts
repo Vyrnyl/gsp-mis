@@ -20,6 +20,10 @@ export const analyticsRepository = {
         createdAt: true,
         troopId: true,
         status: { select: { name: true } },
+        // Promotion readiness (2026-09-16) — compared against the member's level's
+        // structured `minAge`/`maxAge`. Nullable, and members without one are skipped
+        // rather than assumed to be any particular age.
+        birthDate: true,
         // Breakdown dimensions (2026-09-16 revision). Both are nullable FKs, so the
         // service buckets missing values under an explicit "Unassigned" row rather
         // than dropping those members — a member with no school still counts toward
@@ -128,18 +132,41 @@ export const analyticsRepository = {
   },
 
   /**
-   * Expenses carry **no** member, troop, school or event FK — `category` (a free-text
-   * string) is their only dimension. So "which school has the highest expenses" and
-   * "compare spending between schools" are **not derivable from this schema**, and
-   * the service must not fabricate them. The budget-priority signal is built from
-   * income concentration alone and labelled as such; attributing expenses would need
-   * a migration adding `schoolId`/`eventId` to `Expense` plus a controlled category
-   * vocabulary in Finance (3.1), which is deliberately out of this revision's scope.
+   * Expenses became attributable on 2026-09-16 — `schoolId`/`eventId` FKs plus a
+   * controlled `expenseCategory` relation replaced the free-text-only shape that
+   * previously made "which school has the highest expenses" underivable.
+   *
+   * `category` (the legacy string) is still selected because rows recorded before that
+   * migration carry their only categorisation there; the service reads the relation
+   * first and falls back to the string, so old and new expenses appear in one view
+   * instead of the older half silently vanishing.
+   *
+   * Both FKs stay nullable: a genuinely council-wide cost belongs to no school or
+   * event, and is reported under an explicit "Council-wide" bucket rather than being
+   * forced into one.
    */
   expensesSince(since: Date) {
     return prisma.expense.findMany({
       where: { expenseDate: { gte: since } },
-      select: { expenseDate: true, amount: true, category: true },
+      select: {
+        expenseDate: true,
+        amount: true,
+        category: true,
+        expenseCategory: { select: { id: true, name: true } },
+        school: { select: { id: true, name: true } },
+        event: { select: { id: true, title: true } },
+      },
+    });
+  },
+
+  /** Scout levels with their structured age bands (2026-09-16). Previously the bands
+   * existed only as prose in `description`, so promotion-readiness was underivable
+   * without parsing English. `minAge`/`maxAge` are nullable — a level need not be
+   * age-bound, and the service skips those rather than assuming a bound. */
+  listScoutLevels() {
+    return prisma.scoutLevel.findMany({
+      select: { id: true, name: true, orderNumber: true, minAge: true, maxAge: true },
+      orderBy: { orderNumber: 'asc' },
     });
   },
 };

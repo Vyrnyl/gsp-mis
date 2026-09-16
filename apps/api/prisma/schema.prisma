@@ -178,8 +178,8 @@ model Troop {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  council Council @relation(fields: [councilId], references: [id])
-  leader  User?   @relation("TroopLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  council Council  @relation(fields: [councilId], references: [id])
+  leader  User?    @relation("TroopLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   members Member[]
 
   @@index([councilId])
@@ -197,8 +197,9 @@ model School {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  council Council  @relation(fields: [councilId], references: [id])
-  members Member[]
+  council  Council   @relation(fields: [councilId], references: [id])
+  members  Member[]
+  expenses Expense[]
 
   @@unique([councilId, name])
   @@index([councilId])
@@ -210,6 +211,14 @@ model ScoutLevel {
   name        String  @unique
   description String?
   orderNumber Int     @map("order_number")
+
+  /// Structured age band (2026-09-16). Previously these existed only as prose inside
+  /// `description` ("Ages 10–12"); parsing English out of a description string to
+  /// decide whether a scout is due for promotion is too fragile to rely on, so the
+  /// bounds are columns. Both inclusive. Nullable because a level need not be
+  /// age-bound (adult leaders), and analytics skips those rather than assuming 0.
+  minAge Int? @map("min_age")
+  maxAge Int? @map("max_age")
 
   members Member[]
 
@@ -269,16 +278,16 @@ enum Gender {
 }
 
 model Member {
-  id           String     @id @default(uuid()) @db.Uuid
-  memberType   MemberType @default(scout) @map("member_type")
-  firstName    String     @map("first_name")
-  middleName   String?    @map("middle_name")
-  lastName     String     @map("last_name")
-  birthDate    DateTime?  @map("birth_date") @db.Date
-  gender       Gender     @default(female)
-  email        String?    @unique
-  phoneNumber  String?    @map("phone_number")
-  address      String?
+  id          String     @id @default(uuid()) @db.Uuid
+  memberType  MemberType @default(scout) @map("member_type")
+  firstName   String     @map("first_name")
+  middleName  String?    @map("middle_name")
+  lastName    String     @map("last_name")
+  birthDate   DateTime?  @map("birth_date") @db.Date
+  gender      Gender     @default(female)
+  email       String?    @unique
+  phoneNumber String?    @map("phone_number")
+  address     String?
 
   membershipStatusId String  @map("membership_status_id") @db.Uuid
   troopId            String? @map("troop_id") @db.Uuid
@@ -298,13 +307,13 @@ model Member {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  status           MemberStatus   @relation(fields: [membershipStatusId], references: [id])
-  preArchiveStatus MemberStatus?  @relation("MemberPreArchiveStatus", fields: [preArchiveStatusId], references: [id], onDelete: SetNull)
-  troop            Troop?         @relation(fields: [troopId], references: [id], onDelete: SetNull)
-  council          Council?       @relation(fields: [councilId], references: [id], onDelete: SetNull)
-  scoutLevel       ScoutLevel?    @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
-  school           School?        @relation(fields: [schoolId], references: [id], onDelete: SetNull)
-  reviewedBy       User?          @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  status           MemberStatus  @relation(fields: [membershipStatusId], references: [id])
+  preArchiveStatus MemberStatus? @relation("MemberPreArchiveStatus", fields: [preArchiveStatusId], references: [id], onDelete: SetNull)
+  troop            Troop?        @relation(fields: [troopId], references: [id], onDelete: SetNull)
+  council          Council?      @relation(fields: [councilId], references: [id], onDelete: SetNull)
+  scoutLevel       ScoutLevel?   @relation(fields: [scoutLevelId], references: [id], onDelete: SetNull)
+  school           School?       @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  reviewedBy       User?         @relation("MemberReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   profile           MemberProfile?
   memberships       Membership[]
@@ -387,6 +396,7 @@ model Event {
   attendanceRecords AttendanceRecord[]
   attendanceSummary AttendanceSummary?
   activityReports   ActivityReport[]
+  expenses          Expense[]
 
   @@index([eventDate])
   @@index([organizerId])
@@ -614,18 +624,57 @@ model Payment {
 }
 
 model Expense {
-  id           String   @id @default(uuid()) @db.Uuid
-  description  String
-  amount       Decimal  @db.Decimal(12, 2)
-  expenseDate  DateTime @map("expense_date") @db.Date
-  category     String?
+  id          String   @id @default(uuid()) @db.Uuid
+  description String
+  amount      Decimal  @db.Decimal(12, 2)
+  expenseDate DateTime @map("expense_date") @db.Date
+
+  /// Free-text label kept for the rows that predate `categoryId` (2026-09-16). New
+  /// expenses set `categoryId` instead; the service reads the relation first and only
+  /// falls back to this string, so existing history keeps rendering and nothing had to
+  /// be guessed during the backfill. Not removed — dropping it would silently discard
+  /// the only categorisation the older rows have.
+  category String?
+
+  /// Controlled category (2026-09-16). Replaces free-text `category`, which fragmented
+  /// in practice — live data held both "Camp" and "Camping" as separate categories,
+  /// so spending on one thing reported as two.
+  categoryId String? @map("category_id") @db.Uuid
+
+  /// Attribution (2026-09-16). Both nullable and mutually independent: a genuinely
+  /// council-wide expense (insurance, admin) legitimately has neither, which is why
+  /// analytics reports an explicit "Council-wide" bucket rather than forcing a guess.
+  schoolId String? @map("school_id") @db.Uuid
+  eventId  String? @map("event_id") @db.Uuid
+
   approvedById String?  @map("approved_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
 
-  approvedBy User? @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedBy      User?            @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  expenseCategory ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  school          School?          @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  event           Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
   @@index([expenseDate])
+  @@index([categoryId])
+  @@index([schoolId])
+  @@index([eventId])
   @@map("expenses")
+}
+
+/// Controlled vocabulary for expense categorisation (2026-09-16), replacing the
+/// free-text `Expense.category`. Same shape as `BadgeCategory`/`ActivityCategory` —
+/// managed centrally so "Camp" and "Camping" can never again be two things.
+model ExpenseCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  expenses Expense[]
+
+  @@map("expense_categories")
 }
 
 model FinancialPeriod {

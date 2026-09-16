@@ -39,8 +39,18 @@ export interface ExpenseSummaryDto {
   description: string;
   amount: number;
   expenseDate: string;
+  /** Controlled category name where set, else the legacy free-text label for rows
+   * recorded before the vocabulary existed (2026-09-16). */
   category: string | null;
+  /** Attribution (2026-09-16). Both null for a genuinely council-wide cost. */
+  schoolName: string | null;
+  eventTitle: string | null;
   approvedByName: string | null;
+}
+
+export interface ExpenseCategoryOptionDto {
+  id: string;
+  name: string;
 }
 
 export interface MonthlyFinancePointDto {
