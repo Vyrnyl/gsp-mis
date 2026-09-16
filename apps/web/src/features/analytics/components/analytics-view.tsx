@@ -11,6 +11,8 @@ import type { AnalyticsFilters, AnalyticsSnapshot, AnalyticsTabId, ViewState } f
 import { AnalyticsFiltersBar } from './analytics-filters-bar';
 import { AttendanceTrendsPanel } from './attendance-trends-panel';
 import { BadgeCompletionPanel } from './badge-completion-panel';
+import { BreakdownPanel } from './breakdown-panel';
+import { DecisionSupportPanel } from './decision-support-panel';
 import { FinancialTrendsPanel } from './financial-trends-panel';
 import { MembershipTrendsPanel } from './membership-trends-panel';
 import { OrganizationPerformancePanel } from './organization-performance-panel';
@@ -19,16 +21,20 @@ import { ParticipationPanel } from './participation-panel';
 /**
  * Loop steps 3–4 (Contract + Wire Read) for feature 3.3. One combined fetch drives
  * every tab (no per-tab pagination or writes — analytics is read-only), so the view
- * owns a single `viewState`/`snapshot` pair shared across all six panels rather than
+ * owns a single `viewState`/`snapshot` pair shared across all panels rather than
  * one per tab. Whole page is `analytics:read` (Admin + Executive Council) gated at
  * the route, so unlike Reports there is no per-tab role variance to branch on here —
  * no props are needed.
  *
  * 2026-09-02 revision: page-level date-range + troop filters. They live here rather
  * than in each panel because that same single shared fetch is what they re-trigger.
+ *
+ * 2026-09-16 revision: Decisions and Breakdown tabs. Decisions is the default landing
+ * tab — it answers "what needs a decision?", and the aggregate tabs are the evidence
+ * behind it, so leading with the summary rather than with raw membership counts.
  */
 export function AnalyticsView() {
-  const [activeTab, setActiveTab] = useState<AnalyticsTabId>('membership');
+  const [activeTab, setActiveTab] = useState<AnalyticsTabId>('decisions');
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [filters, setFilters] = useState<AnalyticsFilters>({
@@ -85,6 +91,10 @@ export function AnalyticsView() {
         <Tabs items={ANALYTICS_TABS} activeId={activeTab} onChange={(id) => setActiveTab(id as AnalyticsTabId)} ariaLabel="Analytics sections" />
       </div>
 
+      {activeTab === 'decisions' ? (
+        <DecisionSupportPanel viewState={viewState} data={snapshot?.decisionSupport ?? null} onRetry={onRetry} />
+      ) : null}
+
       {activeTab === 'membership' ? (
         <MembershipTrendsPanel viewState={viewState} data={snapshot?.membership ?? null} onRetry={onRetry} />
       ) : null}
@@ -107,6 +117,10 @@ export function AnalyticsView() {
 
       {activeTab === 'organization' ? (
         <OrganizationPerformancePanel viewState={viewState} data={snapshot?.organization ?? null} onRetry={onRetry} />
+      ) : null}
+
+      {activeTab === 'breakdown' ? (
+        <BreakdownPanel viewState={viewState} data={snapshot?.breakdown ?? null} onRetry={onRetry} />
       ) : null}
     </div>
   );

@@ -14,22 +14,47 @@ const THIS_MONTH = new Date(NOW.getFullYear(), NOW.getMonth(), 15);
 const TROOP_A = { id: 'troop-a', name: 'Troop 12 — Virac' };
 const TROOP_B = { id: 'troop-b', name: 'Troop 4 — Bato' };
 
+// Breakdown dimensions (2026-09-16 revision). `SCHOOL_B` deliberately holds a single
+// member so the small-sample suppression path is exercised, and one member has no
+// school/level at all so the "Unassigned" bucketing is covered too.
+const SCHOOL_A = { id: 'school-a', name: 'CATSU' };
+const SCHOOL_B = { id: 'school-b', name: 'CAVSU' };
+const LEVEL_JUNIOR = { id: 'lvl-3', name: 'Junior Girl Scout', orderNumber: 3 };
+const LEVEL_SENIOR = { id: 'lvl-4', name: 'Senior Girl Scout', orderNumber: 4 };
+
 const MEMBERS = [
-  { id: 'm-1', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' } },
-  { id: 'm-2', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'pending' } },
-  { id: 'm-3', createdAt: new Date('2020-01-01T00:00:00Z'), troopId: TROOP_B.id, status: { name: 'active' } },
+  { id: 'm-1', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+  { id: 'm-2', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'pending' }, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+  {
+    id: 'm-3',
+    createdAt: new Date('2020-01-01T00:00:00Z'),
+    troopId: TROOP_B.id,
+    status: { name: 'active' },
+    school: SCHOOL_B,
+    scoutLevel: LEVEL_SENIOR,
+  },
 ];
+
+const CAT_OUTREACH = { id: 'cat-1', name: 'Community Outreach' };
+const CAT_CAMPING = { id: 'cat-2', name: 'Camping' };
+
+const memberRef = (troopId: string, school: typeof SCHOOL_A | null, scoutLevel: typeof LEVEL_JUNIOR | null) => ({
+  troopId,
+  school,
+  scoutLevel,
+});
 
 const EVENTS = [
   {
     id: 'evt-1',
     title: 'Coastal Clean-Up Drive',
     eventDate: THIS_MONTH,
+    category: CAT_OUTREACH,
     registrations: [{ id: 'r-1' }, { id: 'r-2' }],
     attendanceRecords: [
-      { attendanceStatus: 'present', member: { troopId: TROOP_A.id } },
-      { attendanceStatus: 'present', member: { troopId: TROOP_A.id } },
-      { attendanceStatus: 'absent', member: { troopId: TROOP_B.id } },
+      { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+      { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+      { attendanceStatus: 'absent', member: memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
     ],
   },
   {
@@ -38,20 +63,24 @@ const EVENTS = [
     id: 'evt-2',
     title: 'Upcoming Council Camp',
     eventDate: THIS_MONTH,
+    category: CAT_CAMPING,
     registrations: [],
     attendanceRecords: [],
   },
 ];
 
+const BADGE_CAT_SERVICE = { id: 'bc-1', name: 'Community Service' };
+const BADGE_CAT_OUTDOOR = { id: 'bc-2', name: 'Outdoor Skills' };
+
 const BADGE_CATALOG = [
-  { id: 'b-1', name: 'Community Helper' },
-  { id: 'b-2', name: 'Camp Cook' },
+  { id: 'b-1', name: 'Community Helper', category: BADGE_CAT_SERVICE },
+  { id: 'b-2', name: 'Camp Cook', category: BADGE_CAT_OUTDOOR },
 ];
 
 const MEMBER_BADGES = [
-  { id: 'mb-1', badgeId: 'b-1', status: 'earned', member: { troopId: TROOP_A.id } },
-  { id: 'mb-2', badgeId: 'b-1', status: 'verified', member: { troopId: TROOP_B.id } },
-  { id: 'mb-3', badgeId: 'b-2', status: 'in_progress', member: { troopId: TROOP_A.id } },
+  { id: 'mb-1', badgeId: 'b-1', status: 'earned', member: { id: 'm-1', ...memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) } },
+  { id: 'mb-2', badgeId: 'b-1', status: 'verified', member: { id: 'm-3', ...memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) } },
+  { id: 'mb-3', badgeId: 'b-2', status: 'in_progress', member: { id: 'm-2', ...memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) } },
 ];
 
 const TROOPS = [TROOP_A, TROOP_B];
@@ -67,10 +96,10 @@ function mockRepository() {
   vi.spyOn(analyticsRepository, 'listMemberBadges').mockResolvedValue(MEMBER_BADGES as never);
   vi.spyOn(analyticsRepository, 'listTroops').mockResolvedValue(TROOPS as never);
   vi.spyOn(analyticsRepository, 'paymentsSince').mockResolvedValue([
-    { paymentDate: THIS_MONTH, amount: decimal(350) },
+    { paymentDate: THIS_MONTH, amount: decimal(350), member: { school: SCHOOL_A } },
   ] as never);
   vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([
-    { expenseDate: THIS_MONTH, amount: decimal(12500) },
+    { expenseDate: THIS_MONTH, amount: decimal(12500), category: 'Camp' },
   ] as never);
 }
 
@@ -262,5 +291,203 @@ describe('overviewQuerySchema', () => {
     const result = overviewQuerySchema.safeParse({ range: '6m', troopId: '' });
     expect(result.success).toBe(true);
     expect(result.data?.troopId).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Breakdown dimensions + Decision-Making (2026-09-16 revision)
+// ─────────────────────────────────────────────────────────────
+
+describe('analyticsService.getOverview — breakdown dimensions', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('groups members by school, folding in attendance reached through the member', async () => {
+    const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // CATSU: 2 members, both present at evt-1 → 100%. CAVSU: 1 member, absent → 0%.
+    expect(breakdown.bySchool).toEqual([
+      { id: 'school-a', label: 'CATSU', memberCount: 2, attendanceRate: 100, attendanceRecords: 2, badgesEarned: 1, badgesPerMember: 0.5 },
+      { id: 'school-b', label: 'CAVSU', memberCount: 1, attendanceRate: 0, attendanceRecords: 1, badgesEarned: 1, badgesPerMember: 1 },
+    ]);
+  });
+
+  it('orders levels by curriculum order, not by member count', async () => {
+    const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Junior (orderNumber 3) before Senior (4) — a level breakdown reads as a
+    // progression, so it must not be reordered by size.
+    expect(breakdown.byLevel.map((row) => row.label)).toEqual(['Junior Girl Scout', 'Senior Girl Scout']);
+  });
+
+  it('buckets members with no school under an explicit label rather than dropping them', async () => {
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      ...MEMBERS,
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'active' }, school: null, scoutLevel: null },
+    ] as never);
+
+    const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const unassigned = breakdown.bySchool.find((row) => row.id === 'unassigned');
+
+    expect(unassigned).toMatchObject({ label: 'No school recorded', memberCount: 1 });
+    // The council total is preserved — a breakdown must not silently lose rows.
+    expect(breakdown.bySchool.reduce((sum, row) => sum + row.memberCount, 0)).toBe(4);
+  });
+
+  it('keeps a badge area with zero earned badges visible, since that is what needs improvement', async () => {
+    const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const outdoor = breakdown.byBadgeCategory.find((row) => row.label === 'Outdoor Skills');
+
+    // Camp Cook is only `in_progress`, so Outdoor Skills has earned nothing — and
+    // must still appear rather than being absent from the breakdown entirely.
+    expect(outdoor).toMatchObject({ badgesEarned: 0 });
+  });
+
+  it('groups activity types by event and counts registrations', async () => {
+    const { breakdown } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(breakdown.byActivityCategory).toEqual([
+      { id: 'cat-1', label: 'Community Outreach', eventCount: 1, heldEvents: 1, registrations: 2, attendanceRate: 67 },
+      { id: 'cat-2', label: 'Camping', eventCount: 1, heldEvents: 0, registrations: 0, attendanceRate: 0 },
+    ]);
+  });
+});
+
+describe('analyticsService.getOverview — decision support', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('never ranks a group below the minimum sample size, listing it as suppressed instead', async () => {
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // CAVSU has 1 member at 0% attendance. Left unguarded it would be reported as
+    // the council's worst school — exactly the wrong decision to prompt.
+    expect(decisionSupport.suppressed).toContainEqual(expect.objectContaining({ label: 'CAVSU', memberCount: 1 }));
+    const participationInsight = decisionSupport.insights.find((i) => i.id === 'school-low-participation');
+    expect(participationInsight?.title ?? '').not.toContain('CAVSU');
+  });
+
+  it('flags a school with genuinely low participation once it clears the sample threshold', async () => {
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      ...MEMBERS,
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const insight = decisionSupport.insights.find((i) => i.id === 'school-low-participation');
+
+    // CAVSU now has 3 members (the threshold) at 0% attendance → critical. The
+    // school is named in the title; the detail carries the figures behind it.
+    expect(insight).toMatchObject({ severity: 'critical', category: 'participation' });
+    expect(insight?.title).toContain('CAVSU');
+    expect(insight?.detail).toContain('3 members');
+    expect(insight?.metric).toBe('0% attendance');
+  });
+
+  it('sorts insights most-severe first', async () => {
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const order = { critical: 0, warning: 1, info: 2 };
+    const severities = decisionSupport.insights.map((i) => order[i.severity]);
+
+    expect(severities).toEqual([...severities].sort((a, b) => a - b));
+  });
+
+  it('attributes income by school but never attributes expenses further than category', async () => {
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.incomeBySchool).toEqual([{ id: 'school-a', label: 'CATSU', amount: 350, share: 100 }]);
+    // Expenses carry no school/troop/event FK — category is the only dimension the
+    // schema supports, and the service must not invent one.
+    expect(decisionSupport.expenseByCategory).toEqual([{ label: 'Camp', amount: 12500, share: 100 }]);
+  });
+
+  it('labels an uncategorized expense rather than dropping it from the total', async () => {
+    vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([
+      { expenseDate: THIS_MONTH, amount: decimal(100), category: null },
+      { expenseDate: THIS_MONTH, amount: decimal(300), category: '  ' },
+    ] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.expenseByCategory).toEqual([{ label: 'Uncategorized', amount: 400, share: 100 }]);
+  });
+
+  it('reports pending approvals as an actionable membership insight', async () => {
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const insight = decisionSupport.insights.find((i) => i.id === 'pending-approvals');
+
+    expect(insight).toMatchObject({ category: 'membership', metric: '1 pending' });
+    expect(insight?.title).toBe('1 membership awaiting approval');
+  });
+
+  it('flags nothing when there is no data to judge', async () => {
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([] as never);
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([] as never);
+    vi.spyOn(analyticsRepository, 'listMemberBadges').mockResolvedValue([] as never);
+    vi.spyOn(analyticsRepository, 'listBadgeCatalog').mockResolvedValue([] as never);
+    vi.spyOn(analyticsRepository, 'paymentsSince').mockResolvedValue([] as never);
+    vi.spyOn(analyticsRepository, 'expensesSince').mockResolvedValue([] as never);
+
+    const { decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(decisionSupport.insights).toEqual([]);
+    expect(decisionSupport.suppressed).toEqual([]);
+    expect(decisionSupport.incomeBySchool).toEqual([]);
+  });
+});
+
+describe('analyticsService.getOverview — no-data vs. zero-turnout guards', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('does not flag an activity type whose only events have not been held yet', async () => {
+    // Camping has registrations but no attendance records — an upcoming camp, not a
+    // turnout failure. Caught on live seeded data during this revision: the naive
+    // version reported "Camping events have the weakest turnout" at 0%.
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      {
+        id: 'evt-upcoming',
+        title: 'Upcoming Council Camp',
+        eventDate: THIS_MONTH,
+        category: CAT_CAMPING,
+        registrations: [{ id: 'r-1' }, { id: 'r-2' }, { id: 'r-3' }],
+        attendanceRecords: [],
+      },
+      EVENTS[0],
+    ] as never);
+
+    const { breakdown, decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(breakdown.byActivityCategory.find((r) => r.label === 'Camping')).toMatchObject({
+      eventCount: 1,
+      heldEvents: 0,
+      registrations: 3,
+      attendanceRate: 0,
+    });
+    const turnout = decisionSupport.insights.find((i) => i.id === 'activity-low-turnout');
+    expect(turnout?.title ?? '').not.toContain('Camping');
+  });
+
+  it('does not report a school as low-participation when it simply has no attendance records', async () => {
+    // Three members (clears the sample threshold) but nobody was ever marked present
+    // or absent — that is missing data, not a participation problem.
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      ...MEMBERS,
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+      { id: 'm-5', createdAt: THIS_MONTH, troopId: TROOP_B.id, status: { name: 'active' }, school: SCHOOL_B, scoutLevel: LEVEL_SENIOR },
+    ] as never);
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([] as never);
+
+    const { breakdown, decisionSupport } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(breakdown.bySchool.find((r) => r.label === 'CAVSU')).toMatchObject({ attendanceRecords: 0, attendanceRate: 0 });
+    expect(decisionSupport.insights.find((i) => i.id === 'school-low-participation')).toBeUndefined();
   });
 });

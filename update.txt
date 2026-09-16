@@ -1,0 +1,71 @@
+
+ANALYTICS PAGE
+
+Summary – Key Points
+
+• Membership Data
+
+◦ Break down members into Active, Pending, and other membership statuses.
+◦ Classify members according to their membership level (Junior, Senior, Cadet, etc.).
+◦ Identify which schools have the most members.
+◦ Determine which membership levels have the highest and lowest population.
+◦ Analyze the trend of new members and promotions.
+
+• Member Classification
+
+◦ Include members' levels, participation, and schools.
+◦ Analyze promotions based on the age requirements for each level.
+◦ Identify the number of members in each specific level.
+
+• Badges and Achievements
+
+◦ Break down members according to the badges they have earned.
+◦ Identify which scouts have earned the most badges.
+◦ Measure performance and achievements per membership level.
+◦ Determine which areas have the highest and lowest achievements, 
+    such as Arts and Culture or Leadership.
+
+• Participation in Activities
+
+◦ Track participation in activities such as coastal clean-ups and community activities.
+◦ Compare active and inactive members.
+◦ Identify members or schools with low participation.
+◦ Use the data to create interventions or activities that can increase participation.
+
+• Community Engagement
+
+◦ Determine which members/schools contribute the most to community engagement.
+◦ Analyze achievements such as Community Helper and other community-related badges.
+◦ Compare community involvement across different schools or groups.
+
+• Financial Data
+
+◦ Do not show only the overall financial totals.
+◦ Break down income and expenses by school, activity, or category.
+◦ Identify which school or activity has the highest expenses.
+◦ Compare spending between schools and activities.
+
+• Data Visualization
+
+◦ Turn the collected data into charts, graphs, and visualizations.
+◦ Break down the data into specific categories so the overall 
+    situation is easier to understand.
+
+• Decision-Making
+
+◦ The main purpose of the data is to support decision-making.
+◦ Use the results to identify:
+▪ Areas that need improvement
+▪ Levels with low performance
+▪ Schools with low participation
+▪ Activities that need more support
+▪ Areas that should receive more budget or priority
+◦ The data should provide specific and actionable insights, not just total numbers.
+• Events
+◦ Break down the number of events by month, school, and type of activity.
+◦ Example mentioned: events held in July and participation of different schools.
+
+Main idea: The data should not only show totals. It should be broken 
+down by membership status, level, school, participation, badges, achievements, 
+finances, and activities so it can be properly visualized and used for 
+better decision-making.

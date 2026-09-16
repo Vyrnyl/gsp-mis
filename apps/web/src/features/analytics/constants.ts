@@ -14,10 +14,10 @@ import {
   SuccessIcon,
   type IconType,
 } from '@/shared/components/icons';
-import type { StatCardTone } from '@/shared/components/ui';
+import type { AlertTone, BadgeTone, StatCardTone } from '@/shared/components/ui';
 import { palette } from '@/shared/design/tokens';
 
-import type { AnalyticsTabId, DateRange } from './types';
+import type { AnalyticsTabId, DateRange, InsightSeverity } from './types';
 
 /** Mirrors `analytics.schema.ts`'s `dateRangeSchema`. Presets rather than free-form
  * date inputs (Reports' approach) because the trend charts bucket by whole calendar
@@ -34,14 +34,40 @@ export const DEFAULT_DATE_RANGE: DateRange = '6m';
 /** Sentinel for "no troop filter" — never sent to the API (see `analytics.service`). */
 export const ALL_TROOPS = 'all';
 
+/** Decisions leads — it is the "what should we do about this?" summary, and the six
+ * aggregate tabs are the evidence behind it. Breakdown trails as the detailed
+ * per-dimension slices (added 2026-09-16). */
 export const ANALYTICS_TABS: { id: AnalyticsTabId; label: string }[] = [
+  { id: 'decisions', label: 'Decisions' },
   { id: 'membership', label: 'Membership' },
   { id: 'attendance', label: 'Attendance' },
   { id: 'participation', label: 'Participation' },
   { id: 'badges', label: 'Badges' },
   { id: 'financial', label: 'Financial' },
   { id: 'organization', label: 'Organization' },
+  { id: 'breakdown', label: 'Breakdown' },
 ];
+
+/** Breakdown dimension sub-tabs (2026-09-16 revision). */
+export const BREAKDOWN_DIMENSIONS = [
+  { id: 'school', label: 'By School' },
+  { id: 'level', label: 'By Level' },
+  { id: 'badgeCategory', label: 'By Badge Area' },
+  { id: 'activityCategory', label: 'By Activity Type' },
+] as const;
+
+export type BreakdownDimensionId = (typeof BREAKDOWN_DIMENSIONS)[number]['id'];
+
+/** Severity → Alert tone + label. Keeps the mapping in one place so the panel and any
+ * future consumer agree on what "critical" looks like. */
+export const INSIGHT_SEVERITY_PRESENTATION: Record<
+  InsightSeverity,
+  { tone: AlertTone; label: string; badgeTone: BadgeTone }
+> = {
+  critical: { tone: 'error', label: 'Needs attention', badgeTone: 'red' },
+  warning: { tone: 'warning', label: 'Watch', badgeTone: 'gold' },
+  info: { tone: 'info', label: 'For awareness', badgeTone: 'blue' },
+};
 
 type StatPresentation = Record<string, { icon: IconType; tone: StatCardTone }>;
 

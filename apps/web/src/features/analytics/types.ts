@@ -1,6 +1,14 @@
 export type ViewState = 'loading' | 'error' | 'ready';
 
-export type AnalyticsTabId = 'membership' | 'attendance' | 'participation' | 'badges' | 'financial' | 'organization';
+export type AnalyticsTabId =
+  | 'decisions'
+  | 'membership'
+  | 'attendance'
+  | 'participation'
+  | 'badges'
+  | 'financial'
+  | 'organization'
+  | 'breakdown';
 
 /** Mirrors `analytics.schema.ts`'s `dateRangeSchema` by hand — same cross-workspace
  * convention as reports/finance/members. Presets rather than free-form dates so the
@@ -97,5 +105,74 @@ export interface AnalyticsSnapshot {
   badges: BadgeAnalytics;
   financial: FinancialAnalytics;
   organization: OrganizationAnalytics;
+  /** 2026-09-16 revision — school / level / badge-area / activity-type slices. */
+  breakdown: BreakdownAnalytics;
+  /** 2026-09-16 revision — ranked findings built on top of `breakdown`. */
+  decisionSupport: DecisionSupport;
   generatedAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Breakdown dimensions + Decision-Making (2026-09-16 revision)
+// Mirrors `analytics.types.ts` by hand — same cross-workspace convention as the
+// rest of this file.
+// ─────────────────────────────────────────────────────────────
+
+/** One row of a group-by breakdown. School, level and badge-area rows all share this
+ * shape so a single table/chart pair renders all three. */
+export interface DimensionBreakdownRow {
+  id: string;
+  label: string;
+  memberCount: number;
+  attendanceRate: number;
+  /** Records behind `attendanceRate` — zero means "no attendance data", which is not
+   * the same as 0% turnout. */
+  attendanceRecords: number;
+  badgesEarned: number;
+  /** Comparable across groups of different sizes, unlike a raw badge total. */
+  badgesPerMember: number;
+}
+
+/** Activity types group by event rather than by member, so they carry event counts. */
+export interface ActivityCategoryRow {
+  id: string;
+  label: string;
+  eventCount: number;
+  /** Events with attendance actually recorded — an upcoming event reads as 0% but is
+   * not a turnout failure. */
+  heldEvents: number;
+  registrations: number;
+  attendanceRate: number;
+}
+
+export interface BreakdownAnalytics {
+  bySchool: DimensionBreakdownRow[];
+  byLevel: DimensionBreakdownRow[];
+  byBadgeCategory: DimensionBreakdownRow[];
+  byActivityCategory: ActivityCategoryRow[];
+}
+
+export type InsightSeverity = 'critical' | 'warning' | 'info';
+
+export type InsightCategory = 'participation' | 'achievement' | 'performance' | 'budget' | 'membership';
+
+/** One actionable finding — carries the figure it rests on, so a reader can
+ * sanity-check the claim rather than trusting it. */
+export interface Insight {
+  id: string;
+  severity: InsightSeverity;
+  category: InsightCategory;
+  title: string;
+  detail: string;
+  recommendation: string;
+  metric: string;
+}
+
+export interface DecisionSupport {
+  insights: Insight[];
+  /** Groups too small to rank fairly — shown so "insufficient data" never reads as
+   * "healthy". */
+  suppressed: { label: string; memberCount: number; reason: string }[];
+  incomeBySchool: { id: string; label: string; amount: number; share: number }[];
+  expenseByCategory: { label: string; amount: number; share: number }[];
 }

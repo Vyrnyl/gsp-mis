@@ -1,12 +1,17 @@
 import { analyticsRepository } from './analytics.repository';
 import type { DateRange, OverviewQuery } from './analytics.schema';
 import type {
+  ActivityCategoryRowDto,
   AnalyticsSnapshotDto,
   AnalyticsStatValueDto,
   AttendanceAnalyticsDto,
   BadgeAnalyticsDto,
+  BreakdownAnalyticsDto,
+  DecisionSupportDto,
+  DimensionBreakdownRowDto,
   EventParticipationDto,
   FinancialAnalyticsDto,
+  InsightDto,
   MembershipAnalyticsDto,
   MonthlyFinancePointDto,
   OrganizationAnalyticsDto,
@@ -14,15 +19,37 @@ import type {
   TrendPointDto,
 } from './analytics.types';
 
-type MemberRow = { id: string; createdAt: Date; troopId: string | null; status: { name: string } };
+/** A nullable named dimension as selected by the repository (school, scout level,
+ * badge category, activity category all share this shape). */
+type NamedRef = { id: string; name: string } | null;
+type LevelRef = { id: string; name: string; orderNumber: number } | null;
+
+type MemberRow = {
+  id: string;
+  createdAt: Date;
+  troopId: string | null;
+  status: { name: string };
+  school: NamedRef;
+  scoutLevel: LevelRef;
+};
+type AttendanceMemberRef = { troopId: string | null; school: NamedRef; scoutLevel: LevelRef };
 type EventRow = {
   id: string;
   title: string;
   eventDate: Date;
+  category: NamedRef;
   registrations: { id: string }[];
-  attendanceRecords: { attendanceStatus: string; member: { troopId: string | null } }[];
+  attendanceRecords: { attendanceStatus: string; member: AttendanceMemberRef }[];
 };
-type MemberBadgeRow = { id: string; badgeId: string; status: string; member: { troopId: string | null } };
+type MemberBadgeRow = {
+  id: string;
+  badgeId: string;
+  status: string;
+  member: { id: string; troopId: string | null; school: NamedRef; scoutLevel: LevelRef };
+};
+type BadgeCatalogRow = { id: string; name: string; category: NamedRef };
+type PaymentRow = { paymentDate: Date; amount: { toNumber(): number }; member: { school: NamedRef } };
+type ExpenseRow = { expenseDate: Date; amount: { toNumber(): number }; category: string | null };
 
 function stat(id: string, label: string, value: number | string): AnalyticsStatValueDto {
   return { id, label, value };
@@ -256,6 +283,376 @@ function buildOrganizationAnalytics(
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Breakdown dimensions + Decision-Making (2026-09-16 revision)
+// ─────────────────────────────────────────────────────────────
+
+/** Members with no school/level still belong to the council, so they are bucketed
+ * under an explicit label rather than dropped — a breakdown that silently loses rows
+ * makes "which school is worst?" wrong in a way nobody can see. */
+const UNASSIGNED_SCHOOL = 'No school recorded';
+const UNASSIGNED_LEVEL = 'No level assigned';
+const UNCATEGORIZED = 'Uncategorized';
+
+/**
+ * Below this many members a group is not ranked. A school with 2 members at 0%
+ * attendance is noise, not the council's worst school, and acting on it would
+ * misdirect real budget. Suppressed groups are reported separately (never hidden)
+ * so "too small to judge" is visibly different from "doing fine".
+ */
+const MIN_SAMPLE_SIZE = 3;
+
+/** Attendance at or below this is treated as a genuine participation problem. */
+const LOW_ATTENDANCE_THRESHOLD = 50;
+/** Badges-per-member at or below this flags a weak achievement area. */
+const LOW_BADGES_PER_MEMBER = 0.5;
+
+/** Internal-only: carries `ScoutLevel.orderNumber` through sorting, stripped before
+ * the row leaves the builder (the DTO has no `order` field — it is a sort key, not
+ * something the UI renders). */
+type OrderedBreakdownRow = DimensionBreakdownRowDto & { order: number };
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function share(amount: number, total: number): number {
+  return total > 0 ? Math.round((amount / total) * 100) : 0;
+}
+
+/**
+ * Groups members by a nullable named dimension and folds in attendance (reached
+ * through `AttendanceRecord.member`, since attendance has no school/level FK of its
+ * own) and badges earned.
+ *
+ * `keyOf` returns the group identity for a member; `memberKeyOf`/`badgeKeyOf` do the
+ * same for an attendance record and a member-badge respectively. One generic builder
+ * rather than three near-identical ones, since school and level differ only in which
+ * field they read.
+ */
+function buildMemberDimension(
+  members: MemberRow[],
+  events: EventRow[],
+  memberBadges: MemberBadgeRow[],
+  pick: (ref: { school: NamedRef; scoutLevel: LevelRef }) => NamedRef | LevelRef,
+  unassignedLabel: string,
+  sort: (a: OrderedBreakdownRow, b: OrderedBreakdownRow) => number,
+): DimensionBreakdownRowDto[] {
+  const groups = new Map<string, { label: string; order: number; memberCount: number; present: number; absent: number; badges: number }>();
+
+  const ensure = (ref: NamedRef | LevelRef) => {
+    const id = ref?.id ?? 'unassigned';
+    const label = ref?.name ?? unassignedLabel;
+    // Scout levels carry a curriculum order (Twinkler → Cadet); schools don't, and
+    // fall back to a constant so the caller's own sort decides. Unassigned sorts
+    // last either way.
+    const order = ref && 'orderNumber' in ref ? ref.orderNumber : Number.MAX_SAFE_INTEGER;
+    let group = groups.get(id);
+    if (!group) {
+      group = { label, order: ref ? order : Number.MAX_SAFE_INTEGER, memberCount: 0, present: 0, absent: 0, badges: 0 };
+      groups.set(id, group);
+    }
+    return group;
+  };
+
+  for (const member of members) {
+    ensure(pick(member)).memberCount += 1;
+  }
+
+  for (const event of events) {
+    for (const record of event.attendanceRecords) {
+      const group = ensure(pick(record.member));
+      if (record.attendanceStatus === 'present') group.present += 1;
+      else if (record.attendanceStatus === 'absent') group.absent += 1;
+    }
+  }
+
+  for (const memberBadge of memberBadges) {
+    if (memberBadge.status !== 'earned' && memberBadge.status !== 'verified') continue;
+    ensure(pick(memberBadge.member)).badges += 1;
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({
+      id,
+      label: group.label,
+      order: group.order,
+      memberCount: group.memberCount,
+      attendanceRate: rate(group.present, group.present + group.absent),
+      attendanceRecords: group.present + group.absent,
+      badgesEarned: group.badges,
+      badgesPerMember: group.memberCount > 0 ? round1(group.badges / group.memberCount) : 0,
+    }))
+    .sort(sort)
+    .map(({ order: _order, ...row }) => row);
+}
+
+/** Badge *areas* (Leadership, Arts & Culture…) rather than individual badges — the
+ * brief asks which areas are strongest/weakest. Keyed by the member who earned the
+ * badge, so `memberCount` is "members holding at least one badge in this area". */
+function buildBadgeCategoryBreakdown(catalog: BadgeCatalogRow[], memberBadges: MemberBadgeRow[]): DimensionBreakdownRowDto[] {
+  const categoryOfBadge = new Map(catalog.map((badge) => [badge.id, badge.category]));
+  const groups = new Map<string, { label: string; earners: Set<string>; badges: number }>();
+
+  // Seed from the catalog so an area with zero earned badges still appears at 0 —
+  // an area nobody is working on is precisely what "needs improvement" means, and it
+  // would otherwise be invisible.
+  for (const badge of catalog) {
+    const id = badge.category?.id ?? 'uncategorized';
+    if (!groups.has(id)) groups.set(id, { label: badge.category?.name ?? UNCATEGORIZED, earners: new Set(), badges: 0 });
+  }
+
+  for (const memberBadge of memberBadges) {
+    if (memberBadge.status !== 'earned' && memberBadge.status !== 'verified') continue;
+    const category = categoryOfBadge.get(memberBadge.badgeId) ?? null;
+    const id = category?.id ?? 'uncategorized';
+    let group = groups.get(id);
+    if (!group) {
+      group = { label: category?.name ?? UNCATEGORIZED, earners: new Set(), badges: 0 };
+      groups.set(id, group);
+    }
+    group.badges += 1;
+    group.earners.add(memberBadge.member.id);
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({
+      id,
+      label: group.label,
+      memberCount: group.earners.size,
+      // Not meaningful for a badge area — a badge is not an event. The UI drops the
+      // column entirely on this dimension rather than showing a misleading 0%.
+      attendanceRate: 0,
+      attendanceRecords: 0,
+      badgesEarned: group.badges,
+      badgesPerMember: group.earners.size > 0 ? round1(group.badges / group.earners.size) : 0,
+    }))
+    .sort((a, b) => b.badgesEarned - a.badgesEarned);
+}
+
+/** Activity types (Camping, Community Outreach…) grouped by *event*, answering the
+ * brief's "break down events by type of activity" and "activities needing support". */
+function buildActivityCategoryBreakdown(events: EventRow[]): ActivityCategoryRowDto[] {
+  const groups = new Map<
+    string,
+    { label: string; eventCount: number; registrations: number; present: number; absent: number; heldEvents: number }
+  >();
+
+  for (const event of events) {
+    const id = event.category?.id ?? 'uncategorized';
+    let group = groups.get(id);
+    if (!group) {
+      group = { label: event.category?.name ?? UNCATEGORIZED, eventCount: 0, registrations: 0, present: 0, absent: 0, heldEvents: 0 };
+      groups.set(id, group);
+    }
+    group.eventCount += 1;
+    group.registrations += event.registrations.length;
+    // An event with no attendance records has not been held (or was never marked),
+    // which is different from one where nobody turned up. Tracked separately so the
+    // decision layer can tell "0% turnout" from "no data yet".
+    if (event.attendanceRecords.length > 0) group.heldEvents += 1;
+    group.present += event.attendanceRecords.filter((r) => r.attendanceStatus === 'present').length;
+    group.absent += event.attendanceRecords.filter((r) => r.attendanceStatus === 'absent').length;
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({
+      id,
+      label: group.label,
+      eventCount: group.eventCount,
+      registrations: group.registrations,
+      attendanceRate: rate(group.present, group.present + group.absent),
+      heldEvents: group.heldEvents,
+    }))
+    .sort((a, b) => b.eventCount - a.eventCount);
+}
+
+function buildBreakdownAnalytics(
+  members: MemberRow[],
+  events: EventRow[],
+  catalog: BadgeCatalogRow[],
+  memberBadges: MemberBadgeRow[],
+): BreakdownAnalyticsDto {
+  return {
+    bySchool: buildMemberDimension(members, events, memberBadges, (r) => r.school, UNASSIGNED_SCHOOL, (a, b) => b.memberCount - a.memberCount),
+    // Levels sort by the curriculum's own order (Twinkler → Cadet), not by size —
+    // a level breakdown reads as a progression, so reordering it by count would
+    // make "which level thins out?" much harder to see.
+    byLevel: buildMemberDimension(members, events, memberBadges, (r) => r.scoutLevel, UNASSIGNED_LEVEL, (a, b) => a.order - b.order),
+    byBadgeCategory: buildBadgeCategoryBreakdown(catalog, memberBadges),
+    byActivityCategory: buildActivityCategoryBreakdown(events),
+  };
+}
+
+/**
+ * Turns the breakdowns into ranked, thresholded findings — the brief's Decision-Making
+ * section ("specific and actionable insights, not just total numbers").
+ *
+ * Two safeguards, both deliberate. **Small groups are never ranked**: below
+ * `MIN_SAMPLE_SIZE` a percentage is noise, and this surface is the one place in the
+ * app where a wrong number causes a wrong *action* (budget moved away from a troop).
+ * **Every insight states the figure it rests on**, so a reader can sanity-check the
+ * claim instead of trusting it.
+ */
+function buildDecisionSupport(
+  breakdown: BreakdownAnalyticsDto,
+  members: MemberRow[],
+  payments: PaymentRow[],
+  expenses: ExpenseRow[],
+): DecisionSupportDto {
+  const insights: InsightDto[] = [];
+  const suppressed: DecisionSupportDto['suppressed'] = [];
+
+  const rankable = (rows: DimensionBreakdownRowDto[]) => rows.filter((row) => row.memberCount >= MIN_SAMPLE_SIZE);
+
+  for (const row of breakdown.bySchool) {
+    if (row.memberCount > 0 && row.memberCount < MIN_SAMPLE_SIZE) {
+      suppressed.push({
+        label: row.label,
+        memberCount: row.memberCount,
+        reason: `Fewer than ${MIN_SAMPLE_SIZE} members — too few to rank fairly`,
+      });
+    }
+  }
+
+  // ── Schools with low participation ─────────────────────────
+  // `attendanceRecords > 0` is the guard that separates "these members were invited
+  // and did not come" from "this school has no attendance data at all" — only the
+  // former is a participation problem worth acting on.
+  const schoolsWithAttendance = rankable(breakdown.bySchool).filter((row) => row.attendanceRecords > 0);
+  const weakestSchool = [...schoolsWithAttendance].sort((a, b) => a.attendanceRate - b.attendanceRate)[0];
+  if (weakestSchool && weakestSchool.attendanceRate <= LOW_ATTENDANCE_THRESHOLD) {
+    insights.push({
+      id: 'school-low-participation',
+      severity: weakestSchool.attendanceRate === 0 ? 'critical' : 'warning',
+      category: 'participation',
+      title: `${weakestSchool.label} has the lowest participation`,
+      detail: `${weakestSchool.attendanceRate}% attendance across ${weakestSchool.memberCount} members — the lowest of any school with at least ${MIN_SAMPLE_SIZE} members.`,
+      recommendation: 'Contact the school coordinator to identify barriers, and consider scheduling an activity at or near this school.',
+      metric: `${weakestSchool.attendanceRate}% attendance`,
+    });
+  }
+
+  // ── Levels with low performance ────────────────────────────
+  const weakestLevel = [...rankable(breakdown.byLevel)].sort((a, b) => a.badgesPerMember - b.badgesPerMember)[0];
+  if (weakestLevel && weakestLevel.badgesPerMember <= LOW_BADGES_PER_MEMBER) {
+    insights.push({
+      id: 'level-low-achievement',
+      severity: 'warning',
+      category: 'performance',
+      title: `${weakestLevel.label} is earning the fewest badges`,
+      detail: `${weakestLevel.badgesPerMember} badges per member across ${weakestLevel.memberCount} members, against a council average of ${councilBadgesPerMember(members, breakdown)}.`,
+      recommendation: 'Review whether badge requirements at this level are age-appropriate, and plan a badge-focused session for this level.',
+      metric: `${weakestLevel.badgesPerMember} badges/member`,
+    });
+  }
+
+  // ── Badge areas needing improvement ────────────────────────
+  const weakestArea = [...breakdown.byBadgeCategory].sort((a, b) => a.badgesEarned - b.badgesEarned)[0];
+  const strongestArea = [...breakdown.byBadgeCategory].sort((a, b) => b.badgesEarned - a.badgesEarned)[0];
+  if (weakestArea && strongestArea && weakestArea.id !== strongestArea.id) {
+    insights.push({
+      id: 'badge-area-gap',
+      severity: weakestArea.badgesEarned === 0 ? 'critical' : 'info',
+      category: 'achievement',
+      title: `${weakestArea.label} is the weakest achievement area`,
+      detail:
+        weakestArea.badgesEarned === 0
+          ? `No badges have been earned in ${weakestArea.label} at all, while ${strongestArea.label} has ${strongestArea.badgesEarned}.`
+          : `${weakestArea.badgesEarned} badges earned in ${weakestArea.label}, against ${strongestArea.badgesEarned} in ${strongestArea.label}.`,
+      recommendation: `Plan activities targeting ${weakestArea.label} badges, or check whether their requirements are achievable with available resources.`,
+      metric: `${weakestArea.badgesEarned} badges earned`,
+    });
+  }
+
+  // ── Activities needing support ─────────────────────────────
+  // Only categories with at least one *held* event can have a turnout problem. An
+  // upcoming camp with 6 registrations and no attendance taken yet reads as 0% but
+  // is not a failure — flagging it would send the council to fix a non-problem.
+  const weakestActivity = [...breakdown.byActivityCategory]
+    .filter((row) => row.heldEvents > 0)
+    .sort((a, b) => a.attendanceRate - b.attendanceRate)[0];
+  if (weakestActivity && weakestActivity.attendanceRate <= LOW_ATTENDANCE_THRESHOLD) {
+    insights.push({
+      id: 'activity-low-turnout',
+      severity: 'warning',
+      category: 'participation',
+      title: `${weakestActivity.label} events have the weakest turnout`,
+      detail: `${weakestActivity.attendanceRate}% attendance across ${weakestActivity.heldEvents} held event(s) and ${weakestActivity.registrations} registration(s).`,
+      recommendation: 'Review timing, location and advance notice for this activity type before scheduling the next one.',
+      metric: `${weakestActivity.attendanceRate}% attendance`,
+    });
+  }
+
+  // ── Membership pipeline ────────────────────────────────────
+  const pending = members.filter((m) => m.status.name === 'pending').length;
+  if (pending > 0) {
+    insights.push({
+      id: 'pending-approvals',
+      severity: pending >= 10 ? 'warning' : 'info',
+      category: 'membership',
+      title: `${pending} membership${pending === 1 ? '' : 's'} awaiting approval`,
+      detail: `${pending} member${pending === 1 ? ' is' : 's are'} still pending review and cannot yet participate in events.`,
+      recommendation: 'Clear the Pending Approvals queue so these members can register for upcoming activities.',
+      metric: `${pending} pending`,
+    });
+  }
+
+  // ── Budget: income side only ───────────────────────────────
+  // `Expense` carries no school/troop/event FK, so expenses cannot be attributed to
+  // a school and the brief's "which school has the highest expenses" is not
+  // answerable from this schema. Income is attributable (Payment → Member → School),
+  // so that half is built and labelled as such rather than presented as a full picture.
+  const incomeGroups = new Map<string, { label: string; amount: number }>();
+  for (const payment of payments) {
+    const school = payment.member.school;
+    const id = school?.id ?? 'unassigned';
+    const group = incomeGroups.get(id) ?? { label: school?.name ?? UNASSIGNED_SCHOOL, amount: 0 };
+    group.amount += payment.amount.toNumber();
+    incomeGroups.set(id, group);
+  }
+  const totalIncome = Array.from(incomeGroups.values()).reduce((sum, g) => sum + g.amount, 0);
+  const incomeBySchool = Array.from(incomeGroups.entries())
+    .map(([id, group]) => ({ id, label: group.label, amount: group.amount, share: share(group.amount, totalIncome) }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const expenseGroups = new Map<string, number>();
+  for (const expense of expenses) {
+    const label = expense.category?.trim() || UNCATEGORIZED;
+    expenseGroups.set(label, (expenseGroups.get(label) ?? 0) + expense.amount.toNumber());
+  }
+  const totalExpense = Array.from(expenseGroups.values()).reduce((sum, amount) => sum + amount, 0);
+  const expenseByCategory = Array.from(expenseGroups.entries())
+    .map(([label, amount]) => ({ label, amount, share: share(amount, totalExpense) }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const topExpense = expenseByCategory[0];
+  if (topExpense && expenseByCategory.length > 1) {
+    insights.push({
+      id: 'expense-concentration',
+      severity: 'info',
+      category: 'budget',
+      title: `${topExpense.label} is the largest spending category`,
+      detail: `${topExpense.share}% of all recorded spending in range. Expenses are council-wide — the schema records no school or activity against them, so they cannot be attributed further.`,
+      recommendation: 'Confirm this allocation matches council priorities for the period.',
+      metric: `${topExpense.share}% of spend`,
+    });
+  }
+
+  // Most severe first, so the reader sees what actually needs a decision.
+  const severityOrder: Record<InsightDto['severity'], number> = { critical: 0, warning: 1, info: 2 };
+  insights.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+  return { insights, suppressed, incomeBySchool, expenseByCategory };
+}
+
+/** Council-wide badges per member — the baseline a weak level is compared against,
+ * so the insight states a gap rather than a bare number. */
+function councilBadgesPerMember(members: MemberRow[], breakdown: BreakdownAnalyticsDto): number {
+  const totalBadges = breakdown.byLevel.reduce((sum, row) => sum + row.badgesEarned, 0);
+  return members.length > 0 ? round1(totalBadges / members.length) : 0;
+}
+
 export const analyticsService = {
   // Every figure is computed live from real rows (members/events/badges/payments),
   // same "no stored snapshot" simplification precedent as finance/reports —
@@ -283,6 +680,11 @@ export const analyticsService = {
         analyticsRepository.expensesSince(since),
       ]);
 
+    // Breakdowns follow the page's troop scope (unlike Organization, which is the
+    // troop comparison itself) — a Troop Leader-scoped or single-troop view should
+    // see its own schools/levels, not the council's.
+    const breakdown = buildBreakdownAnalytics(members, events, badgeCatalog, memberBadges);
+
     return {
       membership: buildMembershipAnalytics(members, range),
       attendance: buildAttendanceAnalytics(events, range),
@@ -295,6 +697,8 @@ export const analyticsService = {
         orgEvents ?? events,
         orgMemberBadges ?? memberBadges,
       ),
+      breakdown,
+      decisionSupport: buildDecisionSupport(breakdown, members, paymentsSince, expensesSince),
       generatedAt: new Date().toISOString(),
     };
   },
