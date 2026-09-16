@@ -7,8 +7,7 @@ export type AnalyticsTabId =
   | 'participation'
   | 'badges'
   | 'financial'
-  | 'organization'
-  | 'breakdown';
+  | 'organization';
 
 /** Mirrors `analytics.schema.ts`'s `dateRangeSchema` by hand — same cross-workspace
  * convention as reports/finance/members. Presets rather than free-form dates so the

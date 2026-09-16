@@ -27,7 +27,6 @@ import { AnalyticsFiltersBar } from './analytics-filters-bar';
 import { TabFiltersBar, type DimensionOptions } from './tab-filters-bar';
 import { AttendanceTrendsPanel } from './attendance-trends-panel';
 import { BadgeCompletionPanel } from './badge-completion-panel';
-import { BreakdownPanel } from './breakdown-panel';
 import { DecisionSupportPanel } from './decision-support-panel';
 import { FinancialTrendsPanel } from './financial-trends-panel';
 import { MembershipTrendsPanel } from './membership-trends-panel';
@@ -48,6 +47,14 @@ import { ParticipationPanel } from './participation-panel';
  * 2026-09-16 revision: Decisions and Breakdown tabs. Decisions is the default landing
  * tab — it answers "what needs a decision?", and the aggregate tabs are the evidence
  * behind it, so leading with the summary rather than with raw membership counts.
+ *
+ * 2026-09-16 R4 step 7: the Breakdown tab is gone. It collected school/level/badge-area/
+ * activity-type slices into one generic tab, which left every *original* tab still
+ * showing only totals and sent a reader off the Membership tab to answer a Membership
+ * question. Steps 2–6 moved each slice onto the tab that owns its data, so Breakdown
+ * became a second way to view the same numbers — which the reuse rule forbids. The
+ * `breakdown` key stays in the API response: it is what the Decisions tab and the
+ * per-tab cards are both built from, so the two can never disagree.
  */
 export function AnalyticsView() {
   const [activeTab, setActiveTab] = useState<AnalyticsTabId>('decisions');
@@ -217,9 +224,6 @@ export function AnalyticsView() {
         <OrganizationPerformancePanel viewState={viewState} data={snapshot?.organization ?? null} onRetry={onRetry} />
       ) : null}
 
-      {activeTab === 'breakdown' ? (
-        <BreakdownPanel viewState={viewState} data={snapshot?.breakdown ?? null} onRetry={onRetry} />
-      ) : null}
     </div>
   );
 }
