@@ -182,6 +182,43 @@ Goal: a usable system for auth, membership, and a live dashboard.
 - **Mock → wire**: mock charts → `analytics_snapshots`/aggregation endpoints → interactive ChartJS.
 - **Done gate**: executive analytics render from real data; role-gated to council/admin.
 
+
+#### 3.3-R4 — Planned revision: push breakdowns into their owning tabs, add per-tab filters
+
+**Status: planned, not started.** Recorded here 2026-09-16 after the user pointed out a structural mistake in revision 3.3-R3 (see [progress.md](progress.md) 3.3). Run via the `revise-feature` skill.
+
+**Why.** `update.txt` has eight bullets. Seven of them describe breakdowns of data the existing tabs already own — Membership, Badges, Participation, Financial — and only the eighth (Decision-Making) is a genuinely new cross-cutting surface. R3 built the eighth correctly but collected the other seven into one generic **Breakdown** tab instead of enriching the tabs that own that data. That is the wrong shape: "which schools have the most members" is a Membership question, and a reader on the Membership tab should not have to leave it. The Financial tab in particular still shows only overall totals, which is exactly what the brief's first financial line says not to do.
+
+**Scope — bullet → tab.**
+
+| `update.txt` bullet | Target tab | What gets added |
+| --- | --- | --- |
+| Membership Data · Member Classification | **Membership** | Members by school and by scout level (count + share); level population ranking (highest/lowest); status split beyond the three existing stat cards. |
+| Badges and Achievements | **Badges** | Completion by badge *area* (`BadgeCategory`), achievement per scout level, top badge earners. |
+| Participation in Activities | **Participation** | Participation by activity type (`ActivityCategory`), active vs. inactive members, schools with low participation. |
+| Community Engagement | **Participation** (new card) | Community-tagged badges (`BadgeCategory` "Community Service") and outreach events (`ActivityCategory` "Community Outreach"), compared across schools. **Not built in R3 at all** — this bullet was missed. |
+| Financial Data | **Financial** | Income and spending by school, activity and category; highest-spending school/activity. Derivable since the R3b attribution migration. |
+| Data Visualization | all tabs | Every new breakdown gets a chart, not just a table — reusing `BreakdownChart` from R3. |
+| Decision-Making | **Decisions** | No change. R3 built this correctly; it stays the cross-cutting summary. |
+
+**Filters — the user's explicit ask ("it should all have filters for it").** Today's two page-level filters (date range, troop) stay and continue to apply to every tab. Added on top, **per-tab and only where the dimension means something on that tab**:
+
+- **Membership** — school, scout level
+- **Badges** — badge area, scout level
+- **Participation** — activity type, school
+- **Financial** — school, activity, expense category
+- **Organization / Decisions** — none beyond the page-level pair (Organization *is* the per-troop comparison; Decisions is deliberately the unfiltered "what needs attention" view)
+
+A filter that cannot apply to a tab is **not rendered on that tab** rather than shown disabled — this differs from the page-level troop filter, which stays visible-but-disabled so the bar does not reflow on every tab change. Per-tab filters live inside their own tab's panel, so there is no layout to preserve.
+
+**Open question to settle during the revision, not now:** whether per-tab filters re-trigger the single shared fetch (simple, consistent with today's design, but re-fetches all six sections to change one) or filter client-side from the already-loaded snapshot (no round trip, but the aggregates are computed server-side, so this would mean shipping unaggregated rows). Default assumption: extend the existing query contract and re-fetch, matching how `range`/`troopId` already work.
+
+**Fate of the Breakdown tab.** Expected to be **removed** — once each tab owns its own slices, Breakdown is a second way to view the same numbers, which [ui-rules.md](ui-rules.md)'s reuse rule forbids. Confirm during the revision that nothing in it is left homeless before deleting; `BreakdownChart` itself is kept and reused by the receiving tabs.
+
+**Blast radius: expected isolated** — `features/analytics` plus the API analytics module, same as R3. No Prisma change is anticipated: every dimension this needs (`schoolId`, `scoutLevelId`, `Badge.categoryId`, `Event.categoryId`, `Expense.schoolId`/`eventId`/`categoryId`) already exists, the last three added by R3b. The four filter option-lists (`/organizations/{schools,scout-levels,badge-categories,activity-categories}`) already exist as `anyRole` endpoints and are read-only, so no new RBAC surface.
+
+**Done gate.** Each of the seven non-Decision bullets is answerable **from the tab that owns it**, without leaving that tab; every added breakdown has both a chart and a table; per-tab filters work and compose with the page-level date-range and troop filters; Breakdown is gone (or its survival is justified in writing); no regression to 3.3's existing Definition of Done or to the Decisions tab; responsive at 900/768/480px; RBAC unchanged (Admin + Executive Council).
+
 ### 3.4 Settings & System Administration
 
 - **Screens**: settings sections with toggles (registry §8), user management (admin CRUD + activate/deactivate + reset password + role assignment), audit log view, system config, backup controls.
