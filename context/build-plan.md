@@ -185,7 +185,7 @@ Goal: a usable system for auth, membership, and a live dashboard.
 
 #### 3.3-R4 — Planned revision: break every tab down by dimension, with per-tab filters
 
-**Status: planned, not started.** Recorded here 2026-09-16 after the user corrected the shape of revision 3.3-R3 (see [progress.md](progress.md) 3.3). Run via the `revise-feature` skill.
+**Status: COMPLETE — all 8 steps done and verified 2026-09-16** (`273b35b`, `d1b49d5`, `a91bce1`, `1a975cb`, `505494f`, `932886d`, `982dfcb`, `46d49c9`). Recorded here 2026-09-16 after the user corrected the shape of revision 3.3-R3 (see [progress.md](progress.md) 3.3). Run via the `revise-feature` skill. Every Done-gate item below is met: no tab shows only totals, every breakdown carries both a chart and a table, every tab with dimensions has filters for them, and the Breakdown tab is gone.
 
 **The goal, in the user's words: "actually visualize all data by breaking it down… because right now it only shows the total data."** That is the whole point of this revision, and it is the standard every change below is measured against. Analytics today is a page of **totals**: each tab is a row of council-wide stat cards plus one chart of a single total plotted over time. The Membership tab, for example, shows Total / Active / Pending / New and a new-registrations-per-month line — four totals and a fifth total over time. Nothing on it is split by school, by level, or by anything else. A total answers "how many?"; it never answers "how many *of which kind*, and where?" — and that second question is what the page exists to support.
 
@@ -235,23 +235,23 @@ A filter that cannot apply to a tab is **not rendered on that tab** rather than 
 3. ● **DONE (`a91bce1`) — Membership** — the largest bullet (two of the eight map to it) and the tab the user cited as totals-only.
 4. ● **DONE (`1a975cb`) — Participation** — by activity type and by school with the active-vs-inactive split, plus the **Community Engagement** card that R3 missed. Community is matched by category *name* (the schema has no flag), so the card states which categories it counted and its stated definition is read from the council's full vocabulary rather than from the filtered rows — a filter must change the numbers, never what they claim to be.
 5. ● **DONE (`505494f`) — Badges** — by area and by level, plus top earners. Both breakdowns reuse the shared `breakdown` rows rather than recomputing, so this tab and Decisions cannot rank different winners. The area table is hand-rolled rather than `DimensionBreakdownCard`, whose shape carries an Attendance Rate column that is meaningless for a badge area; the by-level card reuses the card with a new opt-in `leadWithMetric` prop, since the default members-first order buried Badges Earned behind attendance on the one tab where badges are the subject.
-6. ○ **Attendance** — by school/level/troop.
-7. ○ **Delete the Breakdown tab** — last, once every one of its slices has a confirmed home, so nothing is orphaned mid-way.
-8. ○ **Sweep** — full typecheck/lint/test, live verification per tab at 900/768/480px, tracker + this plan updated.
+6. ● **DONE (`932886d`) — Attendance** — by school, level and troop. School/level reuse the shared breakdown rows; troop is built separately because the Organization tab's superficially similar rows are deliberately *unscoped* and would not move with the filters. Two no-data findings on live data: unrecorded groups now sort below a group genuinely at 0%, and they are left off the charts (a bar of zero is indistinguishable from "never turns up") and named underneath instead.
+7. ● **DONE (`982dfcb`) — Breakdown tab deleted.** Confirmed against the live payload, not by reading code: all four of its dimensions now render identically on an owning tab. The `breakdown` API key stays (it is what Decisions and the per-tab cards are both built from), as does `BreakdownChart`, now reused by five panels. Its 8-row pagination was deliberately not ported — every dimension is bounded by a real-world vocabulary (4–6 rows live), so the control would never activate.
+8. ● **DONE (`46d49c9`) — Sweep.** Typecheck/lint clean, 307 API tests. Walked the Done gate in a real browser and swept all 7 tabs × 4 widths (1280/900/768/480) × both roles: no page overflow, no blank tabs, no console errors. The gate walk found the last two bare-`<p>` empty states (Membership Growth, Financial Trends) and replaced them with real `EmptyState`s.
 
 **Progress on this revision is tracked per tab in [progress.md](progress.md) 3.3**, since it spans six surfaces and the repo rule is that partial work must be visible rather than implied.
 
-**Done gate — the primary test is the goal itself: no tab shows only totals.**
+**Done gate — ALL ITEMS MET (verified 2026-09-16, step 8). The primary test is the goal itself: no tab shows only totals.**
 
-- [ ] **Every tab presents at least one dimensional breakdown of its own data, not just council-wide totals.** Walk each tab and ask "does this only tell me a total?" — if yes for any tab, the revision is not done. (Organization is already exempt; it was always a breakdown.)
-- [ ] Each of the seven non-Decision `update.txt` bullets is answerable **from the tab that owns it**, without leaving that tab.
-- [ ] Every added breakdown has **both a chart and a table**.
-- [ ] **Every tab with more than one meaningful dimension has filters for them**, and those filters compose correctly with the page-level date-range and troop filters.
-- [ ] Community Engagement — the bullet missed in R3 — is built and visible.
-- [ ] Breakdown tab is gone, or its survival is justified in writing against the reuse rule.
-- [ ] Empty/loading/error states drawn for every new card (a filter combination that matches nothing must render an empty state, not a blank panel or a misleading zero).
-- [ ] Small-sample honesty carried over from R3 where a breakdown feeds a ranking — a 1-member school must not top a "lowest performing" list.
-- [ ] No regression to 3.3's existing Definition of Done or to the Decisions tab; responsive at 900/768/480px; RBAC unchanged (Admin + Executive Council).
+- [x] **Every tab presents at least one dimensional breakdown of its own data, not just council-wide totals.** Walk each tab and ask "does this only tell me a total?" — if yes for any tab, the revision is not done. (Organization is already exempt; it was always a breakdown.)
+- [x] Each of the seven non-Decision `update.txt` bullets is answerable **from the tab that owns it**, without leaving that tab.
+- [x] Every added breakdown has **both a chart and a table**.
+- [x] **Every tab with more than one meaningful dimension has filters for them**, and those filters compose correctly with the page-level date-range and troop filters.
+- [x] Community Engagement — the bullet missed in R3 — is built and visible.
+- [x] Breakdown tab is gone, or its survival is justified in writing against the reuse rule.
+- [x] Empty/loading/error states drawn for every new card (a filter combination that matches nothing must render an empty state, not a blank panel or a misleading zero).
+- [x] Small-sample honesty carried over from R3 where a breakdown feeds a ranking — a 1-member school must not top a "lowest performing" list.
+- [x] No regression to 3.3's existing Definition of Done or to the Decisions tab; responsive at 900/768/480px; RBAC unchanged (Admin + Executive Council).
 
 ### 3.4 Settings & System Administration
 
