@@ -427,6 +427,76 @@ describe('analyticsService.getOverview — per-tab dimension filters (R4)', () =
   });
 });
 
+describe('analyticsService.getOverview — Financial tab breakdowns (R4 step 2)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('breaks the tab down by school, category and activity instead of totals alone', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // The point of the revision: this tab used to carry `stats` + `trend` and nothing
+    // else, which is four totals split by nothing.
+    expect(result.financial.incomeBySchool).toEqual([
+      expect.objectContaining({ label: SCHOOL_A.name, amount: 350, share: 100 }),
+    ]);
+    expect(result.financial.expenseBySchool).toEqual([
+      expect.objectContaining({ label: SCHOOL_A.name, amount: 12500 }),
+    ]);
+    expect(result.financial.expenseByCategory).toEqual([
+      expect.objectContaining({ label: EXPENSE_CAT_CAMP.name, amount: 12500 }),
+    ]);
+  });
+
+  it('serves the Financial tab and the Decisions tab from one computation', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Same numbers on the same page: two implementations of "spending by school"
+    // would be two chances to disagree, so the builder is shared.
+    expect(result.financial.expenseBySchool).toEqual(result.decisionSupport.expenseBySchool);
+    expect(result.financial.incomeBySchool).toEqual(result.decisionSupport.incomeBySchool);
+    expect(result.financial.schoolFinance).toEqual(result.decisionSupport.schoolFinance);
+  });
+
+  it('nets income against spending per school', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.financial.schoolFinance).toEqual([
+      expect.objectContaining({ label: SCHOOL_A.name, income: 350, expense: 12500, net: -12150 }),
+    ]);
+  });
+
+  it('keeps unattributed spending visible as Council-wide rather than dropping it', async () => {
+    vi.mocked(analyticsRepository.expensesSince).mockResolvedValue([
+      { expenseDate: THIS_MONTH, amount: decimal(4000), category: null, expenseCategory: EXPENSE_CAT_CAMP, school: null, event: null },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // A genuinely council-wide cost belongs to no school. Hiding it would understate
+    // total spending; guessing a school would be worse.
+    expect(result.financial.expenseBySchool).toEqual([
+      expect.objectContaining({ id: 'unassigned', amount: 4000 }),
+    ]);
+    // …but it is not a school, so it must not become a row in the per-school
+    // comparison. CATSU still appears there on the strength of its income alone,
+    // with zero spending — which is the honest reading, not a bug: this school
+    // genuinely has no attributed costs in range.
+    expect(result.financial.schoolFinance).toEqual([
+      expect.objectContaining({ label: SCHOOL_A.name, income: 350, expense: 0, net: 350 }),
+    ]);
+    expect(result.financial.schoolFinance.some((row) => row.id === 'unassigned')).toBe(false);
+  });
+
+  it('narrows the breakdowns when a dimension filter is applied', async () => {
+    await analyticsService.getOverview({ ...DEFAULT_QUERY, expenseCategoryId: EXPENSE_CAT_CAMP.id });
+
+    const [, scope] = vi.mocked(analyticsRepository.expensesSince).mock.calls[0]!;
+    expect(scope).toMatchObject({ expenseCategoryId: EXPENSE_CAT_CAMP.id });
+  });
+});
+
 // ─────────────────────────────────────────────────────────────
 // Breakdown dimensions + Decision-Making (2026-09-16 revision)
 // ─────────────────────────────────────────────────────────────

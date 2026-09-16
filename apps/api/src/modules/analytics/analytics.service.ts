@@ -243,9 +243,10 @@ function buildMonthlyFinanceTrend(
  * — Finance (3.1) remains the place to see all-time council totals.
  */
 function buildFinancialAnalytics(
-  paymentsSince: { paymentDate: Date; amount: { toNumber(): number } }[],
-  expensesSince: { expenseDate: Date; amount: { toNumber(): number } }[],
+  paymentsSince: PaymentRow[],
+  expensesSince: ExpenseRow[],
   range: DateRange,
+  money: ReturnType<typeof buildMoneyBreakdown>,
 ): FinancialAnalyticsDto {
   const income = paymentsSince.reduce((sum, p) => sum + p.amount.toNumber(), 0);
   const expense = expensesSince.reduce((sum, e) => sum + e.amount.toNumber(), 0);
@@ -257,6 +258,13 @@ function buildFinancialAnalytics(
       stat('balance', 'Net (in range)', income - expense),
     ],
     trend: buildMonthlyFinanceTrend(paymentsSince, expensesSince, range),
+    // Passed in rather than recomputed — the Decisions tab ranks these exact objects,
+    // and one source keeps the two tabs from disagreeing about the same figure.
+    incomeBySchool: money.incomeBySchool,
+    expenseBySchool: money.expenseBySchool,
+    expenseByCategory: money.expenseByCategory,
+    expenseByEvent: money.expenseByEvent,
+    schoolFinance: money.schoolFinance,
   };
 }
 
@@ -513,8 +521,7 @@ function buildBreakdownAnalytics(
 function buildDecisionSupport(
   breakdown: BreakdownAnalyticsDto,
   members: MemberRow[],
-  payments: PaymentRow[],
-  expenses: ExpenseRow[],
+  money: ReturnType<typeof buildMoneyBreakdown>,
   scoutLevels: ScoutLevelRow[],
 ): DecisionSupportDto {
   const insights: InsightDto[] = [];
@@ -620,25 +627,7 @@ function buildDecisionSupport(
   // `Expense` had no school/event FK at all, so this section was income-only. The
   // attribution migration made the brief's "which school or activity has the highest
   // expenses" and "compare spending between schools" actually derivable.
-  const incomeBySchool = sumByDimension(payments, (p) => p.member.school, UNASSIGNED_SCHOOL);
-  const expenseByCategory = sumByDimension(
-    expenses,
-    // Controlled category first, falling back to the legacy free-text label so rows
-    // predating the vocabulary still appear instead of silently dropping out.
-    (e) => e.expenseCategory ?? (e.category?.trim() ? { id: e.category.trim(), name: e.category.trim() } : null),
-    UNCATEGORIZED,
-  );
-  const expenseBySchool = sumByDimension(expenses, (e) => e.school, COUNCIL_WIDE);
-  const expenseByEvent = sumByDimension(
-    expenses,
-    (e) => (e.event ? { id: e.event.id, name: e.event.title } : null),
-    COUNCIL_WIDE,
-  );
-
-  // Income and spending per school, so the two sides can actually be compared. Only
-  // real schools appear — the unattributed buckets on either side are not a school and
-  // would make a meaningless "net" row.
-  const schoolFinance = buildSchoolFinance(incomeBySchool, expenseBySchool);
+  const { incomeBySchool, expenseByCategory, expenseBySchool, expenseByEvent, schoolFinance } = money;
 
   const topExpense = expenseByCategory[0];
   if (topExpense && expenseByCategory.length > 1) {
@@ -741,6 +730,42 @@ function sumByDimension<T extends { amount: { toNumber(): number } }>(
   return Array.from(groups.entries())
     .map(([id, group]) => ({ id, label: group.label, amount: group.amount, share: share(group.amount, total) }))
     .sort((a, b) => b.amount - a.amount);
+}
+
+/**
+ * Every money slice the app reports, built once (2026-09-16 R4 revision).
+ *
+ * Before R4 these lived inline in `buildDecisionSupport`, which was fine while the
+ * Decisions tab was their only consumer. The Financial tab now shows the same
+ * breakdowns on the tab that actually owns the data, so they are computed here and
+ * shared — two implementations of "spending by school" would be two chances to
+ * disagree about the same number on the same page.
+ *
+ * Attribution became possible on 2026-09-16: before that migration `Expense` had no
+ * school or event FK, so only the income side could be attributed at all.
+ */
+function buildMoneyBreakdown(payments: PaymentRow[], expenses: ExpenseRow[]) {
+  const incomeBySchool = sumByDimension(payments, (p) => p.member.school, UNASSIGNED_SCHOOL);
+  const expenseByCategory = sumByDimension(
+    expenses,
+    // Controlled category first, falling back to the legacy free-text label so rows
+    // predating the vocabulary still appear instead of silently dropping out.
+    (e) => e.expenseCategory ?? (e.category?.trim() ? { id: e.category.trim(), name: e.category.trim() } : null),
+    UNCATEGORIZED,
+  );
+  const expenseBySchool = sumByDimension(expenses, (e) => e.school, COUNCIL_WIDE);
+  const expenseByEvent = sumByDimension(
+    expenses,
+    (e) => (e.event ? { id: e.event.id, name: e.event.title } : null),
+    COUNCIL_WIDE,
+  );
+
+  // Income and spending per school, so the two sides can actually be compared. Only
+  // real schools appear — the unattributed buckets on either side are not a school and
+  // would make a meaningless "net" row.
+  const schoolFinance = buildSchoolFinance(incomeBySchool, expenseBySchool);
+
+  return { incomeBySchool, expenseByCategory, expenseBySchool, expenseByEvent, schoolFinance };
 }
 
 /** Joins the income and expense sides per school. Only real schools appear: the
@@ -885,12 +910,16 @@ export const analyticsService = {
     // see its own schools/levels, not the council's.
     const breakdown = buildBreakdownAnalytics(members, events, badgeCatalog, memberBadges);
 
+    // Built once and handed to both the Financial tab (which owns this data) and the
+    // Decisions tab (which ranks it) — see `buildMoneyBreakdown`.
+    const money = buildMoneyBreakdown(paymentsSince, expensesSince);
+
     return {
       membership: buildMembershipAnalytics(members, range),
       attendance: buildAttendanceAnalytics(events, range),
       participation: buildParticipationAnalytics(events),
       badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length),
-      financial: buildFinancialAnalytics(paymentsSince, expensesSince, range),
+      financial: buildFinancialAnalytics(paymentsSince, expensesSince, range, money),
       organization: buildOrganizationAnalytics(
         troops,
         orgMembers ?? members,
@@ -898,7 +927,7 @@ export const analyticsService = {
         orgMemberBadges ?? memberBadges,
       ),
       breakdown,
-      decisionSupport: buildDecisionSupport(breakdown, members, paymentsSince, expensesSince, scoutLevels),
+      decisionSupport: buildDecisionSupport(breakdown, members, money, scoutLevels),
       generatedAt: new Date().toISOString(),
     };
   },

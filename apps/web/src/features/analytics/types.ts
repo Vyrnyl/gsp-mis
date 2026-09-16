@@ -101,6 +101,18 @@ export interface BadgeAnalytics {
 export interface FinancialAnalytics {
   stats: AnalyticsStatValue[];
   trend: MonthlyFinancePoint[];
+  /**
+   * Breakdowns of the same in-range money the stats and trend are built from
+   * (2026-09-16 R4 revision). The brief asks explicitly not to show only overall
+   * financial totals, which is all this tab showed before. Same objects the Decisions
+   * tab ranks — built once server-side, so the two tabs cannot disagree.
+   */
+  incomeBySchool: MoneySlice[];
+  expenseBySchool: MoneySlice[];
+  expenseByCategory: MoneySlice[];
+  expenseByEvent: MoneySlice[];
+  /** Income vs. spending per school, netted — the direct comparison the brief asks for. */
+  schoolFinance: SchoolFinanceRow[];
 }
 
 export interface TroopPerformance {

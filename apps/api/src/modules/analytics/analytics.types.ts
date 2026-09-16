@@ -51,6 +51,18 @@ export interface BadgeAnalyticsDto {
 export interface FinancialAnalyticsDto {
   stats: AnalyticsStatValueDto[];
   trend: MonthlyFinancePointDto[];
+  /**
+   * Breakdowns of the same in-range money the stats and trend are built from
+   * (2026-09-16 R4 revision). The brief's financial line asks explicitly not to show
+   * only overall totals, and until R4 this tab was three totals plus one total over
+   * time. Same objects the Decisions tab ranks, built once in `buildMoneyBreakdown`.
+   */
+  incomeBySchool: MoneySliceDto[];
+  expenseBySchool: MoneySliceDto[];
+  expenseByCategory: MoneySliceDto[];
+  expenseByEvent: MoneySliceDto[];
+  /** Income vs. spending per school, netted — the direct comparison the brief asks for. */
+  schoolFinance: SchoolFinanceRowDto[];
 }
 
 export interface TroopPerformanceDto {

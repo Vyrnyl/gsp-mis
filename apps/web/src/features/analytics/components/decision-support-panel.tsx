@@ -1,4 +1,4 @@
-import { AnalyticsIcon, InfoIcon, SuccessIcon, type IconType } from '@/shared/components/icons';
+import { AnalyticsIcon, InfoIcon, SuccessIcon } from '@/shared/components/icons';
 import {
   Alert,
   Badge,
@@ -19,7 +19,8 @@ import {
 import { formatCurrency } from '@/shared/utils/format-currency';
 
 import { INSIGHT_SEVERITY_PRESENTATION } from '../constants';
-import type { DecisionSupport, MoneySlice, ViewState } from '../types';
+import type { DecisionSupport, ViewState } from '../types';
+import { MoneyTable } from './money-table';
 
 export interface DecisionSupportPanelProps {
   viewState: ViewState;
@@ -247,54 +248,6 @@ export function DecisionSupportPanel({ viewState, data, onRetry }: DecisionSuppo
           />
         ) : null}
       </Card>
-    </div>
-  );
-}
-
-/** One money breakdown table. Four of these sit side by side, differing only in their
- * heading and rows, so they share a component rather than being copied four times. */
-function MoneyTable({
-  heading,
-  caption,
-  firstColumn,
-  rows,
-  emptyIcon,
-  emptyTitle,
-}: {
-  heading: string;
-  caption: string;
-  firstColumn: string;
-  rows: MoneySlice[];
-  emptyIcon: IconType;
-  emptyTitle: string;
-}) {
-  return (
-    <div>
-      <h4 className="mb-2 text-[0.92rem] font-semibold text-ink">{heading}</h4>
-      {rows.length > 0 ? (
-        <TableWrapper>
-          <Table caption={caption}>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>{firstColumn}</TableHeaderCell>
-                <TableHeaderCell>Amount</TableHeaderCell>
-                <TableHeaderCell>Share</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>{row.label}</TableCell>
-                  <TableCell>{formatCurrency(row.amount)}</TableCell>
-                  <TableCell>{row.share}%</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableWrapper>
-      ) : (
-        <EmptyState icon={emptyIcon} title={emptyTitle} description="Nothing falls within the selected range." />
-      )}
     </div>
   );
 }
