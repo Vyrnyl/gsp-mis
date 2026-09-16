@@ -61,10 +61,28 @@ export interface MonthlyFinancePoint {
   expense: number;
 }
 
+/** One registration-status group (2026-09-16 R4 revision). Carries `share` because the
+ * useful question about status is proportional — "what fraction is still pending?" —
+ * not absolute. */
+export interface StatusBreakdownRow {
+  id: string;
+  label: string;
+  memberCount: number;
+  share: number;
+}
+
 export interface MembershipAnalytics {
   stats: AnalyticsStatValue[];
   /** New registrations per calendar month across the selected range. */
   trend: TrendPoint[];
+  /**
+   * The same roster split by dimension (2026-09-16 R4 revision), answering the brief's
+   * Membership Data and Member Classification bullets on the tab that owns them.
+   * Before R4 this tab was four totals plus one total over time, split by nothing.
+   */
+  bySchool: DimensionBreakdownRow[];
+  byLevel: DimensionBreakdownRow[];
+  byStatus: StatusBreakdownRow[];
 }
 
 export interface AttendanceAnalytics {

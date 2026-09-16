@@ -19,6 +19,7 @@ import type {
   ParticipationAnalyticsDto,
   PromotionReadinessRowDto,
   SchoolFinanceRowDto,
+  StatusBreakdownRowDto,
   TrendPointDto,
 } from './analytics.types';
 
@@ -122,10 +123,41 @@ function monthKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
+/**
+ * Members grouped by registration status (2026-09-16 R4 revision).
+ *
+ * The stat cards already count active and pending, but only those two — an expired or
+ * archived member is inside "Total Members" and named nowhere, so the four cards do not
+ * add up and the gap is invisible. This row set names every status the roster actually
+ * contains, which is what makes the total reconcile.
+ *
+ * Ordered by count rather than alphabetically: the question this answers is "where are
+ * my members concentrated?", and the largest group is the answer.
+ */
+function buildStatusBreakdown(members: MemberRow[]): StatusBreakdownRowDto[] {
+  const groups = new Map<string, number>();
+  for (const member of members) {
+    groups.set(member.status.name, (groups.get(member.status.name) ?? 0) + 1);
+  }
+
+  return Array.from(groups.entries())
+    .map(([status, count]) => ({
+      id: status,
+      label: status,
+      memberCount: count,
+      share: share(count, members.length),
+    }))
+    .sort((a, b) => b.memberCount - a.memberCount);
+}
+
 /** Roster counts (total/active/pending) are point-in-time and stay unfiltered by date
  * — a member active today is active regardless of the window being viewed. Only
  * "New" and the registrations trend are date-bound. */
-function buildMembershipAnalytics(members: MemberRow[], range: DateRange): MembershipAnalyticsDto {
+function buildMembershipAnalytics(
+  members: MemberRow[],
+  range: DateRange,
+  breakdown: BreakdownAnalyticsDto,
+): MembershipAnalyticsDto {
   const active = members.filter((m) => m.status.name === 'active').length;
   const pending = members.filter((m) => m.status.name === 'pending').length;
   const since = rangeStart(range);
@@ -144,6 +176,13 @@ function buildMembershipAnalytics(members: MemberRow[], range: DateRange): Membe
       stat('newThisPeriod', 'New (in range)', newThisPeriod),
     ],
     trend,
+    // The R4 revision's whole point: the four stats above are totals, and the trend is
+    // a fifth total over time. These three split the same roster by the dimensions the
+    // brief's Membership Data and Member Classification bullets ask about.
+    // School and level come from the shared breakdown rather than being recomputed.
+    bySchool: breakdown.bySchool,
+    byLevel: breakdown.byLevel,
+    byStatus: buildStatusBreakdown(members),
   };
 }
 
@@ -915,7 +954,7 @@ export const analyticsService = {
     const money = buildMoneyBreakdown(paymentsSince, expensesSince);
 
     return {
-      membership: buildMembershipAnalytics(members, range),
+      membership: buildMembershipAnalytics(members, range, breakdown),
       attendance: buildAttendanceAnalytics(events, range),
       participation: buildParticipationAnalytics(events),
       badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length),

@@ -497,6 +497,56 @@ describe('analyticsService.getOverview — Financial tab breakdowns (R4 step 2)'
   });
 });
 
+describe('analyticsService.getOverview — Membership tab breakdowns (R4 step 3)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('splits the roster by school, level and status instead of totals alone', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.membership.bySchool).toEqual([
+      expect.objectContaining({ label: SCHOOL_A.name, memberCount: 2 }),
+      expect.objectContaining({ label: SCHOOL_B.name, memberCount: 1 }),
+    ]);
+    expect(result.membership.byLevel.map((row) => row.label)).toEqual([LEVEL_JUNIOR.name, LEVEL_SENIOR.name]);
+    expect(result.membership.byStatus).toEqual([
+      expect.objectContaining({ label: 'active', memberCount: 2, share: 67 }),
+      expect.objectContaining({ label: 'pending', memberCount: 1, share: 33 }),
+    ]);
+  });
+
+  it('keeps level order as the curriculum progression, not by size', async () => {
+    // Junior (2 members) and Senior (1) happen to sort the same either way here, so
+    // assert against the orderNumber contract rather than the incidental counts.
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+    const levels = result.membership.byLevel;
+    expect(levels[0]?.label).toBe(LEVEL_JUNIOR.name);
+    expect(levels[1]?.label).toBe(LEVEL_SENIOR.name);
+  });
+
+  it('reuses the shared breakdown rather than recomputing the same slices', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+    expect(result.membership.bySchool).toEqual(result.breakdown.bySchool);
+    expect(result.membership.byLevel).toEqual(result.breakdown.byLevel);
+  });
+
+  it('names every status on the roster, including ones no stat card counts', async () => {
+    vi.mocked(analyticsRepository.listMembers).mockResolvedValue([
+      ...MEMBERS,
+      { id: 'm-4', createdAt: THIS_MONTH, troopId: TROOP_A.id, status: { name: 'expired' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // "Expired" is inside Total Members but named by none of the four stat cards, so
+    // without this row the cards visibly fail to add up and the gap is invisible.
+    expect(result.membership.byStatus.map((row) => row.label)).toContain('expired');
+    expect(result.membership.byStatus.reduce((sum, row) => sum + row.memberCount, 0)).toBe(4);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────
 // Breakdown dimensions + Decision-Making (2026-09-16 revision)
 // ─────────────────────────────────────────────────────────────

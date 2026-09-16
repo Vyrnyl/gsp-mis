@@ -44,7 +44,22 @@ export function BreakdownChart({ labels, values, valueLabel }: BreakdownChartPro
         ticks: { color: palette.muted, font: { size: 11 }, precision: 0 },
         grid: { color: palette.borderFaint },
       },
-      y: { grid: { display: false }, ticks: { color: palette.muted, font: { size: 11 } } },
+      y: {
+        grid: { display: false },
+        ticks: {
+          color: palette.muted,
+          font: { size: 11 },
+          // Long names (a full university name, say) otherwise get clipped at the
+          // start on narrow screens — ChartJS truncates the label rather than the
+          // axis, so "…Seminary Academy (ICSA)" loses the words that identify it.
+          // Truncating at the *end* keeps the distinguishing part readable, and the
+          // table below always carries the full name.
+          callback(value) {
+            const label = String(this.getLabelForValue(Number(value)));
+            return label.length > 28 ? `${label.slice(0, 27)}…` : label;
+          },
+        },
+      },
     },
   };
 
