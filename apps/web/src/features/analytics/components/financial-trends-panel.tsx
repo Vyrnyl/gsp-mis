@@ -94,7 +94,11 @@ export function FinancialTrendsPanel({ viewState, data, onRetry }: FinancialTren
         {hasMoney ? (
           <FinancialTrendChart data={data.trend} />
         ) : (
-          <p className="py-8 text-center text-[0.85rem] text-muted">No transactions recorded in this period.</p>
+          <EmptyState
+            icon={AnalyticsIcon}
+            title="No transactions in this period"
+            description="Once payments or expenses are recorded within the selected range, the trend will appear here."
+          />
         )}
       </Card>
 

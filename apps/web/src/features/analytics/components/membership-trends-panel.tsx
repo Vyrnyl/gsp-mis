@@ -83,7 +83,11 @@ export function MembershipTrendsPanel({ viewState, data, onRetry }: MembershipTr
         {data.trend.some((point) => point.value > 0) ? (
           <MembershipTrendChart data={data.trend} />
         ) : (
-          <p className="py-8 text-center text-[0.85rem] text-muted">No new registrations in this period.</p>
+          <EmptyState
+            icon={MembersIcon}
+            title="No new registrations in this period"
+            description="Once members register within the selected range, the growth trend will appear here."
+          />
         )}
       </Card>
 
