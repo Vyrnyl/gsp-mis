@@ -222,7 +222,7 @@ Every added breakdown is **both a chart and a table** — the brief's Data Visua
 
 A filter that cannot apply to a tab is **not rendered on that tab** rather than shown disabled — this differs from the page-level troop filter, which stays visible-but-disabled so the bar does not reflow on every tab change. Per-tab filters live inside their own tab's panel, so there is no shared layout to preserve.
 
-**Open question to settle during the revision, not now:** whether per-tab filters re-trigger the single shared fetch (simple, consistent with today's design, but re-fetches all six sections to change one) or filter client-side from the already-loaded snapshot (no round trip, but the aggregates are computed server-side, so this would mean shipping unaggregated rows). Default assumption: extend the existing query contract and re-fetch, matching how `range`/`troopId` already work.
+**Open question — SETTLED in step 1 (`273b35b`): per-tab filters extend the existing query contract and re-trigger the shared fetch.** Client-side filtering from the loaded snapshot was rejected because the aggregates are computed server-side, so it would have meant shipping unaggregated rows to the browser. Original framing kept for the record:  whether per-tab filters re-trigger the single shared fetch (simple, consistent with today's design, but re-fetches all six sections to change one) or filter client-side from the already-loaded snapshot (no round trip, but the aggregates are computed server-side, so this would mean shipping unaggregated rows). Default assumption: extend the existing query contract and re-fetch, matching how `range`/`troopId` already work.
 
 **Fate of the Breakdown tab.** Expected to be **removed** — once each tab owns its own slices, Breakdown is a second way to view the same numbers, which [ui-rules.md](ui-rules.md)'s reuse rule forbids. Confirm during the revision that nothing in it is left homeless before deleting; `BreakdownChart` itself is kept and reused by the receiving tabs.
 
@@ -230,14 +230,14 @@ A filter that cannot apply to a tab is **not rendered on that tab** rather than 
 
 **Order of work.** Tab by tab, each finished end-to-end before the next, so the page is never half-migrated and each step is independently verifiable:
 
-1. **Query contract + filter plumbing** — extend `overviewQuerySchema` with the per-tab dimension params, and build the shared per-tab filter bar component once. Nothing else can be verified until filters exist, so this is first. One component, reused by every tab, rather than five near-identical bars.
-2. **Financial** — the most explicit ask in the brief ("do not show only the overall financial totals") and the one with attribution already built by R3b, so it is the fastest proof the approach works end-to-end.
-3. **Membership** — the largest bullet (two of the eight map to it) and the tab the user cited as totals-only.
-4. **Participation** — including the **Community Engagement** card, the R3 miss.
-5. **Badges** — by area and by level.
-6. **Attendance** — by school/level/troop.
-7. **Delete the Breakdown tab** — last, once every one of its slices has a confirmed home, so nothing is orphaned mid-way.
-8. **Sweep** — full typecheck/lint/test, live verification per tab at 900/768/480px, tracker + this plan updated.
+1. ● **DONE (`273b35b`) — Query contract + filter plumbing** — extend `overviewQuerySchema` with the per-tab dimension params, and build the shared per-tab filter bar component once. Nothing else can be verified until filters exist, so this is first. One component, reused by every tab, rather than five near-identical bars.
+2. ● **DONE (`d1b49d5`) — Financial** — the most explicit ask in the brief ("do not show only the overall financial totals") and the one with attribution already built by R3b, so it is the fastest proof the approach works end-to-end.
+3. ● **DONE (`a91bce1`) — Membership** — the largest bullet (two of the eight map to it) and the tab the user cited as totals-only.
+4. ○ **Participation** — including the **Community Engagement** card, the R3 miss.
+5. ○ **Badges** — by area and by level.
+6. ○ **Attendance** — by school/level/troop.
+7. ○ **Delete the Breakdown tab** — last, once every one of its slices has a confirmed home, so nothing is orphaned mid-way.
+8. ○ **Sweep** — full typecheck/lint/test, live verification per tab at 900/768/480px, tracker + this plan updated.
 
 **Progress on this revision is tracked per tab in [progress.md](progress.md) 3.3**, since it spans six surfaces and the repo rule is that partial work must be visible rather than implied.
 
