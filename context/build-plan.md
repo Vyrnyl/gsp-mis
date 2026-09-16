@@ -183,33 +183,44 @@ Goal: a usable system for auth, membership, and a live dashboard.
 - **Done gate**: executive analytics render from real data; role-gated to council/admin.
 
 
-#### 3.3-R4 — Planned revision: push breakdowns into their owning tabs, add per-tab filters
+#### 3.3-R4 — Planned revision: break every tab down by dimension, with per-tab filters
 
-**Status: planned, not started.** Recorded here 2026-09-16 after the user pointed out a structural mistake in revision 3.3-R3 (see [progress.md](progress.md) 3.3). Run via the `revise-feature` skill.
+**Status: planned, not started.** Recorded here 2026-09-16 after the user corrected the shape of revision 3.3-R3 (see [progress.md](progress.md) 3.3). Run via the `revise-feature` skill.
 
-**Why.** `update.txt` has eight bullets. Seven of them describe breakdowns of data the existing tabs already own — Membership, Badges, Participation, Financial — and only the eighth (Decision-Making) is a genuinely new cross-cutting surface. R3 built the eighth correctly but collected the other seven into one generic **Breakdown** tab instead of enriching the tabs that own that data. That is the wrong shape: "which schools have the most members" is a Membership question, and a reader on the Membership tab should not have to leave it. The Financial tab in particular still shows only overall totals, which is exactly what the brief's first financial line says not to do.
+**The goal, in the user's words: "actually visualize all data by breaking it down… because right now it only shows the total data."** That is the whole point of this revision, and it is the standard every change below is measured against. Analytics today is a page of **totals**: each tab is a row of council-wide stat cards plus one chart of a single total plotted over time. The Membership tab, for example, shows Total / Active / Pending / New and a new-registrations-per-month line — four totals and a fifth total over time. Nothing on it is split by school, by level, or by anything else. A total answers "how many?"; it never answers "how many *of which kind*, and where?" — and that second question is what the page exists to support.
 
-**Scope — bullet → tab.**
+**Two things follow from that goal, and both are required:**
 
-| `update.txt` bullet | Target tab | What gets added |
-| --- | --- | --- |
-| Membership Data · Member Classification | **Membership** | Members by school and by scout level (count + share); level population ranking (highest/lowest); status split beyond the three existing stat cards. |
-| Badges and Achievements | **Badges** | Completion by badge *area* (`BadgeCategory`), achievement per scout level, top badge earners. |
-| Participation in Activities | **Participation** | Participation by activity type (`ActivityCategory`), active vs. inactive members, schools with low participation. |
-| Community Engagement | **Participation** (new card) | Community-tagged badges (`BadgeCategory` "Community Service") and outreach events (`ActivityCategory` "Community Outreach"), compared across schools. **Not built in R3 at all** — this bullet was missed. |
-| Financial Data | **Financial** | Income and spending by school, activity and category; highest-spending school/activity. Derivable since the R3b attribution migration. |
-| Data Visualization | all tabs | Every new breakdown gets a chart, not just a table — reusing `BreakdownChart` from R3. |
-| Decision-Making | **Decisions** | No change. R3 built this correctly; it stays the cross-cutting summary. |
+1. **Every tab gets breakdowns, not just a total.** Each tab's headline figures stay (they are legitimate context) but are joined by at least one dimensional split of the same data, charted *and* tabulated.
+2. **Every tab gets filters for its own dimensions.** A breakdown you cannot narrow is still a wall of numbers. Filters are what turn "members by school" into "this school's members by level" — they are how the breakdown becomes usable, not a nice-to-have bolted on after.
 
-**Filters — the user's explicit ask ("it should all have filters for it").** Today's two page-level filters (date range, troop) stay and continue to apply to every tab. Added on top, **per-tab and only where the dimension means something on that tab**:
+**Why it is per-tab, not one more shared tab.** `update.txt` has eight bullets. Seven describe breakdowns of data the existing tabs already own — Membership, Badges, Participation, Financial — and only the eighth (Decision-Making) is a genuinely new cross-cutting surface. R3 built the eighth correctly but collected the other seven into one generic **Breakdown** tab. That leaves every original tab still showing only totals, and sends a reader off the Membership tab to answer a Membership question. The Financial tab in particular still shows only overall totals, which is exactly what the brief's first financial line says not to do.
 
-- **Membership** — school, scout level
-- **Badges** — badge area, scout level
+**Scope — what each tab shows today vs. after.** "Today" is the total-only state this revision exists to fix.
+
+| Tab | Today (totals only) | After (broken down) | `update.txt` bullet |
+| --- | --- | --- | --- |
+| **Membership** | 4 stat cards (Total/Active/Pending/New) + new-registrations-per-month | Members **by school**, **by scout level**, **by status** — each charted and tabulated; level population ranked highest→lowest; trend stays as context | Membership Data · Member Classification |
+| **Attendance** | 4 stat cards + attendance-rate-per-month | Attendance rate **by school**, **by level**, **by troop** — so a single council-wide rate is no longer the only answer | Participation in Activities |
+| **Participation** | 3 stat cards + registrants per event | Participation **by activity type**, **by school**; active vs. inactive members; schools ranked by participation | Participation in Activities |
+| **Participation** (new card) | — | **Community engagement**: community-tagged badges (`BadgeCategory` "Community Service") and outreach events (`ActivityCategory` "Community Outreach"), compared across schools. **Missed entirely in R3** | Community Engagement |
+| **Badges** | 3 stat cards + completion per badge | Completion **by badge area**, achievement **by scout level**, top badge earners — the brief asks which *areas* are strongest/weakest, which per-badge completion cannot answer | Badges and Achievements |
+| **Financial** | 3 stat cards + income-vs-expense per month | Income and spending **by school**, **by activity**, **by category**; highest-spending school and activity. Derivable since the R3b attribution migration | Financial Data |
+| **Organization** | 3 stat cards + per-troop chart + table | Already a breakdown — the one tab that was never totals-only. Unchanged | — |
+| **Decisions** | Ranked insights | Unchanged. R3 built this correctly; it stays the cross-cutting summary | Decision-Making |
+
+Every added breakdown is **both a chart and a table** — the brief's Data Visualization bullet asks for charts, and a table alongside keeps exact figures readable and accessible. `BreakdownChart` (built in R3) is reused rather than re-implemented per tab.
+
+**Filters — half the goal, not a garnish.** The user asked for filters on each tab in the same breath as the breakdowns, and the two are the same feature: a breakdown shows every slice at once, a filter narrows to the slice you care about. Without filters, "members by school" across 20 schools is still a wall of numbers. Today's two page-level filters (date range, troop) stay and continue to apply to every tab. Added on top, **per-tab and only where the dimension means something on that tab**:
+
+- **Membership** — school, scout level, status
+- **Attendance** — school, scout level
 - **Participation** — activity type, school
+- **Badges** — badge area, scout level
 - **Financial** — school, activity, expense category
 - **Organization / Decisions** — none beyond the page-level pair (Organization *is* the per-troop comparison; Decisions is deliberately the unfiltered "what needs attention" view)
 
-A filter that cannot apply to a tab is **not rendered on that tab** rather than shown disabled — this differs from the page-level troop filter, which stays visible-but-disabled so the bar does not reflow on every tab change. Per-tab filters live inside their own tab's panel, so there is no layout to preserve.
+A filter that cannot apply to a tab is **not rendered on that tab** rather than shown disabled — this differs from the page-level troop filter, which stays visible-but-disabled so the bar does not reflow on every tab change. Per-tab filters live inside their own tab's panel, so there is no shared layout to preserve.
 
 **Open question to settle during the revision, not now:** whether per-tab filters re-trigger the single shared fetch (simple, consistent with today's design, but re-fetches all six sections to change one) or filter client-side from the already-loaded snapshot (no round trip, but the aggregates are computed server-side, so this would mean shipping unaggregated rows). Default assumption: extend the existing query contract and re-fetch, matching how `range`/`troopId` already work.
 
@@ -217,7 +228,30 @@ A filter that cannot apply to a tab is **not rendered on that tab** rather than 
 
 **Blast radius: expected isolated** — `features/analytics` plus the API analytics module, same as R3. No Prisma change is anticipated: every dimension this needs (`schoolId`, `scoutLevelId`, `Badge.categoryId`, `Event.categoryId`, `Expense.schoolId`/`eventId`/`categoryId`) already exists, the last three added by R3b. The four filter option-lists (`/organizations/{schools,scout-levels,badge-categories,activity-categories}`) already exist as `anyRole` endpoints and are read-only, so no new RBAC surface.
 
-**Done gate.** Each of the seven non-Decision bullets is answerable **from the tab that owns it**, without leaving that tab; every added breakdown has both a chart and a table; per-tab filters work and compose with the page-level date-range and troop filters; Breakdown is gone (or its survival is justified in writing); no regression to 3.3's existing Definition of Done or to the Decisions tab; responsive at 900/768/480px; RBAC unchanged (Admin + Executive Council).
+**Order of work.** Tab by tab, each finished end-to-end before the next, so the page is never half-migrated and each step is independently verifiable:
+
+1. **Query contract + filter plumbing** — extend `overviewQuerySchema` with the per-tab dimension params, and build the shared per-tab filter bar component once. Nothing else can be verified until filters exist, so this is first. One component, reused by every tab, rather than five near-identical bars.
+2. **Financial** — the most explicit ask in the brief ("do not show only the overall financial totals") and the one with attribution already built by R3b, so it is the fastest proof the approach works end-to-end.
+3. **Membership** — the largest bullet (two of the eight map to it) and the tab the user cited as totals-only.
+4. **Participation** — including the **Community Engagement** card, the R3 miss.
+5. **Badges** — by area and by level.
+6. **Attendance** — by school/level/troop.
+7. **Delete the Breakdown tab** — last, once every one of its slices has a confirmed home, so nothing is orphaned mid-way.
+8. **Sweep** — full typecheck/lint/test, live verification per tab at 900/768/480px, tracker + this plan updated.
+
+**Progress on this revision is tracked per tab in [progress.md](progress.md) 3.3**, since it spans six surfaces and the repo rule is that partial work must be visible rather than implied.
+
+**Done gate — the primary test is the goal itself: no tab shows only totals.**
+
+- [ ] **Every tab presents at least one dimensional breakdown of its own data, not just council-wide totals.** Walk each tab and ask "does this only tell me a total?" — if yes for any tab, the revision is not done. (Organization is already exempt; it was always a breakdown.)
+- [ ] Each of the seven non-Decision `update.txt` bullets is answerable **from the tab that owns it**, without leaving that tab.
+- [ ] Every added breakdown has **both a chart and a table**.
+- [ ] **Every tab with more than one meaningful dimension has filters for them**, and those filters compose correctly with the page-level date-range and troop filters.
+- [ ] Community Engagement — the bullet missed in R3 — is built and visible.
+- [ ] Breakdown tab is gone, or its survival is justified in writing against the reuse rule.
+- [ ] Empty/loading/error states drawn for every new card (a filter combination that matches nothing must render an empty state, not a blank panel or a misleading zero).
+- [ ] Small-sample honesty carried over from R3 where a breakdown feeds a ranking — a 1-member school must not top a "lowest performing" list.
+- [ ] No regression to 3.3's existing Definition of Done or to the Decisions tab; responsive at 900/768/480px; RBAC unchanged (Admin + Executive Council).
 
 ### 3.4 Settings & System Administration
 
