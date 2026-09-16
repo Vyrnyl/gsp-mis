@@ -38,9 +38,36 @@ export interface MembershipAnalyticsDto {
   byStatus: StatusBreakdownRowDto[];
 }
 
+/** One troop's attendance (2026-09-16 R4 step 6). Distinct from the Organization
+ * tab's troop rows, which stay council-wide under any filter because that tab *is*
+ * the council-wide comparison — these narrow with the page's filters, answering
+ * "within what I am looking at, which troops turn up?" */
+export interface TroopAttendanceRowDto {
+  id: string;
+  label: string;
+  memberCount: number;
+  attendanceRate: number;
+  /** Records behind the rate. Zero means no attendance *data*, which is not the same
+   * claim as 0% turnout — the UI renders "No data" rather than a damning zero. */
+  attendanceRecords: number;
+  present: number;
+  absent: number;
+}
+
 export interface AttendanceAnalyticsDto {
   stats: AnalyticsStatValueDto[];
   trend: TrendPointDto[];
+  /**
+   * The same attendance split by dimension (2026-09-16 R4 step 6). Before R4 this tab
+   * was four totals plus one council-wide rate plotted over time: a single number
+   * could be 70% because everyone attends sometimes, or because two troops attend
+   * everything and two attend nothing — and those call for opposite responses.
+   *
+   * School and level reuse the shared breakdown rows rather than being recomputed.
+   */
+  bySchool: DimensionBreakdownRowDto[];
+  byLevel: DimensionBreakdownRowDto[];
+  byTroop: TroopAttendanceRowDto[];
 }
 
 export interface EventParticipationDto {

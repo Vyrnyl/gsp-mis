@@ -814,6 +814,111 @@ describe('analyticsService.getOverview — Badges tab breakdowns (R4 step 5)', (
   });
 });
 
+describe('analyticsService.getOverview — Attendance tab breakdowns (R4 step 6)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('breaks attendance down by school and level, reusing the shared breakdown rows', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.attendance.bySchool).toEqual(result.breakdown.bySchool);
+    expect(result.attendance.byLevel).toEqual(result.breakdown.byLevel);
+
+    // SCHOOL_A: 2 present, 0 absent. SCHOOL_B: 0 present, 1 absent.
+    expect(result.attendance.bySchool.find((row) => row.label === SCHOOL_A.name)).toMatchObject({ attendanceRate: 100, attendanceRecords: 2 });
+    expect(result.attendance.bySchool.find((row) => row.label === SCHOOL_B.name)).toMatchObject({ attendanceRate: 0, attendanceRecords: 1 });
+  });
+
+  it('splits attendance by troop with present and absent counts', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    const troopA = result.attendance.byTroop.find((row) => row.label === TROOP_A.name);
+    expect(troopA).toMatchObject({ present: 2, absent: 0, attendanceRate: 100, attendanceRecords: 2 });
+
+    const troopB = result.attendance.byTroop.find((row) => row.label === TROOP_B.name);
+    expect(troopB).toMatchObject({ present: 0, absent: 1, attendanceRate: 0, attendanceRecords: 1 });
+  });
+
+  it('keeps a troop with no attendance records, flagged as no data rather than 0%', async () => {
+    // A troop nobody recorded and a troop nobody attends look identical in a rate
+    // alone, and only one of them is a problem with the troop.
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      { ...EVENTS[0], attendanceRecords: [{ attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) }] },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    const troopB = result.attendance.byTroop.find((row) => row.label === TROOP_B.name);
+    expect(troopB).toBeDefined();
+    expect(troopB).toMatchObject({ attendanceRecords: 0, present: 0, absent: 0 });
+  });
+
+  it('sorts troops with no records last, below a troop genuinely at 0%', async () => {
+    // Caught on live data: sorting by rate alone put the two troops with *no records*
+    // above the one troop with two recorded absences — ranking the groups we know
+    // nothing about ahead of the one actually failing to turn up.
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      {
+        ...EVENTS[0],
+        attendanceRecords: [
+          { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+          { attendanceStatus: 'absent', member: memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
+          { attendanceStatus: 'absent', member: memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
+        ],
+      },
+    ] as never);
+    // A third troop nobody has recorded at all.
+    vi.spyOn(analyticsRepository, 'listTroops').mockResolvedValue([...TROOPS, { id: 'troop-c', name: 'Troop C' }] as never);
+    vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue([
+      ...MEMBERS,
+      { id: 'm-9', createdAt: THIS_MONTH, troopId: 'troop-c', status: { name: 'active' }, birthDate: BIRTH_IN_BAND, school: SCHOOL_A, scoutLevel: LEVEL_JUNIOR },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+    const labels = result.attendance.byTroop.map((row) => row.label);
+
+    // Troop B is a real 0% (two absences); Troop C has no data. B must rank above C.
+    expect(labels.indexOf(TROOP_B.name)).toBeLessThan(labels.indexOf('Troop C'));
+    expect(result.attendance.byTroop.at(-1)).toMatchObject({ label: 'Troop C', attendanceRecords: 0 });
+  });
+
+  it('builds by-troop attendance from the filtered rows, not the unscoped Organization ones', async () => {
+    // The two look similar but answer different questions, and the difference lives in
+    // *which row set* each is built from — Organization reads the deliberately unscoped
+    // copies so it stays the council-wide comparison it claims to be, while this tab
+    // must move with the filters ("within the slice I am looking at, who turns up?").
+    // Asserted structurally rather than by row counts, because the repository mocks
+    // return fixed rows: Prisma does the narrowing, so a count assertion here would be
+    // testing the mock, not the service.
+    const scopedEvents = [
+      { ...EVENTS[0], attendanceRecords: [{ attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) }] },
+    ];
+    const unscopedEvents = [
+      {
+        ...EVENTS[0],
+        attendanceRecords: [
+          { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+          { attendanceStatus: 'absent', member: memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
+        ],
+      },
+    ];
+    // First call is the filtered read; the Organization tab's extra read is the second.
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail')
+      .mockResolvedValueOnce(scopedEvents as never)
+      .mockResolvedValue(unscopedEvents as never);
+
+    const result = await analyticsService.getOverview({ ...DEFAULT_QUERY, schoolId: SCHOOL_A.id } as never);
+
+    // Attendance sees only the scoped read: TROOP_B contributed no records to it.
+    expect(result.attendance.byTroop.find((row) => row.label === TROOP_B.name)?.attendanceRecords).toBe(0);
+    // Organization saw the unscoped read and still reports TROOP_B's absence.
+    expect(result.organization.troops.find((row) => row.troopName === TROOP_B.name)?.attendanceRate).toBe(0);
+    expect(result.attendance.byTroop.find((row) => row.label === TROOP_A.name)?.present).toBe(1);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────
 // Breakdown dimensions + Decision-Making (2026-09-16 revision)
 // ─────────────────────────────────────────────────────────────

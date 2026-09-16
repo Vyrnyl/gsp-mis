@@ -85,10 +85,31 @@ export interface MembershipAnalytics {
   byStatus: StatusBreakdownRow[];
 }
 
+/** One troop's attendance (2026-09-16 R4 step 6). Unlike the Organization tab's troop
+ * rows, these move with the page's filters — that tab is the council-wide comparison,
+ * this one answers "within what I am looking at, which troops turn up?" */
+export interface TroopAttendanceRow {
+  id: string;
+  label: string;
+  memberCount: number;
+  attendanceRate: number;
+  attendanceRecords: number;
+  present: number;
+  absent: number;
+}
+
 export interface AttendanceAnalytics {
   stats: AnalyticsStatValue[];
   /** Average attendance rate (%) per calendar month across the selected range. */
   trend: TrendPoint[];
+  /**
+   * The same attendance split by dimension (2026-09-16 R4 step 6). One council-wide
+   * rate cannot distinguish "everyone attends most things" from "half the council
+   * attends everything and half attends nothing" — opposite problems, opposite fixes.
+   */
+  bySchool: DimensionBreakdownRow[];
+  byLevel: DimensionBreakdownRow[];
+  byTroop: TroopAttendanceRow[];
 }
 
 export interface EventParticipation {

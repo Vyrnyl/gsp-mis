@@ -24,6 +24,7 @@ import type {
   StatusBreakdownRowDto,
   TopBadgeEarnerDto,
   TrendPointDto,
+  TroopAttendanceRowDto,
 } from './analytics.types';
 
 /** A nullable named dimension as selected by the repository (school, scout level,
@@ -198,7 +199,81 @@ function buildMembershipAnalytics(
   };
 }
 
-function buildAttendanceAnalytics(events: EventRow[], range: DateRange): AttendanceAnalyticsDto {
+/**
+ * Attendance per troop (2026-09-16 R4 step 6).
+ *
+ * Deliberately built from the *filtered* members and events, unlike the Organization
+ * tab's superficially similar troop rows, which read from unscoped copies so that tab
+ * stays the council-wide comparison it claims to be. The question here is different —
+ * "within the slice I am looking at, which troops turn up?" — so it must move with the
+ * filters.
+ *
+ * Troops are seeded from the member roster so a troop whose members have no attendance
+ * records still appears, at "No data" rather than 0%. A troop that was never recorded
+ * and a troop nobody attends look identical in a rate alone, and only one of them is a
+ * problem with the troop.
+ */
+function buildTroopAttendance(
+  troops: { id: string; name: string }[],
+  members: MemberRow[],
+  events: EventRow[],
+): TroopAttendanceRowDto[] {
+  const groups = new Map<string, { label: string; memberCount: number; present: number; absent: number }>();
+
+  const ensure = (id: string, label: string) => {
+    let group = groups.get(id);
+    if (!group) {
+      group = { label, memberCount: 0, present: 0, absent: 0 };
+      groups.set(id, group);
+    }
+    return group;
+  };
+
+  const troopName = new Map(troops.map((troop) => [troop.id, troop.name]));
+
+  for (const member of members) {
+    const id = member.troopId ?? 'unassigned';
+    ensure(id, member.troopId ? (troopName.get(member.troopId) ?? UNASSIGNED_TROOP) : UNASSIGNED_TROOP).memberCount += 1;
+  }
+
+  for (const event of events) {
+    for (const record of event.attendanceRecords) {
+      const id = record.member.troopId ?? 'unassigned';
+      const group = ensure(id, record.member.troopId ? (troopName.get(record.member.troopId) ?? UNASSIGNED_TROOP) : UNASSIGNED_TROOP);
+      if (record.attendanceStatus === 'present') group.present += 1;
+      else if (record.attendanceStatus === 'absent') group.absent += 1;
+    }
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({
+      id,
+      label: group.label,
+      memberCount: group.memberCount,
+      attendanceRate: rate(group.present, group.present + group.absent),
+      attendanceRecords: group.present + group.absent,
+      present: group.present,
+      absent: group.absent,
+    }))
+    // Troops with no records sort last rather than by their rate. A 0% built from two
+    // absences is a real finding; a 0% built from no records at all is an absence of
+    // data, and letting the second sort *above* the first would put the troops we know
+    // nothing about ahead of the one actually failing to turn up.
+    .sort((a, b) => {
+      if (a.attendanceRecords === 0 || b.attendanceRecords === 0) {
+        return a.attendanceRecords === b.attendanceRecords ? 0 : a.attendanceRecords === 0 ? 1 : -1;
+      }
+      return b.attendanceRate - a.attendanceRate;
+    });
+}
+
+function buildAttendanceAnalytics(
+  events: EventRow[],
+  range: DateRange,
+  bySchool: DimensionBreakdownRowDto[],
+  byLevel: DimensionBreakdownRowDto[],
+  byTroop: TroopAttendanceRowDto[],
+): AttendanceAnalyticsDto {
   const heldEvents = events.filter((e) => e.attendanceRecords.length > 0);
   const totalPresent = heldEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'present').length, 0);
   const totalAbsent = heldEvents.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'absent').length, 0);
@@ -218,6 +293,13 @@ function buildAttendanceAnalytics(events: EventRow[], range: DateRange): Attenda
       stat('totalAbsent', 'Total Absent', totalAbsent),
     ],
     trend,
+    // The R4 point on this tab: the four stats are totals and the trend is one
+    // council-wide rate over time. A single 70% could mean everyone attends most
+    // things, or that half the council attends everything and half attends nothing —
+    // opposite problems needing opposite responses, indistinguishable until now.
+    bySchool,
+    byLevel,
+    byTroop,
   };
 }
 
@@ -602,6 +684,7 @@ function buildOrganizationAnalytics(
  * makes "which school is worst?" wrong in a way nobody can see. */
 const UNASSIGNED_SCHOOL = 'No school recorded';
 const UNASSIGNED_LEVEL = 'No level assigned';
+const UNASSIGNED_TROOP = 'No troop assigned';
 const UNCATEGORIZED = 'Uncategorized';
 /** Spending with no school or event attached. A real category — many council costs
  * genuinely are council-wide — so it is labelled, not hidden. */
@@ -1209,7 +1292,10 @@ export const analyticsService = {
 
     return {
       membership: buildMembershipAnalytics(members, range, breakdown),
-      attendance: buildAttendanceAnalytics(events, range),
+      // School/level reuse the shared breakdown rows; troop is built here because the
+      // Organization tab's troop rows are deliberately unscoped and would not move
+      // with the filters, which is the opposite of what this tab needs.
+      attendance: buildAttendanceAnalytics(events, range, breakdown.bySchool, breakdown.byLevel, buildTroopAttendance(troops, members, events)),
       participation: buildParticipationAnalytics(
         events,
         members,

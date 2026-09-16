@@ -79,6 +79,20 @@ export function DimensionBreakdownCard({
   const config = METRIC_CONFIG[metric];
   const ordered = preserveOrder ? rows : [...rows].sort((a, b) => config.value(b) - config.value(a));
 
+  /**
+   * When ranking by attendance rate, groups with no records are left off the chart
+   * (2026-09-16 R4 step 6, the first step to chart this metric).
+   *
+   * A bar chart cannot draw "no data": such a group would plot as a bar of zero,
+   * indistinguishable from one that genuinely never turns up — and it would directly
+   * contradict the "No data" its own table row shows. They stay in the table, where
+   * the distinction survives, and are named under the chart so their absence from it
+   * is stated rather than silent.
+   */
+  const hidesUnrecorded = metric === 'attendanceRate';
+  const charted = hidesUnrecorded ? ordered.filter((row) => row.attendanceRecords > 0) : ordered;
+  const unrecorded = hidesUnrecorded ? ordered.filter((row) => row.attendanceRecords === 0) : [];
+
   /** Zero attendance *records* is missing data, not 0% turnout — showing "0%" there
    * would read as a group that never shows up, a different and much worse claim. */
   const attendanceCell = (row: DimensionBreakdownRow) =>
@@ -105,11 +119,19 @@ export function DimensionBreakdownCard({
       <CardHeader title={title} subtitle={subtitle} />
       {ordered.length > 0 ? (
         <>
-          <BreakdownChart
-            labels={ordered.map((row) => row.label)}
-            values={ordered.map(config.value)}
-            valueLabel={config.unit}
-          />
+          {charted.length > 0 ? (
+            <BreakdownChart
+              labels={charted.map((row) => row.label)}
+              values={charted.map(config.value)}
+              valueLabel={config.unit}
+            />
+          ) : null}
+          {unrecorded.length > 0 ? (
+            <p className="mt-2.5 text-[0.8rem] text-muted">
+              Not charted: {unrecorded.map((row) => row.label).join(', ')} — no attendance recorded, which is not the same as
+              0% turnout. {unrecorded.length === 1 ? 'It is' : 'They are'} listed below.
+            </p>
+          ) : null}
           <TableWrapper className="mt-4">
             <Table caption={title}>
               <TableHead>
