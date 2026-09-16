@@ -127,9 +127,32 @@ export interface BadgeCompletionSliceDto {
   completionRate: number;
 }
 
+/** One member on the top-earners list. Names come from the badge rows' own member
+ * relation, so the list is built from the same filtered set as everything else on the
+ * tab rather than from a second query that could disagree with it. */
+export interface TopBadgeEarnerDto {
+  memberId: string;
+  memberName: string;
+  school: string;
+  scoutLevel: string;
+  badgesEarned: number;
+}
+
 export interface BadgeAnalyticsDto {
   stats: AnalyticsStatValueDto[];
   completionByBadge: BadgeCompletionSliceDto[];
+  /**
+   * The same badge data split by dimension (2026-09-16 R4 revision, step 5). Before
+   * R4 this tab was three totals plus a per-badge completion chart — it could say
+   * which individual badges were popular, never which *areas* were strong or weak,
+   * which is the question the brief actually asks.
+   *
+   * `byArea` is the same object the Decisions tab ranks (`breakdown.byBadgeCategory`),
+   * reused rather than recomputed so the two surfaces cannot disagree.
+   */
+  byArea: DimensionBreakdownRowDto[];
+  byLevel: DimensionBreakdownRowDto[];
+  topEarners: TopBadgeEarnerDto[];
 }
 
 export interface FinancialAnalyticsDto {

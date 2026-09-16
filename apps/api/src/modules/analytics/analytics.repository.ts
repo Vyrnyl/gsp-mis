@@ -159,6 +159,10 @@ export const analyticsRepository = {
         member: {
           select: {
             id: true,
+            // Names (2026-09-16 R4 step 5) — the top-earners list is the one place on
+            // the Badges tab that names individuals rather than groups.
+            firstName: true,
+            lastName: true,
             troopId: true,
             school: { select: { id: true, name: true } },
             scoutLevel: { select: { id: true, name: true, orderNumber: true } },

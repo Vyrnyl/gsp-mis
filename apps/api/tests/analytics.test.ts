@@ -96,10 +96,22 @@ const BADGE_CATALOG = [
   { id: 'b-2', name: 'Camp Cook', category: BADGE_CAT_OUTDOOR },
 ];
 
+/** Badge rows carry the earner's name (R4 step 5) — the top-earners list is the one
+ * place on the Badges tab that names individuals rather than groups. Attendance rows
+ * still use the bare `memberRef`, which has no name to select. */
+const badgeMemberRef = (
+  id: string,
+  firstName: string,
+  lastName: string,
+  troopId: string,
+  school: typeof SCHOOL_A | null,
+  scoutLevel: typeof LEVEL_JUNIOR | null,
+) => ({ id, firstName, lastName, ...memberRef(troopId, school, scoutLevel) });
+
 const MEMBER_BADGES = [
-  { id: 'mb-1', badgeId: 'b-1', status: 'earned', member: { id: 'm-1', ...memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) } },
-  { id: 'mb-2', badgeId: 'b-1', status: 'verified', member: { id: 'm-3', ...memberRef(TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) } },
-  { id: 'mb-3', badgeId: 'b-2', status: 'in_progress', member: { id: 'm-2', ...memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) } },
+  { id: 'mb-1', badgeId: 'b-1', status: 'earned', member: badgeMemberRef('m-1', 'Ana', 'Cruz', TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+  { id: 'mb-2', badgeId: 'b-1', status: 'verified', member: badgeMemberRef('m-3', 'Bea', 'Reyes', TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
+  { id: 'mb-3', badgeId: 'b-2', status: 'in_progress', member: badgeMemberRef('m-2', 'Cira', 'Lim', TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
 ];
 
 const TROOPS = [TROOP_A, TROOP_B];
@@ -706,6 +718,99 @@ describe('analyticsService.getOverview — Participation tab breakdowns (R4 step
     expect(filtered.participation.community.badgeCategories).toEqual(unfiltered.participation.community.badgeCategories);
     expect(filtered.participation.community.activityCategories).toEqual(unfiltered.participation.community.activityCategories);
     expect(filtered.participation.community.activityCategories).toContain('Community Outreach');
+  });
+});
+
+describe('analyticsService.getOverview — Badges tab breakdowns (R4 step 5)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('breaks badges down by area, reusing the shared breakdown rows', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Same objects the Decisions tab ranks for strongest/weakest area — computed once,
+    // so the two surfaces cannot report different winners.
+    expect(result.badges.byArea).toEqual(result.breakdown.byBadgeCategory);
+
+    // b-1 (Community Service) has one earned + one verified; both count.
+    expect(result.badges.byArea.find((row) => row.label === 'Community Service')).toMatchObject({
+      badgesEarned: 2,
+      memberCount: 2,
+    });
+  });
+
+  it('keeps a badge area nobody has earned in, at zero, rather than dropping it', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Outdoor Skills' only badge is in_progress, so nothing is earned there. An area
+    // nobody has started is precisely what "weakest area" means — dropping it would
+    // hide the answer to the question the tab exists to ask.
+    expect(result.badges.byArea.find((row) => row.label === 'Outdoor Skills')).toMatchObject({
+      badgesEarned: 0,
+      memberCount: 0,
+    });
+  });
+
+  it('breaks badges down by scout level in curriculum order, reusing the shared rows', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.badges.byLevel).toEqual(result.breakdown.byLevel);
+    // Junior before Senior — level order follows the curriculum, never badge count,
+    // so "where does the pipeline thin out?" stays readable.
+    const labels = result.badges.byLevel.map((row) => row.label);
+    expect(labels.indexOf(LEVEL_JUNIOR.name)).toBeLessThan(labels.indexOf(LEVEL_SENIOR.name));
+  });
+
+  it('ranks top earners by earned/verified badges only, excluding in-progress', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Cira's only badge is in_progress — an intention, not an achievement. Ranking by
+    // intentions would place someone who starts everything above someone who finishes.
+    expect(result.badges.topEarners.map((earner) => earner.memberName)).toEqual(['Ana Cruz', 'Bea Reyes']);
+    expect(result.badges.topEarners.every((earner) => earner.badgesEarned > 0)).toBe(true);
+  });
+
+  it('carries each top earner\'s school and level so the list is actionable', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.badges.topEarners[0]).toMatchObject({
+      memberId: 'm-1',
+      memberName: 'Ana Cruz',
+      school: SCHOOL_A.name,
+      scoutLevel: LEVEL_JUNIOR.name,
+      badgesEarned: 1,
+    });
+  });
+
+  it('counts a member once per badge, not once per row, and breaks ties by name', async () => {
+    vi.spyOn(analyticsRepository, 'listMemberBadges').mockResolvedValue([
+      { id: 'mb-1', badgeId: 'b-1', status: 'earned', member: badgeMemberRef('m-1', 'Zoe', 'Santos', TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+      { id: 'mb-2', badgeId: 'b-2', status: 'verified', member: badgeMemberRef('m-1', 'Zoe', 'Santos', TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+      { id: 'mb-3', badgeId: 'b-1', status: 'earned', member: badgeMemberRef('m-2', 'Aria', 'Diaz', TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
+      { id: 'mb-4', badgeId: 'b-2', status: 'earned', member: badgeMemberRef('m-3', 'Bea', 'Reyes', TROOP_B.id, SCHOOL_B, LEVEL_SENIOR) },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Zoe's two badges aggregate into one row of 2. Aria and Bea tie at 1 and sort by
+    // name, so the order is stable between requests rather than looking like movement.
+    expect(result.badges.topEarners.map((e) => [e.memberName, e.badgesEarned])).toEqual([
+      ['Zoe Santos', 2],
+      ['Aria Diaz', 1],
+      ['Bea Reyes', 1],
+    ]);
+  });
+
+  it('leaves the member roster whole when a badge area filter is applied', async () => {
+    // A badge area is a property of the badge, not of the member who earned it, so
+    // filtering to one area must not make levels lose members — otherwise the tab
+    // would report a shrinking council every time someone asked about Leadership.
+    const result = await analyticsService.getOverview({ ...DEFAULT_QUERY, badgeCategoryId: BADGE_CAT_SERVICE.id } as never);
+
+    const unfiltered = await analyticsService.getOverview(DEFAULT_QUERY);
+    expect(result.badges.byLevel.map((row) => row.memberCount)).toEqual(unfiltered.badges.byLevel.map((row) => row.memberCount));
   });
 });
 

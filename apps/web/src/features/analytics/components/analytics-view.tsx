@@ -14,6 +14,7 @@ import {
 import { Tabs, type SelectOption } from '@/shared/components/ui';
 
 import {
+  ALL_OPTION,
   ALL_TROOPS,
   ANALYTICS_TABS,
   DEFAULT_DATE_RANGE,
@@ -125,6 +126,7 @@ export function AnalyticsView() {
 
   const isOrganizationTab = activeTab === 'organization';
   const isFinancialTab = activeTab === 'financial';
+  const isBadgesTab = activeTab === 'badges';
 
   const troopFilterNote = useMemo(() => {
     if (isOrganizationTab) return 'This tab compares all troops.';
@@ -146,9 +148,20 @@ export function AnalyticsView() {
    * Saying so is the difference between a caveat and a wrong number.
    */
   const tabFilterNote = useMemo(() => {
-    if (!isFinancialTab) return null;
-    return 'The activity and expense-category filters narrow spending only — income is not recorded against either, so Net will overstate the balance while one is applied. The school filter narrows both sides.';
-  }, [isFinancialTab]);
+    if (isFinancialTab) {
+      return 'The activity and expense-category filters narrow spending only — income is not recorded against either, so Net will overstate the balance while one is applied. The school filter narrows both sides.';
+    }
+    // Badges has the same shape of asymmetry, from the same cause: a badge area is a
+    // property of the badge, not of the member who earned it. Filtering to one area
+    // narrows the badges counted while the roster stays whole — which is correct (a
+    // level does not lose members because you asked about Leadership), but it makes
+    // "Badges / Member" a ratio of filtered badges to all members. Stated rather than
+    // left for a reader to discover from a figure that dropped for no visible reason.
+    if (isBadgesTab && filters.badgeCategoryId !== ALL_OPTION) {
+      return 'Badge area narrows the badges counted, not the roster — member counts stay council-wide, so "Badges / Member" reflects this area only.';
+    }
+    return null;
+  }, [isFinancialTab, isBadgesTab, filters.badgeCategoryId]);
 
   return (
     <div>

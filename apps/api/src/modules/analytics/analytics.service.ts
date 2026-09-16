@@ -22,6 +22,7 @@ import type {
   SchoolFinanceRowDto,
   SchoolParticipationRowDto,
   StatusBreakdownRowDto,
+  TopBadgeEarnerDto,
   TrendPointDto,
 } from './analytics.types';
 
@@ -55,7 +56,14 @@ type MemberBadgeRow = {
   id: string;
   badgeId: string;
   status: string;
-  member: { id: string; troopId: string | null; school: NamedRef; scoutLevel: LevelRef };
+  member: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    troopId: string | null;
+    school: NamedRef;
+    scoutLevel: LevelRef;
+  };
 };
 type BadgeCatalogRow = { id: string; name: string; category: NamedRef };
 type PaymentRow = { paymentDate: Date; amount: { toNumber(): number }; member: { school: NamedRef } };
@@ -425,7 +433,55 @@ function buildParticipationAnalytics(
   };
 }
 
-function buildBadgeAnalytics(catalog: { id: string; name: string }[], memberBadges: MemberBadgeRow[], totalMembers: number): BadgeAnalyticsDto {
+/** How many members the top-earners list names. Deliberately short — it is a
+ * recognition list, not a leaderboard of everyone. */
+const TOP_EARNER_LIMIT = 10;
+
+/**
+ * Members ranked by badges earned (2026-09-16 R4 step 5), built from the same
+ * filtered badge rows as the rest of the tab.
+ *
+ * Only earned/verified badges count: an in-progress badge is an intention, and
+ * ranking people by intentions would put someone who starts everything and finishes
+ * nothing above someone who finishes. Members with zero badges are absent by
+ * construction rather than listed at 0 — this is a "who to recognize" list, and
+ * padding it with zeroes would turn recognition into a bottom-ranking nobody asked
+ * for.
+ */
+function buildTopBadgeEarners(memberBadges: MemberBadgeRow[]): TopBadgeEarnerDto[] {
+  const earners = new Map<string, TopBadgeEarnerDto>();
+
+  for (const memberBadge of memberBadges) {
+    if (memberBadge.status !== 'earned' && memberBadge.status !== 'verified') continue;
+    const { member } = memberBadge;
+    let earner = earners.get(member.id);
+    if (!earner) {
+      earner = {
+        memberId: member.id,
+        memberName: `${member.firstName} ${member.lastName}`.trim(),
+        school: member.school?.name ?? UNASSIGNED_SCHOOL,
+        scoutLevel: member.scoutLevel?.name ?? UNASSIGNED_LEVEL,
+        badgesEarned: 0,
+      };
+      earners.set(member.id, earner);
+    }
+    earner.badgesEarned += 1;
+  }
+
+  return Array.from(earners.values())
+    // Ties broken by name so the order is stable between requests — an unstable list
+    // looks like movement that did not happen.
+    .sort((a, b) => b.badgesEarned - a.badgesEarned || a.memberName.localeCompare(b.memberName))
+    .slice(0, TOP_EARNER_LIMIT);
+}
+
+function buildBadgeAnalytics(
+  catalog: BadgeCatalogRow[],
+  memberBadges: MemberBadgeRow[],
+  totalMembers: number,
+  byArea: DimensionBreakdownRowDto[],
+  byLevel: DimensionBreakdownRowDto[],
+): BadgeAnalyticsDto {
   const awarded = memberBadges.filter((mb) => mb.status === 'earned' || mb.status === 'verified');
   const verified = memberBadges.filter((mb) => mb.status === 'verified').length;
   const inProgress = memberBadges.filter((mb) => mb.status === 'in_progress').length;
@@ -444,6 +500,14 @@ function buildBadgeAnalytics(catalog: { id: string; name: string }[], memberBadg
       stat('inProgress', 'In Progress', inProgress),
     ],
     completionByBadge,
+    // The R4 point on this tab: the three stats are totals and `completionByBadge` is
+    // a per-badge list, so nothing here answered "which *areas* are strongest and
+    // weakest?" — a property of `BadgeCategory`, not of an individual badge. Both
+    // breakdowns are passed in already built, so this tab and the Decisions tab rank
+    // the identical rows.
+    byArea,
+    byLevel,
+    topEarners: buildTopBadgeEarners(memberBadges),
   };
 }
 
@@ -1155,7 +1219,9 @@ export const analyticsService = {
         allBadgeCategories.map((c) => c.name),
         allActivityCategories.map((c) => c.name),
       ),
-      badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length),
+      // `breakdown.byBadgeCategory`/`byLevel` are reused rather than recomputed, so the
+      // Badges tab and the Decisions tab can never rank different numbers.
+      badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length, breakdown.byBadgeCategory, breakdown.byLevel),
       financial: buildFinancialAnalytics(paymentsSince, expensesSince, range, money),
       organization: buildOrganizationAnalytics(
         troops,

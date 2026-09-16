@@ -158,9 +158,27 @@ export interface BadgeCompletionSlice {
   completionRate: number;
 }
 
+/** One member on the Badges tab's recognition list. */
+export interface TopBadgeEarner {
+  memberId: string;
+  memberName: string;
+  school: string;
+  scoutLevel: string;
+  badgesEarned: number;
+}
+
 export interface BadgeAnalytics {
   stats: AnalyticsStatValue[];
   completionByBadge: BadgeCompletionSlice[];
+  /**
+   * The same badge data split by dimension (2026-09-16 R4 revision, step 5). The
+   * per-badge completion chart says which individual badges are popular; only an
+   * area-level split answers the brief's actual question — which *areas* are
+   * strongest and weakest. Same rows the Decisions tab ranks.
+   */
+  byArea: DimensionBreakdownRow[];
+  byLevel: DimensionBreakdownRow[];
+  topEarners: TopBadgeEarner[];
 }
 
 export interface FinancialAnalytics {

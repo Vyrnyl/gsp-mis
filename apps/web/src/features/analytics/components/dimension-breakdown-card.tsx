@@ -28,9 +28,26 @@ export interface DimensionBreakdownCardProps {
   /** Levels read as a progression, so their given order is kept; most other
    * dimensions are more useful ranked largest-first. */
   preserveOrder?: boolean;
+  /**
+   * Lead the table with the metric the chart ranks by, instead of the default
+   * members-first column order (2026-09-16 R4 step 5).
+   *
+   * Opt-in because it only matters where the tab's subject is not membership: on the
+   * Badges tab the default order buries "Badges Earned" behind an Attendance Rate
+   * column that has nothing to do with badges — and on a narrow screen the one column
+   * the reader came for is the one scrolled off the edge. Membership keeps the default.
+   */
+  leadWithMetric?: boolean;
   emptyTitle: string;
   emptyDescription: string;
 }
+
+/** Column order per metric when `leadWithMetric` is set. */
+const LEAD_COLUMN: Record<BreakdownMetric, string> = {
+  members: 'Members',
+  attendanceRate: 'Attendance Rate',
+  badgesEarned: 'Badges Earned',
+};
 
 const METRIC_CONFIG: Record<BreakdownMetric, { value: (row: DimensionBreakdownRow) => number; unit: string }> = {
   members: { value: (row) => row.memberCount, unit: 'members' },
@@ -55,11 +72,33 @@ export function DimensionBreakdownCard({
   rows,
   metric,
   preserveOrder = false,
+  leadWithMetric = false,
   emptyTitle,
   emptyDescription,
 }: DimensionBreakdownCardProps) {
   const config = METRIC_CONFIG[metric];
   const ordered = preserveOrder ? rows : [...rows].sort((a, b) => config.value(b) - config.value(a));
+
+  /** Zero attendance *records* is missing data, not 0% turnout — showing "0%" there
+   * would read as a group that never shows up, a different and much worse claim. */
+  const attendanceCell = (row: DimensionBreakdownRow) =>
+    row.attendanceRecords > 0 ? `${row.attendanceRate}%` : <span className="text-muted">No data</span>;
+
+  const columns: { header: string; cell: (row: DimensionBreakdownRow) => React.ReactNode }[] = [
+    { header: 'Members', cell: (row) => row.memberCount },
+    { header: 'Attendance Rate', cell: attendanceCell },
+    { header: 'Badges Earned', cell: (row) => row.badgesEarned },
+    { header: 'Badges / Member', cell: (row) => row.badgesPerMember },
+  ];
+
+  // Move the ranked metric's column to the front, leaving the rest in their existing
+  // relative order, so only the lead changes rather than the whole layout.
+  const orderedColumns = leadWithMetric
+    ? [
+        ...columns.filter((column) => column.header === LEAD_COLUMN[metric]),
+        ...columns.filter((column) => column.header !== LEAD_COLUMN[metric]),
+      ]
+    : columns;
 
   return (
     <Card className="mb-3.5">
@@ -76,10 +115,9 @@ export function DimensionBreakdownCard({
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>{dimensionLabel}</TableHeaderCell>
-                  <TableHeaderCell>Members</TableHeaderCell>
-                  <TableHeaderCell>Attendance Rate</TableHeaderCell>
-                  <TableHeaderCell>Badges Earned</TableHeaderCell>
-                  <TableHeaderCell>Badges / Member</TableHeaderCell>
+                  {orderedColumns.map((column) => (
+                    <TableHeaderCell key={column.header}>{column.header}</TableHeaderCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -88,15 +126,9 @@ export function DimensionBreakdownCard({
                     <TableCell>
                       <span className="whitespace-nowrap">{row.label}</span>
                     </TableCell>
-                    <TableCell>{row.memberCount}</TableCell>
-                    {/* Zero attendance *records* is missing data, not 0% turnout —
-                        showing "0%" there would read as a group that never shows up,
-                        which is a different and much worse claim. */}
-                    <TableCell>
-                      {row.attendanceRecords > 0 ? `${row.attendanceRate}%` : <span className="text-muted">No data</span>}
-                    </TableCell>
-                    <TableCell>{row.badgesEarned}</TableCell>
-                    <TableCell>{row.badgesPerMember}</TableCell>
+                    {orderedColumns.map((column) => (
+                      <TableCell key={column.header}>{column.cell(row)}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
