@@ -1,20 +1,61 @@
 import { prisma } from '../../config/prisma';
 
 /**
- * Every list method takes an explicit `troopId` filter (undefined = all troops) and,
- * where the metric is time-bound, a `since` date. Before the 2026-09-02 filter
- * revision these were unfiltered `findMany`s that pulled whole tables into memory for
- * the service to filter in JS; the filters are now pushed down into Prisma `where`
- * clauses so a narrower selection reads fewer rows rather than the same full table.
+ * Filters applied at the database level. `troopId` is page-level (2026-09-02); the
+ * rest are the per-tab dimension filters added by the 2026-09-16 R4 revision.
+ *
+ * Every field is optional and `undefined` means "no filter", so a caller that passes
+ * nothing reads exactly what it read before either revision.
+ */
+export interface AnalyticsFilterScope {
+  troopId?: string;
+  schoolId?: string;
+  scoutLevelId?: string;
+  /** `MemberStatus.name` (`active`/`pending`/…), not an id — see `analytics.schema`. */
+  status?: string;
+  activityCategoryId?: string;
+  badgeCategoryId?: string;
+  expenseCategoryId?: string;
+}
+
+/**
+ * The member-shaped `where` reused by every member-rooted query. Members, attendance
+ * records and member-badges all reach school/level/troop/status through a `Member`,
+ * so the clause is built once and nested at the right depth by each caller rather
+ * than being spelled out four times — that repetition is how one query ends up
+ * quietly ignoring a filter the others honour.
+ */
+function memberWhere(scope: AnalyticsFilterScope) {
+  return {
+    ...(scope.troopId ? { troopId: scope.troopId } : {}),
+    ...(scope.schoolId ? { schoolId: scope.schoolId } : {}),
+    ...(scope.scoutLevelId ? { scoutLevelId: scope.scoutLevelId } : {}),
+    ...(scope.status ? { status: { name: scope.status } } : {}),
+  };
+}
+
+/** `{}` would be a valid-but-pointless Prisma filter; collapse it to `undefined` so
+ * the unfiltered query plan stays identical to the pre-revision one. */
+function orUndefined<T extends object>(where: T): T | undefined {
+  return Object.keys(where).length > 0 ? where : undefined;
+}
+
+/**
+ * Every list method takes an explicit filter scope and, where the metric is
+ * time-bound, a `since` date. Before the 2026-09-02 filter revision these were
+ * unfiltered `findMany`s that pulled whole tables into memory for the service to
+ * filter in JS; the filters are now pushed down into Prisma `where` clauses so a
+ * narrower selection reads fewer rows rather than the same full table. The R4
+ * dimension filters follow that same rule rather than filtering in the service.
  */
 export const analyticsRepository = {
   /** Not date-filtered — "Total Members"/"Active"/"Pending" are roster counts (a
    * point-in-time snapshot), not flows, so a date range must not shrink them. The
    * date-bound "New in range" figure and the registrations trend are derived from
    * `createdAt` on these same rows in the service. */
-  listMembers(troopId?: string) {
+  listMembers(scope: AnalyticsFilterScope = {}) {
     return prisma.member.findMany({
-      where: troopId ? { troopId } : undefined,
+      where: orUndefined(memberWhere(scope)),
       select: {
         id: true,
         createdAt: true,
@@ -38,14 +79,24 @@ export const analyticsRepository = {
   // One row per event, with just enough nested detail to drive attendance,
   // participation and per-troop attendance rate without a second round trip.
   //
-  // `troopId` filters the nested attendance records rather than the events
-  // themselves: an event is council-wide, so scoping to a troop means "this troop's
-  // participation in these events", not "events belonging to this troop". Events
-  // with no matching records then fall out of the derived stats naturally, since
-  // every downstream figure keys off a non-empty `attendanceRecords`/`registrations`.
-  listEventsWithDetail(since: Date, troopId?: string) {
+  // The member-shaped filters scope the nested registration/attendance records rather
+  // than the events themselves: an event is council-wide, so scoping to a troop (or a
+  // school, or a level) means "this group's participation in these events", not
+  // "events belonging to this group". Events with no matching records then fall out
+  // of the derived stats naturally, since every downstream figure keys off a
+  // non-empty `attendanceRecords`/`registrations`.
+  //
+  // `activityCategoryId` is the exception — it is a property of the *event*, so it
+  // filters the outer query and genuinely removes events from the set.
+  listEventsWithDetail(since: Date, scope: AnalyticsFilterScope = {}) {
+    const member = orUndefined(memberWhere(scope));
+    const recordWhere = member ? { member } : undefined;
+
     return prisma.event.findMany({
-      where: { eventDate: { gte: since } },
+      where: {
+        eventDate: { gte: since },
+        ...(scope.activityCategoryId ? { categoryId: scope.activityCategoryId } : {}),
+      },
       select: {
         id: true,
         title: true,
@@ -55,11 +106,11 @@ export const analyticsRepository = {
         // service buckets a missing category as "Uncategorized".
         category: { select: { id: true, name: true } },
         registrations: {
-          where: troopId ? { member: { troopId } } : undefined,
+          where: recordWhere,
           select: { id: true },
         },
         attendanceRecords: {
-          where: troopId ? { member: { troopId } } : undefined,
+          where: recordWhere,
           // `member.school`/`scoutLevel` here are what make per-school and per-level
           // attendance derivable at all: attendance has no school FK of its own, so
           // the dimension is reached through the member who attended.
@@ -79,8 +130,9 @@ export const analyticsRepository = {
     });
   },
 
-  listBadgeCatalog() {
+  listBadgeCatalog(scope: AnalyticsFilterScope = {}) {
     return prisma.badge.findMany({
+      where: scope.badgeCategoryId ? { categoryId: scope.badgeCategoryId } : undefined,
       // Badge category (2026-09-16 revision) — the brief asks which *areas*
       // (Leadership, Arts & Culture…) are strongest/weakest, which is a property of
       // `BadgeCategory`, not of an individual badge.
@@ -88,9 +140,14 @@ export const analyticsRepository = {
     });
   },
 
-  listMemberBadges(troopId?: string) {
+  listMemberBadges(scope: AnalyticsFilterScope = {}) {
+    const member = orUndefined(memberWhere(scope));
     return prisma.memberBadge.findMany({
-      where: troopId ? { member: { troopId } } : undefined,
+      where: orUndefined({
+        ...(member ? { member } : {}),
+        // Badge area filters the badge, not the member who earned it.
+        ...(scope.badgeCategoryId ? { badge: { categoryId: scope.badgeCategoryId } } : {}),
+      }),
       select: {
         id: true,
         badgeId: true,
@@ -113,19 +170,29 @@ export const analyticsRepository = {
     return prisma.troop.findMany({ select: { id: true, name: true } });
   },
 
-  // Income/expense are council-level, with no troop association anywhere in the
-  // schema (`Payment` links to a member, `Expense` to nothing troop-scoped), so the
-  // troop filter deliberately does not apply here — see the service's note on why
-  // the Financial tab disables it rather than silently returning unfiltered numbers.
-  paymentsSince(since: Date) {
+  // Income is attributable through the paying member; expenses became attributable in
+  // their own right on 2026-09-16 (see `expensesSince`). The troop filter still does
+  // not apply to either — no troop association exists anywhere in the money schema —
+  // which is why the Financial tab disables that one filter rather than silently
+  // returning unfiltered numbers.
+  paymentsSince(since: Date, scope: AnalyticsFilterScope = {}) {
     return prisma.payment.findMany({
-      where: { status: 'paid', paymentDate: { gte: since } },
+      where: {
+        status: 'paid',
+        paymentDate: { gte: since },
+        // Income reaches a school through the member who paid. Activity and expense
+        // category have no meaning on the income side, so they are ignored here
+        // rather than zeroing income; the service documents that asymmetry where it
+        // renders the comparison.
+        ...(scope.schoolId ? { member: { schoolId: scope.schoolId } } : {}),
+      },
       select: {
         paymentDate: true,
         amount: true,
         // Income *is* attributable: `Payment` links to a member, and a member links
         // to a school. This is the derivable half of the brief's "break down income
-        // and expenses by school" ask — the expense half is not (see `expensesSince`).
+        // and expenses by school" ask — the expense half became derivable too once
+        // the 2026-09-16 attribution migration landed.
         member: { select: { school: { select: { id: true, name: true } } } },
       },
     });
@@ -145,9 +212,16 @@ export const analyticsRepository = {
    * event, and is reported under an explicit "Council-wide" bucket rather than being
    * forced into one.
    */
-  expensesSince(since: Date) {
+  expensesSince(since: Date, scope: AnalyticsFilterScope = {}) {
     return prisma.expense.findMany({
-      where: { expenseDate: { gte: since } },
+      where: {
+        expenseDate: { gte: since },
+        ...(scope.schoolId ? { schoolId: scope.schoolId } : {}),
+        ...(scope.expenseCategoryId ? { categoryId: scope.expenseCategoryId } : {}),
+        // An activity filter on the money side means "spending on events of this
+        // type", reached through the expense's own event FK.
+        ...(scope.activityCategoryId ? { event: { categoryId: scope.activityCategoryId } } : {}),
+      },
       select: {
         expenseDate: true,
         amount: true,

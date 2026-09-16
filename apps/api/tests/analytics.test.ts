@@ -246,12 +246,18 @@ describe('analyticsService.getOverview — filters', () => {
   it('pushes the range cutoff and troop filter down into the repository', async () => {
     await analyticsService.getOverview({ range: '3m', troopId: TROOP_A.id });
 
-    expect(analyticsRepository.listMembers).toHaveBeenCalledWith(TROOP_A.id);
-    expect(analyticsRepository.listMemberBadges).toHaveBeenCalledWith(TROOP_A.id);
+    // Filters travel as one scope object since the 2026-09-16 R4 revision widened
+    // them past `troopId`; `objectContaining` so adding a future dimension to the
+    // scope does not break this assertion about the troop filter specifically.
+    expect(analyticsRepository.listMembers).toHaveBeenCalledWith(expect.objectContaining({ troopId: TROOP_A.id }));
+    expect(analyticsRepository.listMemberBadges).toHaveBeenCalledWith(expect.objectContaining({ troopId: TROOP_A.id }));
 
     const expectedCutoff = new Date(NOW.getFullYear(), NOW.getMonth() - 2, 1);
-    expect(analyticsRepository.paymentsSince).toHaveBeenCalledWith(expectedCutoff);
-    expect(analyticsRepository.listEventsWithDetail).toHaveBeenCalledWith(expectedCutoff, TROOP_A.id);
+    expect(analyticsRepository.paymentsSince).toHaveBeenCalledWith(expectedCutoff, expect.anything());
+    expect(analyticsRepository.listEventsWithDetail).toHaveBeenCalledWith(
+      expectedCutoff,
+      expect.objectContaining({ troopId: TROOP_A.id }),
+    );
   });
 
   it('builds the Organization tab from unscoped rows even when a troop is selected', async () => {
@@ -264,7 +270,7 @@ describe('analyticsService.getOverview — filters', () => {
     // Two fetches: one scoped to the selected troop for the other five tabs, and a
     // second unscoped one (called with no argument) that feeds this tab.
     expect(analyticsRepository.listMembers).toHaveBeenCalledTimes(2);
-    expect(analyticsRepository.listMembers).toHaveBeenNthCalledWith(1, TROOP_A.id);
+    expect(analyticsRepository.listMembers).toHaveBeenNthCalledWith(1, expect.objectContaining({ troopId: TROOP_A.id }));
     expect(analyticsRepository.listMembers).toHaveBeenNthCalledWith(2);
   });
 
@@ -281,10 +287,15 @@ describe('analyticsService.getOverview — filters', () => {
   it('does not scope council finances by troop', async () => {
     await analyticsService.getOverview({ range: '6m', troopId: TROOP_A.id });
 
-    // `Expense` has no troop association in the schema at all, so the repository
-    // takes no troopId here — the UI disables the filter on that tab to match.
-    expect(analyticsRepository.paymentsSince).toHaveBeenCalledWith(expect.any(Date));
-    expect(analyticsRepository.expensesSince).toHaveBeenCalledWith(expect.any(Date));
+    // `Expense` has no troop association in the schema at all, so the troop filter
+    // must never reach the money queries — the UI disables it on that tab to match.
+    // Asserted as "the key is absent from the scope" rather than "no second argument"
+    // since R4: the money queries do now take a scope (school / activity / expense
+    // category are all attributable), so the invariant is about which keys survive.
+    const [, paymentScope] = vi.mocked(analyticsRepository.paymentsSince).mock.calls[0]!;
+    const [, expenseScope] = vi.mocked(analyticsRepository.expensesSince).mock.calls[0]!;
+    expect(paymentScope).not.toHaveProperty('troopId');
+    expect(expenseScope).not.toHaveProperty('troopId');
   });
 });
 
@@ -292,7 +303,10 @@ describe('overviewQuerySchema', () => {
   it('defaults to a 6-month, all-troops view when nothing is supplied', () => {
     const result = overviewQuerySchema.safeParse({});
     expect(result.success).toBe(true);
-    expect(result.data).toEqual({ range: '6m', troopId: undefined });
+    expect(result.data?.range).toBe('6m');
+    // Every filter — the original troop one and the R4 dimension ones — defaults to
+    // "no filter", so the pre-R4 empty request still means exactly what it did.
+    expect(Object.values(result.data ?? {}).filter((value) => value !== '6m').every((value) => value === undefined)).toBe(true);
   });
 
   it('rejects an unknown range rather than silently falling back', () => {
@@ -307,6 +321,109 @@ describe('overviewQuerySchema', () => {
     const result = overviewQuerySchema.safeParse({ range: '6m', troopId: '' });
     expect(result.success).toBe(true);
     expect(result.data?.troopId).toBeUndefined();
+  });
+
+  // ── R4 per-tab dimension filters (2026-09-16) ──────────────────────────
+  it('accepts every per-tab dimension filter', () => {
+    // Real uuids here rather than the service fixtures' readable ids ('school-a'),
+    // since this block tests the schema itself and the contract is uuid-shaped.
+    const uuid = (n: number) => `0000000${n}-0000-4000-8000-000000000000`;
+    const result = overviewQuerySchema.safeParse({
+      range: '6m',
+      schoolId: uuid(1),
+      scoutLevelId: uuid(2),
+      status: 'active',
+      activityCategoryId: uuid(3),
+      badgeCategoryId: uuid(4),
+      expenseCategoryId: uuid(5),
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.schoolId).toBe(uuid(1));
+    expect(result.data?.status).toBe('active');
+  });
+
+  it('rejects a non-uuid dimension filter rather than ignoring it', () => {
+    // Silently dropping a malformed filter is worse than rejecting it: the page would
+    // render council-wide totals while the UI still showed the filter as applied.
+    expect(overviewQuerySchema.safeParse({ range: '6m', schoolId: 'not-a-uuid' }).success).toBe(false);
+    expect(overviewQuerySchema.safeParse({ range: '6m', badgeCategoryId: 'all' }).success).toBe(false);
+  });
+
+  it('treats every empty dimension filter as no filter, matching the troop sentinel', () => {
+    const result = overviewQuerySchema.safeParse({
+      range: '6m',
+      schoolId: '',
+      scoutLevelId: '',
+      status: '',
+      activityCategoryId: '',
+      badgeCategoryId: '',
+      expenseCategoryId: '',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.schoolId).toBeUndefined();
+    expect(result.data?.status).toBeUndefined();
+    expect(result.data?.expenseCategoryId).toBeUndefined();
+  });
+});
+
+describe('analyticsService.getOverview — per-tab dimension filters (R4)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('pushes each member-shaped filter down into every member-rooted query', async () => {
+    await analyticsService.getOverview({
+      ...DEFAULT_QUERY,
+      schoolId: SCHOOL_A.id,
+      scoutLevelId: LEVEL_JUNIOR.id,
+      status: 'active',
+    });
+
+    // Members, attendance and badges all reach school/level/status through `Member`,
+    // so all three queries must carry the same scope — a filter honoured by one and
+    // dropped by another is how a tab ends up disagreeing with its own filter bar.
+    const scope = expect.objectContaining({
+      schoolId: SCHOOL_A.id,
+      scoutLevelId: LEVEL_JUNIOR.id,
+      status: 'active',
+    });
+    expect(analyticsRepository.listMembers).toHaveBeenNthCalledWith(1, scope);
+    expect(analyticsRepository.listMemberBadges).toHaveBeenNthCalledWith(1, scope);
+    expect(analyticsRepository.listEventsWithDetail).toHaveBeenNthCalledWith(1, expect.any(Date), scope);
+  });
+
+  it('passes the activity and expense filters to the money queries but not troop or level', async () => {
+    await analyticsService.getOverview({
+      ...DEFAULT_QUERY,
+      troopId: TROOP_A.id,
+      scoutLevelId: LEVEL_JUNIOR.id,
+      schoolId: SCHOOL_A.id,
+      expenseCategoryId: EXPENSE_CAT_CAMP.id,
+    });
+
+    const [, expenseScope] = vi.mocked(analyticsRepository.expensesSince).mock.calls[0]!;
+    // Attributable since the R3b migration.
+    expect(expenseScope).toMatchObject({ schoolId: SCHOOL_A.id, expenseCategoryId: EXPENSE_CAT_CAMP.id });
+    // Not attributable — no troop or scout-level association exists on the money side.
+    expect(expenseScope).not.toHaveProperty('troopId');
+    expect(expenseScope).not.toHaveProperty('scoutLevelId');
+  });
+
+  it('builds the Organization tab from unscoped rows when a dimension filter is applied', async () => {
+    const result = await analyticsService.getOverview({ ...DEFAULT_QUERY, schoolId: SCHOOL_A.id });
+
+    // Before R4 the extra unscoped read was keyed off `troopId` alone; a school filter
+    // would have left Organization quietly comparing troops *within that school* while
+    // presenting itself as the council-wide comparison.
+    expect(analyticsRepository.listMembers).toHaveBeenCalledTimes(2);
+    expect(analyticsRepository.listMembers).toHaveBeenNthCalledWith(2);
+    expect(result.organization.troops).toHaveLength(2);
+  });
+
+  it('still skips the double fetch when no filter of any kind is applied', async () => {
+    await analyticsService.getOverview(DEFAULT_QUERY);
+    expect(analyticsRepository.listMembers).toHaveBeenCalledTimes(1);
   });
 });
 

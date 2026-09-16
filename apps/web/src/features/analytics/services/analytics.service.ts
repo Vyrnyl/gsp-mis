@@ -1,3 +1,4 @@
+import { ALL_OPTION } from '../constants';
 import type { AnalyticsFilters, AnalyticsSnapshot } from '../types';
 
 interface RawEnvelope<T> {
@@ -25,10 +26,27 @@ async function request<T>(path: string): Promise<T> {
   return json.data;
 }
 
+/** Dimension filters serialize exactly like `troopId` — the R4 revision added six more
+ * of them, so the sentinel-stripping is done in one loop rather than repeated per
+ * param, which is how one of them would end up sent as the literal `'all'`. */
+const DIMENSION_PARAMS = [
+  'schoolId',
+  'scoutLevelId',
+  'status',
+  'activityCategoryId',
+  'badgeCategoryId',
+  'expenseCategoryId',
+] as const;
+
 export function getAnalyticsOverview(filters: AnalyticsFilters): Promise<AnalyticsSnapshot> {
   const params = new URLSearchParams({ range: filters.range });
   // `'all'` is a UI-only sentinel — the API contract expects the param omitted.
-  if (filters.troopId !== 'all') params.set('troopId', filters.troopId);
+  if (filters.troopId !== ALL_OPTION) params.set('troopId', filters.troopId);
+
+  for (const key of DIMENSION_PARAMS) {
+    const value = filters[key];
+    if (value && value !== ALL_OPTION) params.set(key, value);
+  }
 
   return request<AnalyticsSnapshot>(`/api/analytics/overview?${params.toString()}`);
 }

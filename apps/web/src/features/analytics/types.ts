@@ -15,7 +15,25 @@ export type AnalyticsTabId =
  * monthly trend buckets always align to whole calendar months. */
 export type DateRange = '3m' | '6m' | '12m' | 'ytd';
 
-export interface AnalyticsFilters {
+/** The dimensions a tab can be narrowed by (2026-09-16 R4 revision). Every one is a
+ * string holding either `ALL_OPTION` or an id, mirroring `troopId`'s sentinel
+ * convention rather than using `undefined` — a `<Select>` always has a value. */
+export interface AnalyticsDimensionFilters {
+  schoolId: string;
+  scoutLevelId: string;
+  /** `MemberStatus.name`, not an id — see `analytics.schema.ts`. */
+  status: string;
+  activityCategoryId: string;
+  badgeCategoryId: string;
+  expenseCategoryId: string;
+}
+
+/** Which dimension a given tab actually exposes. Used to render only the filters that
+ * mean something on the active tab (unlike the page-level troop filter, which stays
+ * visible-but-disabled so the top bar does not reflow on every tab change). */
+export type AnalyticsDimensionId = keyof AnalyticsDimensionFilters;
+
+export interface AnalyticsFilters extends AnalyticsDimensionFilters {
   range: DateRange;
   /** `'all'` is the UI sentinel for "no troop filter" — normalized to an omitted
    * query param by the service, never sent as a literal. */

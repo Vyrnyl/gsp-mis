@@ -1,4 +1,4 @@
-import { analyticsRepository } from './analytics.repository';
+import { analyticsRepository, type AnalyticsFilterScope } from './analytics.repository';
 import type { DateRange, OverviewQuery } from './analytics.schema';
 import type {
   ActivityCategoryRowDto,
@@ -828,13 +828,32 @@ export const analyticsService = {
   // `AnalyticsSnapshot` the schema model stays unused (build-plan.md never scopes
   // saving/browsing historical snapshots, only live aggregation).
   async getOverview(query: OverviewQuery): Promise<AnalyticsSnapshotDto> {
-    const { range, troopId } = query;
+    const { range, troopId, ...dimensions } = query;
     const since = rangeStart(range);
+
+    // The scope every tab's own figures are read through: the page-level troop filter
+    // plus the R4 per-tab dimension filters. Each dimension only reaches the queries
+    // where it means something (the repository decides that), so a badge-area filter
+    // narrows badges without silently emptying attendance.
+    const scope: AnalyticsFilterScope = { troopId, ...dimensions };
 
     // The Organization tab is the per-troop comparison itself, so it is built from
     // deliberately unscoped rows — filtering to one troop would collapse it to a
     // single row and destroy the only view that answers "how do troops compare?".
     // The frontend disables the troop filter on that tab to match.
+    //
+    // The extra unscoped read is skipped entirely when nothing is filtered, since the
+    // scoped rows are then the same rows. Before R4 that test was `troopId` alone;
+    // any dimension filter now also makes the scoped set narrower than the council,
+    // so it has to widen or Organization would quietly inherit a school/level filter.
+    const isScoped = Object.values(scope).some(Boolean);
+
+    // Money is council-level: `Payment` links to a member (so a *school* is reachable)
+    // but nothing in the money schema links to a troop, a scout level or a membership
+    // status. Those three are dropped here rather than passed and ignored downstream,
+    // so "the Financial tab is never troop-scoped" stays a property of this call
+    // instead of an implicit promise about what the repository happens to read.
+    const { troopId: _troopId, scoutLevelId: _scoutLevelId, status: _status, ...moneyScope } = scope;
     const [
       members,
       events,
@@ -848,16 +867,16 @@ export const analyticsService = {
       expensesSince,
       scoutLevels,
     ] = await Promise.all([
-        analyticsRepository.listMembers(troopId),
-        analyticsRepository.listEventsWithDetail(since, troopId),
-        analyticsRepository.listBadgeCatalog(),
-        analyticsRepository.listMemberBadges(troopId),
+        analyticsRepository.listMembers(scope),
+        analyticsRepository.listEventsWithDetail(since, scope),
+        analyticsRepository.listBadgeCatalog(scope),
+        analyticsRepository.listMemberBadges(scope),
         analyticsRepository.listTroops(),
-        troopId ? analyticsRepository.listMembers() : null,
-        troopId ? analyticsRepository.listEventsWithDetail(since) : null,
-        troopId ? analyticsRepository.listMemberBadges() : null,
-        analyticsRepository.paymentsSince(since),
-        analyticsRepository.expensesSince(since),
+        isScoped ? analyticsRepository.listMembers() : null,
+        isScoped ? analyticsRepository.listEventsWithDetail(since) : null,
+        isScoped ? analyticsRepository.listMemberBadges() : null,
+        analyticsRepository.paymentsSince(since, moneyScope),
+        analyticsRepository.expensesSince(since, moneyScope),
         analyticsRepository.listScoutLevels(),
       ]);
 
