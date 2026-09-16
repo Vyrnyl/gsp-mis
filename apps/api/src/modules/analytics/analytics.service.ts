@@ -7,6 +7,7 @@ import type {
   AttendanceAnalyticsDto,
   BadgeAnalyticsDto,
   BreakdownAnalyticsDto,
+  CommunityEngagementDto,
   DecisionSupportDto,
   DimensionBreakdownRowDto,
   EventParticipationDto,
@@ -19,6 +20,7 @@ import type {
   ParticipationAnalyticsDto,
   PromotionReadinessRowDto,
   SchoolFinanceRowDto,
+  SchoolParticipationRowDto,
   StatusBreakdownRowDto,
   TrendPointDto,
 } from './analytics.types';
@@ -44,7 +46,9 @@ type EventRow = {
   title: string;
   eventDate: Date;
   category: NamedRef;
-  registrations: { id: string }[];
+  // `member` is a required relation on `EventRegistration`, so it is non-nullable here
+  // — the *school* inside it is what's optional.
+  registrations: { id: string; member: { id: string; school: NamedRef } }[];
   attendanceRecords: { attendanceStatus: string; member: AttendanceMemberRef }[];
 };
 type MemberBadgeRow = {
@@ -209,7 +213,182 @@ function buildAttendanceAnalytics(events: EventRow[], range: DateRange): Attenda
   };
 }
 
-function buildParticipationAnalytics(events: EventRow[]): ParticipationAnalyticsDto {
+/**
+ * Participation per school (2026-09-16 R4 revision) — "how many of this school's
+ * members actually turn up?", which the council-wide registration total cannot answer.
+ *
+ * Built from the full member roster rather than from registrations alone, because a
+ * school whose members registered for *nothing* is precisely the interesting row and
+ * would be invisible if the grouping were keyed off registrations.
+ */
+function buildSchoolParticipation(members: MemberRow[], events: EventRow[]): SchoolParticipationRowDto[] {
+  const groups = new Map<
+    string,
+    { label: string; memberCount: number; participants: Set<string>; registrations: number; present: number; absent: number }
+  >();
+
+  const ensure = (ref: NamedRef) => {
+    const id = ref?.id ?? 'unassigned';
+    let group = groups.get(id);
+    if (!group) {
+      group = { label: ref?.name ?? UNASSIGNED_SCHOOL, memberCount: 0, participants: new Set(), registrations: 0, present: 0, absent: 0 };
+      groups.set(id, group);
+    }
+    return group;
+  };
+
+  // Seed every school from the roster first, so a school with zero registrations still
+  // appears at 0% instead of dropping out of the comparison entirely.
+  for (const member of members) {
+    ensure(member.school).memberCount += 1;
+  }
+
+  for (const event of events) {
+    for (const registration of event.registrations) {
+      const group = ensure(registration.member.school);
+      group.registrations += 1;
+      // A set, not a counter — "active members" means distinct people who took part,
+      // so someone who registered for six events is one active member, not six.
+      group.participants.add(registration.member.id);
+    }
+    for (const record of event.attendanceRecords) {
+      const group = ensure(record.member.school);
+      if (record.attendanceStatus === 'present') group.present += 1;
+      else if (record.attendanceStatus === 'absent') group.absent += 1;
+    }
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, group]) => ({
+      id,
+      label: group.label,
+      memberCount: group.memberCount,
+      activeMembers: group.participants.size,
+      participationRate: rate(group.participants.size, group.memberCount),
+      registrations: group.registrations,
+      attendanceRate: rate(group.present, group.present + group.absent),
+      attendanceRecords: group.present + group.absent,
+    }))
+    .sort((a, b) => b.participationRate - a.participationRate);
+}
+
+/** Category names treated as community work. Matched case-insensitively against the
+ * seeded `BadgeCategory`/`ActivityCategory` names — there is no "is community" flag in
+ * the schema, so this convention is the only available signal (see
+ * `CommunityEngagementDto` for why that is stated on screen rather than hidden). */
+const COMMUNITY_BADGE_CATEGORIES = ['community service'];
+const COMMUNITY_ACTIVITY_CATEGORIES = ['community outreach'];
+
+function isCommunity(ref: NamedRef, names: string[]): boolean {
+  return ref ? names.includes(ref.name.trim().toLowerCase()) : false;
+}
+
+/**
+ * Community engagement (2026-09-16 R4 revision) — the `update.txt` bullet R3 missed.
+ *
+ * Counts community-tagged badges earned and community-event registrations, compared
+ * across schools. A member counts as engaged if they did either, since both are real
+ * community participation and requiring both would undercount badly.
+ */
+function buildCommunityEngagement(
+  members: MemberRow[],
+  events: EventRow[],
+  catalog: BadgeCatalogRow[],
+  memberBadges: MemberBadgeRow[],
+  allBadgeCategoryNames: string[],
+  allActivityCategoryNames: string[],
+): CommunityEngagementDto {
+  const communityBadgeIds = new Set(
+    catalog.filter((badge) => isCommunity(badge.category, COMMUNITY_BADGE_CATEGORIES)).map((badge) => badge.id),
+  );
+  const communityEvents = events.filter((event) => isCommunity(event.category, COMMUNITY_ACTIVITY_CATEGORIES));
+
+  // The categories this council actually *has*, not the ones that survived the current
+  // filter. Derived from the unfiltered vocabularies for a reason: these names are the
+  // card's stated definition of "community", and a definition that shifts when a filter
+  // moves is worse than no definition at all — filtering to Camping would otherwise
+  // silently narrow the sentence to "counted from Community Service" while the badge
+  // figure beside it stayed put. What the filter changes is the *numbers*; what counts
+  // as community is fixed.
+  const badgeCategories = Array.from(
+    new Set(
+      allBadgeCategoryNames.filter((name) => COMMUNITY_BADGE_CATEGORIES.includes(name.trim().toLowerCase())),
+    ),
+  );
+  const activityCategories = Array.from(
+    new Set(
+      allActivityCategoryNames.filter((name) => COMMUNITY_ACTIVITY_CATEGORIES.includes(name.trim().toLowerCase())),
+    ),
+  );
+
+  const groups = new Map<
+    string,
+    { label: string; memberCount: number; badges: number; registrations: number; engaged: Set<string> }
+  >();
+
+  const ensure = (ref: NamedRef) => {
+    const id = ref?.id ?? 'unassigned';
+    let group = groups.get(id);
+    if (!group) {
+      group = { label: ref?.name ?? UNASSIGNED_SCHOOL, memberCount: 0, badges: 0, registrations: 0, engaged: new Set() };
+      groups.set(id, group);
+    }
+    return group;
+  };
+
+  for (const member of members) {
+    ensure(member.school).memberCount += 1;
+  }
+
+  let communityBadgesEarned = 0;
+  for (const memberBadge of memberBadges) {
+    if (memberBadge.status !== 'earned' && memberBadge.status !== 'verified') continue;
+    if (!communityBadgeIds.has(memberBadge.badgeId)) continue;
+    communityBadgesEarned += 1;
+    const group = ensure(memberBadge.member.school);
+    group.badges += 1;
+    group.engaged.add(memberBadge.member.id);
+  }
+
+  let communityRegistrations = 0;
+  for (const event of communityEvents) {
+    for (const registration of event.registrations) {
+      communityRegistrations += 1;
+      const group = ensure(registration.member.school);
+      group.registrations += 1;
+      group.engaged.add(registration.member.id);
+    }
+  }
+
+  return {
+    badgeCategories,
+    activityCategories,
+    communityBadgesEarned,
+    communityEvents: communityEvents.length,
+    communityRegistrations,
+    bySchool: Array.from(groups.entries())
+      .map(([id, group]) => ({
+        id,
+        label: group.label,
+        memberCount: group.memberCount,
+        communityBadgesEarned: group.badges,
+        communityRegistrations: group.registrations,
+        engagedMembers: group.engaged.size,
+        engagementRate: rate(group.engaged.size, group.memberCount),
+      }))
+      .sort((a, b) => b.engagementRate - a.engagementRate),
+  };
+}
+
+function buildParticipationAnalytics(
+  events: EventRow[],
+  members: MemberRow[],
+  catalog: BadgeCatalogRow[],
+  memberBadges: MemberBadgeRow[],
+  byActivityType: ActivityCategoryRowDto[],
+  allBadgeCategoryNames: string[],
+  allActivityCategoryNames: string[],
+): ParticipationAnalyticsDto {
   const withRegistrations = events.filter((e) => e.registrations.length > 0);
   const totalRegistrations = withRegistrations.reduce((sum, e) => sum + e.registrations.length, 0);
   const totalPresent = withRegistrations.reduce((sum, e) => sum + e.attendanceRecords.filter((r) => r.attendanceStatus === 'present').length, 0);
@@ -236,6 +415,13 @@ function buildParticipationAnalytics(events: EventRow[]): ParticipationAnalytics
       stat('avgAttendanceRate', 'Avg. Attendance Rate', `${rate(totalPresent, totalPresent + totalAbsent)}%`),
     ],
     byEvent,
+    // The R4 revision's point on this tab: the three stats above are totals and
+    // `byEvent` is a per-event list, so nothing here said which *kinds* of activity
+    // draw people or which schools show up. Activity types are reused from the shared
+    // breakdown rather than recomputed — same rows the Decisions tab ranks.
+    byActivityType,
+    bySchool: buildSchoolParticipation(members, events),
+    community: buildCommunityEngagement(members, events, catalog, memberBadges, allBadgeCategoryNames, allActivityCategoryNames),
   };
 }
 
@@ -930,6 +1116,7 @@ export const analyticsService = {
       paymentsSince,
       expensesSince,
       scoutLevels,
+      [allBadgeCategories, allActivityCategories],
     ] = await Promise.all([
         analyticsRepository.listMembers(scope),
         analyticsRepository.listEventsWithDetail(since, scope),
@@ -942,6 +1129,9 @@ export const analyticsService = {
         analyticsRepository.paymentsSince(since, moneyScope),
         analyticsRepository.expensesSince(since, moneyScope),
         analyticsRepository.listScoutLevels(),
+        // Deliberately unfiltered — this is the council's category vocabulary, which
+        // defines what "community" means rather than describing the current selection.
+        analyticsRepository.listCategoryVocabularies(),
       ]);
 
     // Breakdowns follow the page's troop scope (unlike Organization, which is the
@@ -956,7 +1146,15 @@ export const analyticsService = {
     return {
       membership: buildMembershipAnalytics(members, range, breakdown),
       attendance: buildAttendanceAnalytics(events, range),
-      participation: buildParticipationAnalytics(events),
+      participation: buildParticipationAnalytics(
+        events,
+        members,
+        badgeCatalog,
+        memberBadges,
+        breakdown.byActivityCategory,
+        allBadgeCategories.map((c) => c.name),
+        allActivityCategories.map((c) => c.name),
+      ),
       badges: buildBadgeAnalytics(badgeCatalog, memberBadges, members.length),
       financial: buildFinancialAnalytics(paymentsSince, expensesSince, range, money),
       organization: buildOrganizationAnalytics(

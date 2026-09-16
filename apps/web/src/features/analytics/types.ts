@@ -98,10 +98,57 @@ export interface EventParticipation {
   attendanceRate: number;
 }
 
+/** One school's participation (2026-09-16 R4 revision) — not "how many members?" but
+ * "how many of them actually turn up?", so it carries the active/inactive split rather
+ * than the badge figures a membership breakdown row would. */
+export interface SchoolParticipationRow {
+  id: string;
+  label: string;
+  memberCount: number;
+  /** Distinct members with at least one registration in range. Inactive is
+   * `memberCount - activeMembers`, derived here rather than sent twice. */
+  activeMembers: number;
+  participationRate: number;
+  registrations: number;
+  attendanceRate: number;
+  /** Zero means no attendance data, not 0% turnout — the UI must not conflate them. */
+  attendanceRecords: number;
+}
+
+export interface CommunityEngagementSchoolRow {
+  id: string;
+  label: string;
+  memberCount: number;
+  communityBadgesEarned: number;
+  communityRegistrations: number;
+  engagedMembers: number;
+  engagementRate: number;
+}
+
+/**
+ * Community engagement (2026-09-16 R4 revision) — the `update.txt` bullet R3 missed.
+ * "Community" is matched by category *name*, since the schema has no flag for it, so
+ * the matched names travel with the data and the card names its own sources.
+ */
+export interface CommunityEngagement {
+  badgeCategories: string[];
+  activityCategories: string[];
+  communityBadgesEarned: number;
+  communityEvents: number;
+  communityRegistrations: number;
+  bySchool: CommunityEngagementSchoolRow[];
+}
+
 export interface ParticipationAnalytics {
   stats: AnalyticsStatValue[];
   /** Most recent events with at least one registration, newest first. */
   byEvent: EventParticipation[];
+  /** 2026-09-16 R4 revision — which kinds of activity draw people, and which schools
+   * turn up. Before R4 this tab had three totals and a per-event list, and could
+   * answer neither. */
+  byActivityType: ActivityCategoryRow[];
+  bySchool: SchoolParticipationRow[];
+  community: CommunityEngagement;
 }
 
 export interface BadgeCompletionSlice {

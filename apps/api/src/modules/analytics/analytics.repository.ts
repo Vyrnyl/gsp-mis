@@ -107,7 +107,11 @@ export const analyticsRepository = {
         category: { select: { id: true, name: true } },
         registrations: {
           where: recordWhere,
-          select: { id: true },
+          // `member` was added by the R4 revision's Participation step: per-school
+          // participation and the active-vs-inactive split both need to know *who*
+          // registered, not just how many did. Registration has no school FK of its
+          // own, so — like attendance — the dimension is reached through the member.
+          select: { id: true, member: { select: { id: true, school: { select: { id: true, name: true } } } } },
         },
         attendanceRecords: {
           where: recordWhere,
@@ -231,6 +235,24 @@ export const analyticsRepository = {
         event: { select: { id: true, title: true } },
       },
     });
+  },
+
+  /**
+   * The council's full badge- and activity-category vocabularies, deliberately ignoring
+   * every filter (2026-09-16 R4 step 4).
+   *
+   * Community engagement identifies "community" by category *name* — there is no flag
+   * for it in the schema — and these names are what the card states as its definition.
+   * Reading them from the filtered rows instead would let a filter rewrite that
+   * definition: narrowing to Camping would drop "Community Outreach" from the sentence
+   * while the figures beside it stayed. The filter must change the numbers, never what
+   * the numbers claim to be.
+   */
+  listCategoryVocabularies() {
+    return Promise.all([
+      prisma.badgeCategory.findMany({ select: { name: true } }),
+      prisma.activityCategory.findMany({ select: { name: true } }),
+    ]);
   },
 
   /** Scout levels with their structured age bands (2026-09-16). Previously the bands

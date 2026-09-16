@@ -50,9 +50,75 @@ export interface EventParticipationDto {
   attendanceRate: number;
 }
 
+/** One school's participation (2026-09-16 R4 revision). Distinct from
+ * `DimensionBreakdownRowDto` because participation asks a different question of a
+ * school than membership does: not "how many members?" but "how many of them actually
+ * turn up?" — so it carries the active/inactive split rather than badge figures. */
+export interface SchoolParticipationRowDto {
+  id: string;
+  label: string;
+  memberCount: number;
+  /** Members with at least one event registration in range. The brief's "active vs.
+   * inactive members" ask — inactive is `memberCount - activeMembers`, derived in the
+   * UI rather than sent twice. */
+  activeMembers: number;
+  /** Share of the school's members who participated at all, which is what makes a
+   * 4-member school comparable to a 40-member one. */
+  participationRate: number;
+  registrations: number;
+  attendanceRate: number;
+  /** Attendance records behind `attendanceRate` — zero means no data, not 0% turnout.
+   * Same distinction the R3 false-positive fix turned on. */
+  attendanceRecords: number;
+}
+
+/**
+ * Community engagement (2026-09-16 R4 revision) — the `update.txt` bullet missed
+ * entirely by R3.
+ *
+ * "Community" is identified by *name* on the seeded `BadgeCategory` ("Community
+ * Service") and `ActivityCategory` ("Community Outreach") rather than by a schema flag,
+ * because no such flag exists. That makes the match a convention, not a guarantee: if
+ * a council renames those categories the figures go to zero rather than silently
+ * reporting something else. The UI says which categories it counted, so an empty card
+ * is self-explaining instead of looking like nobody volunteers.
+ */
+export interface CommunityEngagementDto {
+  /** The category names actually matched, so the UI can name its own sources. Empty
+   * when a council has no community-tagged categories at all. */
+  badgeCategories: string[];
+  activityCategories: string[];
+  communityBadgesEarned: number;
+  communityEvents: number;
+  communityRegistrations: number;
+  /** Per-school engagement, so "which schools are engaged with the community?" is
+   * answerable rather than just a council total. */
+  bySchool: CommunityEngagementSchoolRowDto[];
+}
+
+export interface CommunityEngagementSchoolRowDto {
+  id: string;
+  label: string;
+  memberCount: number;
+  communityBadgesEarned: number;
+  communityRegistrations: number;
+  /** Members with at least one community badge or community-event registration. */
+  engagedMembers: number;
+  engagementRate: number;
+}
+
 export interface ParticipationAnalyticsDto {
   stats: AnalyticsStatValueDto[];
   byEvent: EventParticipationDto[];
+  /**
+   * The same participation split by dimension (2026-09-16 R4 revision). Before R4 this
+   * tab was three totals plus one chart of registrations per event — it could say how
+   * many people registered, never which kinds of activity or which schools they came
+   * from.
+   */
+  byActivityType: ActivityCategoryRowDto[];
+  bySchool: SchoolParticipationRowDto[];
+  community: CommunityEngagementDto;
 }
 
 export interface BadgeCompletionSliceDto {

@@ -63,7 +63,13 @@ const EVENTS = [
     title: 'Coastal Clean-Up Drive',
     eventDate: THIS_MONTH,
     category: CAT_OUTREACH,
-    registrations: [{ id: 'r-1' }, { id: 'r-2' }],
+    // Registrations carry their member from the R4 Participation step onward — per-school
+    // participation and the active/inactive split need to know *who* registered. Both
+    // are m-1 and m-3, so SCHOOL_A and SCHOOL_B each have exactly one active member.
+    registrations: [
+      { id: 'r-1', member: { id: 'm-1', school: SCHOOL_A } },
+      { id: 'r-2', member: { id: 'm-3', school: SCHOOL_B } },
+    ],
     attendanceRecords: [
       { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
       { attendanceStatus: 'present', member: memberRef(TROOP_A.id, SCHOOL_A, LEVEL_JUNIOR) },
@@ -111,6 +117,12 @@ function mockRepository() {
   vi.spyOn(analyticsRepository, 'listMemberBadges').mockResolvedValue(MEMBER_BADGES as never);
   vi.spyOn(analyticsRepository, 'listTroops').mockResolvedValue(TROOPS as never);
   vi.spyOn(analyticsRepository, 'listScoutLevels').mockResolvedValue(SCOUT_LEVELS as never);
+  // The council's full category vocabulary, independent of any filter — it defines what
+  // "community" means rather than describing the current selection.
+  vi.spyOn(analyticsRepository, 'listCategoryVocabularies').mockResolvedValue([
+    [{ name: BADGE_CAT_SERVICE.name }, { name: BADGE_CAT_OUTDOOR.name }],
+    [{ name: CAT_OUTREACH.name }, { name: CAT_CAMPING.name }],
+  ] as never);
   vi.spyOn(analyticsRepository, 'paymentsSince').mockResolvedValue([
     { paymentDate: THIS_MONTH, amount: decimal(350), member: { school: SCHOOL_A } },
   ] as never);
@@ -547,6 +559,156 @@ describe('analyticsService.getOverview — Membership tab breakdowns (R4 step 3)
   });
 });
 
+describe('analyticsService.getOverview — Participation tab breakdowns (R4 step 4)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('breaks participation down by activity type, reusing the shared breakdown rows', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // Same objects the Decisions tab ranks — computed once, not recomputed per tab.
+    expect(result.participation.byActivityType).toEqual(result.breakdown.byActivityCategory);
+    expect(result.participation.byActivityType.find((r) => r.label === 'Community Outreach')).toMatchObject({
+      eventCount: 1,
+      heldEvents: 1,
+      registrations: 2,
+    });
+  });
+
+  it('splits members into active and inactive per school, keeping schools with no registrations', async () => {
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    const catsu = result.participation.bySchool.find((row) => row.label === 'CATSU');
+    // SCHOOL_A has 2 members (m-1, m-2) but only m-1 registered, so the other is
+    // genuinely inactive — the figure the council-wide registration total hides.
+    expect(catsu).toMatchObject({ memberCount: 2, activeMembers: 1, participationRate: 50, registrations: 1 });
+
+    const cavsu = result.participation.bySchool.find((row) => row.label === 'CAVSU');
+    expect(cavsu).toMatchObject({ memberCount: 1, activeMembers: 1, participationRate: 100 });
+  });
+
+  it('counts a member who registered for several events as one active member', async () => {
+    // A counter rather than a set would report 2 active members out of 2 here and call
+    // a half-inactive school fully engaged.
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      {
+        ...EVENTS[0],
+        registrations: [
+          { id: 'r-1', member: { id: 'm-1', school: SCHOOL_A } },
+          { id: 'r-2', member: { id: 'm-1', school: SCHOOL_A } },
+        ],
+      },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(result.participation.bySchool.find((row) => row.label === 'CATSU')).toMatchObject({
+      memberCount: 2,
+      activeMembers: 1,
+      registrations: 2,
+      participationRate: 50,
+    });
+  });
+
+  it('keeps a school with zero registrations in the comparison rather than dropping it', async () => {
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      { ...EVENTS[0], registrations: [{ id: 'r-1', member: { id: 'm-1', school: SCHOOL_A } }], attendanceRecords: [] },
+    ] as never);
+
+    const result = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    // A school where nobody took part is the interesting row; grouping by registration
+    // instead of by roster would make it vanish exactly when it matters.
+    const cavsu = result.participation.bySchool.find((row) => row.label === 'CAVSU');
+    expect(cavsu).toMatchObject({ memberCount: 1, activeMembers: 0, participationRate: 0, registrations: 0 });
+    // And no attendance records means no data, not 0% turnout.
+    expect(cavsu?.attendanceRecords).toBe(0);
+  });
+
+  it('reports community engagement from the named badge and activity categories', async () => {
+    const { participation } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const { community } = participation;
+
+    expect(community.badgeCategories).toEqual(['Community Service']);
+    expect(community.activityCategories).toEqual(['Community Outreach']);
+    // b-1 is a Community Service badge, earned by m-1 and verified by m-3; evt-1 is the
+    // outreach event with 2 registrations.
+    expect(community.communityBadgesEarned).toBe(2);
+    expect(community.communityEvents).toBe(1);
+    expect(community.communityRegistrations).toBe(2);
+  });
+
+  it('counts a member as engaged via either a community badge or an outreach registration', async () => {
+    const { participation } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const { community } = participation;
+
+    // m-1 did both; requiring both signals would undercount everyone who did one.
+    expect(community.bySchool.find((row) => row.label === 'CATSU')).toMatchObject({
+      memberCount: 2,
+      engagedMembers: 1,
+      engagementRate: 50,
+      communityBadgesEarned: 1,
+      communityRegistrations: 1,
+    });
+  });
+
+  it('reports no community categories rather than zero engagement when none are configured', async () => {
+    // A council that renamed or never created these categories must not be told its
+    // members do no community work — that is a claim this data cannot support.
+    vi.spyOn(analyticsRepository, 'listCategoryVocabularies').mockResolvedValue([
+      [{ name: BADGE_CAT_OUTDOOR.name }],
+      [{ name: CAT_CAMPING.name }],
+    ] as never);
+    vi.spyOn(analyticsRepository, 'listBadgeCatalog').mockResolvedValue([
+      { id: 'b-2', name: 'Camp Cook', category: BADGE_CAT_OUTDOOR },
+    ] as never);
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      { ...EVENTS[0], category: CAT_CAMPING },
+    ] as never);
+
+    const { participation } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const { community } = participation;
+
+    expect(community.badgeCategories).toEqual([]);
+    expect(community.activityCategories).toEqual([]);
+    expect(community.communityBadgesEarned).toBe(0);
+    expect(community.communityRegistrations).toBe(0);
+  });
+
+  it('matches community categories case-insensitively and ignores surrounding whitespace', async () => {
+    vi.spyOn(analyticsRepository, 'listCategoryVocabularies').mockResolvedValue([
+      [{ name: BADGE_CAT_SERVICE.name }],
+      [{ name: '  community outreach  ' }],
+    ] as never);
+    vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue([
+      { ...EVENTS[0], category: { id: 'cat-x', name: '  community outreach  ' } },
+    ] as never);
+
+    const { participation } = await analyticsService.getOverview(DEFAULT_QUERY);
+    const { community } = participation;
+
+    expect(community.communityEvents).toBe(1);
+    expect(community.communityRegistrations).toBe(2);
+    expect(community.activityCategories).toEqual(['  community outreach  ']);
+  });
+
+  it('states the same community definition regardless of which filter is applied', async () => {
+    // Caught in the browser during this step: the stated categories were derived from
+    // the *filtered* events, so narrowing to Camping rewrote the card's own definition
+    // of "community" ("counted from the Community Service category") while the badge
+    // figure beside it stayed put. A filter changes the numbers, never what the numbers
+    // claim to be.
+    const unfiltered = await analyticsService.getOverview(DEFAULT_QUERY);
+    const filtered = await analyticsService.getOverview({ ...DEFAULT_QUERY, activityCategoryId: CAT_CAMPING.id } as never);
+
+    expect(filtered.participation.community.badgeCategories).toEqual(unfiltered.participation.community.badgeCategories);
+    expect(filtered.participation.community.activityCategories).toEqual(unfiltered.participation.community.activityCategories);
+    expect(filtered.participation.community.activityCategories).toContain('Community Outreach');
+  });
+});
+
 // ─────────────────────────────────────────────────────────────
 // Breakdown dimensions + Decision-Making (2026-09-16 revision)
 // ─────────────────────────────────────────────────────────────
@@ -729,7 +891,11 @@ describe('analyticsService.getOverview — no-data vs. zero-turnout guards', () 
         title: 'Upcoming Council Camp',
         eventDate: THIS_MONTH,
         category: CAT_CAMPING,
-        registrations: [{ id: 'r-1' }, { id: 'r-2' }, { id: 'r-3' }],
+        registrations: [
+          { id: 'r-1', member: { id: 'm-1', school: SCHOOL_A } },
+          { id: 'r-2', member: { id: 'm-2', school: SCHOOL_A } },
+          { id: 'r-3', member: { id: 'm-3', school: SCHOOL_B } },
+        ],
         attendanceRecords: [],
       },
       EVENTS[0],
