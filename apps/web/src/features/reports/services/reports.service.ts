@@ -88,6 +88,12 @@ export async function exportReport(
   return data.report;
 }
 
+/** Deletes every report in the history. Administrator-only, enforced by the API. */
+export async function resetReportHistory(): Promise<{ deleted: number }> {
+  const { data } = await request<{ deleted: number }>('/api/reports/reset', { method: 'DELETE' });
+  return data;
+}
+
 /** Fetches the document, then hands the browser a blob to save.
  *
  * A plain anchor navigation would be simpler, but it renders whatever the server

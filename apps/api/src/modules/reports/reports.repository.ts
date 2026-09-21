@@ -124,4 +124,11 @@ export const reportsRepository = {
   }) {
     return prisma.report.create({ data: input, include: { generatedBy: true } });
   },
+
+  /** Clears the whole history. Unscoped on purpose — this backs the Administrator's
+   * Reset action, which is council-wide by definition; there is no per-role variant. */
+  async deleteAllReports(): Promise<number> {
+    const { count } = await prisma.report.deleteMany({});
+    return count;
+  },
 };

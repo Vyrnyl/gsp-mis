@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { generateExcelBuffer, generatePdfBuffer } from '../src/modules/reports/reports.generators';
 import { reportsRepository } from '../src/modules/reports/reports.repository';
+import * as auditLog from '../src/shared/utils/audit-log';
 import { exportSchema, previewQuerySchema } from '../src/modules/reports/reports.schema';
 import { reportsService } from '../src/modules/reports/reports.service';
 
@@ -216,6 +217,39 @@ describe('reportsService financial preview', () => {
       ['Jun 10, 2026', 'Expense', 'First Aid Supplies', '-PHP 1,500'],
       ['Jun 1, 2026', 'Payment', 'Camp Fee — Ana Reyes', 'PHP 500'],
     ]);
+  });
+});
+
+describe('reportsService resetHistory', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('deletes every report and audits the action for an Administrator', async () => {
+    const deleteSpy = vi.spyOn(reportsRepository, 'deleteAllReports').mockResolvedValue(18);
+    const auditSpy = vi.spyOn(auditLog, 'writeAuditLog').mockResolvedValue({} as never);
+
+    const result = await reportsService.resetHistory(ADMIN);
+
+    expect(result).toEqual({ deleted: 18 });
+    expect(deleteSpy).toHaveBeenCalledOnce();
+    // A bulk delete with no trail is exactly what the audit log exists for.
+    expect(auditSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: ADMIN.id, action: 'report.reset_history', details: { deletedCount: 18 } }),
+    );
+  });
+
+  it('refuses an Executive Council user before deleting anything', async () => {
+    const deleteSpy = vi.spyOn(reportsRepository, 'deleteAllReports');
+
+    await expect(reportsService.resetHistory(COUNCIL)).rejects.toMatchObject({ statusCode: 403 });
+    // Export is Admin + EC, but clearing every role's history is Admin alone.
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('refuses a Troop Leader before deleting anything', async () => {
+    const deleteSpy = vi.spyOn(reportsRepository, 'deleteAllReports');
+
+    await expect(reportsService.resetHistory(LEADER)).rejects.toMatchObject({ statusCode: 403 });
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 });
 

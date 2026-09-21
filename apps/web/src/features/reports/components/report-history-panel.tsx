@@ -1,4 +1,4 @@
-import { DownloadIcon, ReportIcon } from '@/shared/components/icons';
+import { DeleteIcon, DownloadIcon, ReportIcon } from '@/shared/components/icons';
 import {
   Badge,
   Button,
@@ -29,6 +29,10 @@ export interface ReportHistoryPanelProps {
   onPageChange: (page: number) => void;
   onRetry: () => void;
   onDownload: (report: GeneratedReport) => void;
+  /** Administrator only — the caller decides, and the API enforces it independently. */
+  canReset?: boolean;
+  isResetting?: boolean;
+  onReset?: () => void;
 }
 
 function toDisplayDate(iso: string): string {
@@ -49,10 +53,31 @@ export function ReportHistoryPanel({
   onPageChange,
   onRetry,
   onDownload,
+  canReset = false,
+  isResetting = false,
+  onReset,
 }: ReportHistoryPanelProps) {
+  // Hidden with nothing to delete, so Reset never offers to clear an empty list.
+  const showReset = canReset && onReset !== undefined && viewState === 'ready' && totalItems > 0;
+
   return (
     <Card className="mt-5">
-      <CardHeader title="Report History" subtitle={viewState === 'ready' ? `${totalItems.toLocaleString()} generated` : undefined} />
+      <CardHeader
+        title="Report History"
+        subtitle={viewState === 'ready' ? `${totalItems.toLocaleString()} generated` : undefined}
+        actions={
+          showReset ? (
+            <Button
+              variant="red"
+              onClick={onReset}
+              isLoading={isResetting}
+              leadingIcon={<DeleteIcon aria-hidden />}
+            >
+              Reset
+            </Button>
+          ) : undefined
+        }
+      />
 
       {viewState === 'loading' ? <TableSkeleton rows={4} columns={5} /> : null}
 

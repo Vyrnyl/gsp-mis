@@ -18,6 +18,11 @@ export const reportsController = {
     sendSuccess(res, { reports }, 200, buildPaginationMeta(query.page, query.pageSize, total));
   },
 
+  async resetHistory(req: Request, res: Response): Promise<void> {
+    const result = await reportsService.resetHistory(req.user!);
+    sendSuccess(res, result);
+  },
+
   async exportReport(req: Request, res: Response): Promise<void> {
     const input = exportSchema.parse(req.body);
     const result = await reportsService.exportReport(input, req.user!);

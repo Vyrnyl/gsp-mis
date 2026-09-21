@@ -15,12 +15,17 @@ const router = Router();
  */
 const canRead = requireRole('admin', 'executive_council', 'troop_leader');
 const canExport = requireRole('admin', 'executive_council');
+/** Resetting the history deletes every role's rows at once, so it is narrower than
+ * export: Administrator only, and re-checked in the service. */
+const canReset = requireRole('admin');
 
 router.use(requireAuth);
 
 router.get('/preview', canRead, asyncHandler(reportsController.getPreview));
 router.get('/', canRead, asyncHandler(reportsController.listHistory));
 router.post('/export', canExport, asyncHandler(reportsController.exportReport));
+// Declared before `/:id/download` so "reset" can never be read as a report id.
+router.delete('/reset', canReset, asyncHandler(reportsController.resetHistory));
 router.get('/:id/download', canRead, asyncHandler(reportsController.download));
 
 export const reportsRoutes = router;

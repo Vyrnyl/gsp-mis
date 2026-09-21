@@ -1,4 +1,5 @@
 import { ApiError } from '../../shared/utils/api-error';
+import { writeAuditLog } from '../../shared/utils/audit-log';
 import type { RoleName } from '../../shared/constants/roles';
 import { generateExcelBuffer, generatePdfBuffer } from './reports.generators';
 import { reportsRepository } from './reports.repository';
@@ -287,6 +288,32 @@ async function buildPreview(query: PreviewQuery, user: RequestingUser): Promise<
 export const reportsService = {
   getPreview(query: PreviewQuery, user: RequestingUser): Promise<ReportPreviewDto> {
     return buildPreview(query, user);
+  },
+
+  /**
+   * Clears the entire report history. Administrator-only, enforced at the router
+   * (`requireRole('admin')`) and re-checked here, so a direct call cannot bypass it.
+   *
+   * Irreversible and unscoped: a Troop Leader's history view is a filtered slice of
+   * the same rows, so this empties it for everyone, not just the caller. Nothing is
+   * lost that cannot be made again — reports are rebuilt from their parameters on
+   * download, so "deleting" one only discards the record that it was once run.
+   * Audited, since a bulk delete with no trail is exactly what an audit log is for.
+   */
+  async resetHistory(user: RequestingUser): Promise<{ deleted: number }> {
+    if (user.role !== 'admin') {
+      throw ApiError.forbidden('Only an Administrator can reset the report history.');
+    }
+
+    const deleted = await reportsRepository.deleteAllReports();
+    await writeAuditLog({
+      userId: user.id,
+      action: 'report.reset_history',
+      entityType: 'report',
+      details: { deletedCount: deleted },
+    });
+
+    return { deleted };
   },
 
   // History is filtered to the types the requesting role may access, so a Troop
