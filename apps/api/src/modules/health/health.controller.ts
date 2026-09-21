@@ -10,4 +10,12 @@ export const healthController = {
     // 503 when a dependency is down, so orchestrators can act on the status code.
     sendSuccess(res, status, status.status === 'ok' ? 200 : 503);
   },
+
+  /**
+   * Always 200 when the process is reachable — no dependency is consulted, so
+   * there is no status that could make it fail. Used by the keep-alive cron.
+   */
+  getLiveness(_req: Request, res: Response): void {
+    sendSuccess(res, healthService.getLiveness());
+  },
 };

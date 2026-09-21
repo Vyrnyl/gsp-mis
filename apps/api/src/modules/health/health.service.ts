@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { healthRepository } from './health.repository';
-import type { HealthStatus } from './health.types';
+import type { HealthStatus, LivenessStatus } from './health.types';
 
 const SERVICE_NAME = 'gsp-api';
 const SERVICE_VERSION = '0.1.0';
@@ -25,6 +25,23 @@ export const healthService = {
       dependencies: {
         database: isDatabaseUp ? 'up' : 'down',
       },
+    };
+  },
+
+  /**
+   * Liveness only — answers "is this process up?" and nothing else.
+   *
+   * Separate from getStatus() because the keep-alive cron calls it every few
+   * minutes to stop Render spinning down. Checking the database here would wake
+   * Neon on every ping and burn the free tier's compute-hour allowance around
+   * the clock, which is what this endpoint exists to avoid.
+   */
+  getLiveness(): LivenessStatus {
+    return {
+      status: 'ok',
+      service: SERVICE_NAME,
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
     };
   },
 };

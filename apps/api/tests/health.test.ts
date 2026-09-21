@@ -61,6 +61,36 @@ describe('GET /api/v1/health', () => {
   });
 });
 
+describe('GET /api/v1/health/live', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns 200 without touching the database', async () => {
+    const ping = vi.spyOn(healthRepository, 'ping');
+
+    const response = await request(app).get('/api/v1/health/live');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      success: true,
+      data: { status: 'ok', service: 'gsp-api' },
+    });
+    // The whole point of this route: the keep-alive cron must not wake Neon.
+    expect(ping).not.toHaveBeenCalled();
+  });
+
+  it('stays 200 even when the database is unreachable', async () => {
+    vi.spyOn(healthRepository, 'ping').mockResolvedValue(false);
+
+    const response = await request(app).get('/api/v1/health/live');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe('ok');
+    expect(response.body.data).not.toHaveProperty('dependencies');
+  });
+});
+
 describe('unmatched routes', () => {
   it('returns the error envelope with a 404', async () => {
     const response = await request(app).get('/api/v1/does-not-exist');

@@ -12,6 +12,9 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping API health endpoint
+      - name: Ping API liveness endpoint
         run: |
-          curl -sf --max-time 30 https://gsp-api-4c5k.onrender.com/api/v1/health
+          # /health/live deliberately, NOT /health: the latter queries Postgres,
+          # which would wake Neon every 10 minutes and exhaust the free tier's
+          # compute-hour allowance. This route touches no dependency.
+          curl -sf --max-time 30 https://gsp-api-4c5k.onrender.com/api/v1/health/live
