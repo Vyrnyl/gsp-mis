@@ -5,6 +5,7 @@ export { Alert, type AlertProps, type AlertTone } from './alert';
 export { Badge, type BadgeProps, type BadgeTone } from './badge';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './button';
 export { Card, CardHeader, type CardHeaderProps, type CardProps } from './card';
+export { Combobox, type ComboboxProps } from './combobox';
 export { ConfirmDialog, type ConfirmDialogProps, type ConfirmTone } from './confirm-dialog';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';

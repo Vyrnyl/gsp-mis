@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, Button, FormField, Input, Modal, Select, Textarea } from '@/shared/components/ui';
+import { Alert, Button, Combobox, FormField, Input, Modal, Textarea } from '@/shared/components/ui';
 
 import { EMPTY_ACHIEVEMENT_FORM_VALUES, formatMemberOptionLabel } from '../constants';
 import type { AchievementFormValues, MemberOption } from '../types';
@@ -85,12 +85,15 @@ export function AchievementFormModal({ isOpen, memberOptions, onClose, onSubmit 
       <form id="achievement-form" onSubmit={handleSubmit} noValidate>
         {submitError ? <Alert tone="error">{submitError}</Alert> : null}
 
+        {/* Combobox for the same reason as the Record Badge modal — same roster, same growth. */}
         <FormField label="Member" required error={errors.memberId}>
-          <Select
+          <Combobox
             options={memberSelectOptions}
             placeholder="Select a member"
+            searchPlaceholder="Search by name, troop or level…"
+            emptyMessage="No members match that search."
             value={values.memberId}
-            onChange={(event) => set('memberId', event.target.value)}
+            onChange={(memberId) => set('memberId', memberId)}
             disabled={memberOptions.length === 0}
           />
         </FormField>

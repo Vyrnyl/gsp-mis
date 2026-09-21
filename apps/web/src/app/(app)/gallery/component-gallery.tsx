@@ -21,6 +21,7 @@ import {
   Pagination,
   PasswordInput,
   SearchInput,
+  Combobox,
   Select,
   Table,
   TableAvatar,
@@ -102,6 +103,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 /**
+ * A list long enough that the cap and the filter are actually exercised — a
+ * 5-option demo would make `Combobox` look like a reskinned `Select`.
+ */
+const GALLERY_LONG_OPTIONS = Array.from({ length: 120 }, (_, index) => ({
+  value: `member-${index + 1}`,
+  label: `${['Althea', 'Bea', 'Cristina', 'Dana', 'Elena', 'Faith'][index % 6]} ${
+    ['Ramos', 'Delfin', 'Ople', 'Sarmiento', 'Bautista', 'Villanueva'][index % 6]
+  } (Troop ${(index % 12) + 1} · ${['Twinkler', 'Junior Girl Scout', 'Senior Girl Scout'][index % 3]})`,
+}));
+
+/**
  * Phase 0.2 verification surface: every base component in every variant and state.
  *
  * This page is the visual-verify gate for the design-system port. It is a
@@ -115,6 +127,7 @@ export function ComponentGallery() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [comboValue, setComboValue] = useState('');
 
   const handleConfirm = () => {
     setIsConfirming(true);
@@ -249,6 +262,33 @@ export function ComponentGallery() {
                 { value: 'cadet', label: 'Cadet' },
               ]}
             />
+          </FormField>
+
+          {/* Combobox — the long-list case `Select` structurally cannot cover, since a
+              native popup is OS-drawn and ignores max-height/overflow. 120 options here
+              deliberately: the cap and the filter only earn their keep past a screenful. */}
+          <FormField label="Member (searchable)" required hint="Type to filter — the list is capped and scrolls.">
+            <Combobox
+              options={GALLERY_LONG_OPTIONS}
+              value={comboValue}
+              onChange={setComboValue}
+              placeholder="Select a member"
+              searchPlaceholder="Search members…"
+              emptyMessage="No members match that search."
+            />
+          </FormField>
+
+          <FormField label="Member (error state)" error="Select a member.">
+            <Combobox
+              options={GALLERY_LONG_OPTIONS.slice(0, 4)}
+              value=""
+              onChange={() => undefined}
+              placeholder="Select a member"
+            />
+          </FormField>
+
+          <FormField label="Member (disabled)">
+            <Combobox options={[]} value="" onChange={() => undefined} placeholder="No members available" disabled />
           </FormField>
 
           <FormField label="Notes">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, Button, FormField, Input, Modal, Select } from '@/shared/components/ui';
+import { Alert, Button, Combobox, FormField, Input, Modal, Select } from '@/shared/components/ui';
 
 import { EMPTY_PAYMENT_FORM_VALUES, PAYMENT_METHOD_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../constants';
 import type { FeeTypeOption, MemberOption, PaymentFormValues } from '../types';
@@ -103,12 +103,16 @@ export function PaymentFormModal({
       <form id="payment-form" onSubmit={handleSubmit} noValidate>
         {submitError ? <Alert tone="error">{submitError}</Alert> : null}
 
+        {/* Combobox — the member roster is the one list here that grows with the council.
+            Fee Type / Method below stay native Select: short, fixed vocabularies. */}
         <FormField label="Member" required error={errors.memberId}>
-          <Select
+          <Combobox
             options={memberSelectOptions}
             placeholder="Select member"
+            searchPlaceholder="Search by name or troop…"
+            emptyMessage="No members match that search."
             value={values.memberId}
-            onChange={(event) => set('memberId', event.target.value)}
+            onChange={(memberId) => set('memberId', memberId)}
           />
         </FormField>
 

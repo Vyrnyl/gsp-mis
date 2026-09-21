@@ -7,10 +7,10 @@ import {
   Button,
   Card,
   CardHeader,
+  Combobox,
   ConfirmDialog,
   EmptyState,
   ErrorState,
-  Select,
   TableSkeleton,
   useToast,
 } from '@/shared/components/ui';
@@ -192,12 +192,18 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
           {eventsState === 'ready' && events.length === 0 ? (
             <p className="text-[0.88rem] text-muted">No events yet.</p>
           ) : (
-            <Select
+            /* Combobox — the event list only grows, and this picker is the page's
+               primary control, so scrolling past a year of events to reach today's
+               is the common case rather than the edge one. */
+            <Combobox
               id="attendance-event-picker"
               disabled={eventsState !== 'ready'}
               options={events.map((event) => ({ value: event.id, label: event.title }))}
               value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
+              onChange={setSelectedEventId}
+              placeholder="Select an event"
+              searchPlaceholder="Search events…"
+              emptyMessage="No events match that search."
             />
           )}
         </div>

@@ -236,6 +236,23 @@ The prototype uses inline `style` attributes for values computed at runtime (JS 
 
 Custom WebKit scrollbar: `6px` wide/tall, track `#f1f1f1`, thumb `#c1c1c1` (hover `#aaa`), `3px` radius.
 
+### 8.1 Long lists and dropdowns (2026-09-21)
+
+**A native `<select>`'s popup cannot be styled, capped or scrolled by CSS.** It is rendered by the operating system, outside the DOM. Verified rather than assumed: with 200 options and `max-height: 200px; overflow-y: auto`, the browser reports `overflow-y: clip` and the element stays 23px tall. Do not add `max-h-*`/`overflow-y-*` to `Select` or its options — it is dead code that looks like a fix.
+
+This is rarely a problem, because **native popups already auto-scroll and support type-ahead** in every browser we target, and on mobile they become the OS wheel picker. The real failure of a long list is not scrolling but *finding*.
+
+So the rule is a choice between two components, not a class to add:
+
+| List | Component | Why |
+| --- | --- | --- |
+| Short, fixed vocabulary — statuses, roles, payment methods, months | `Select` | Native is better here: OS picker on mobile, zero JS, nothing to get wrong |
+| Database-backed and grows with the organization — members, events, troops, schools | `Combobox` | Owns its popup, so it can filter, cap and scroll |
+
+`Combobox` measures its cap against the **nearest scrolling ancestor**, not just the viewport. This matters inside `Modal` (`max-h-[90vh] overflow-y-auto`), which will otherwise clip an absolutely-positioned popup — a real bug caught at 480×640, where the list ran past the modal's edge and lost its last rows with no visible end. It also flips above the trigger when the space below is too cramped.
+
+Elements that *are* in the DOM scroll normally and need no special handling — the notification panel (`max-h-[360px] overflow-y-auto`) and `Modal` itself already do this.
+
 ---
 
 ## 9. Accessibility Requirements

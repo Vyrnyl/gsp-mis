@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, Button, FormField, Modal, Select, Textarea } from '@/shared/components/ui';
+import { Alert, Button, Combobox, FormField, Modal, Textarea } from '@/shared/components/ui';
 
 import { EMPTY_ACTIVITY_REPORT_FORM_VALUES } from '../constants';
 import type { ActivityReportFormValues, ReportableEvent } from '../types';
@@ -97,12 +97,16 @@ export function ActivityReportFormModal({ isOpen, eventOptions, onClose, onSubmi
           <Alert tone="info">No completed events are available to report on yet.</Alert>
         ) : null}
 
+        {/* Combobox — completed events accumulate indefinitely, and the label carries a
+            date, so searching by title beats scrolling a year of them. */}
         <FormField label="Event" required error={errors.eventId}>
-          <Select
+          <Combobox
             options={eventSelectOptions}
             placeholder="Select a completed event"
+            searchPlaceholder="Search events by title or date…"
+            emptyMessage="No completed events match that search."
             value={values.eventId}
-            onChange={(event) => set('eventId', event.target.value)}
+            onChange={(eventId) => set('eventId', eventId)}
             disabled={eventOptions.length === 0}
           />
         </FormField>

@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { resolveBadgeCategoryIcon } from '@/shared/components/icons';
-import { Alert, Button, FormField, Modal, Select } from '@/shared/components/ui';
+import { Alert, Button, Combobox, FormField, Modal, Select } from '@/shared/components/ui';
 
 import {
   EMPTY_RECORD_BADGE_FORM_VALUES,
@@ -105,20 +105,26 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
           <Alert tone="info">No members are available to record a badge for.</Alert>
         ) : null}
 
+        {/* Combobox, not Select: the roster grows with the council, and the labels carry
+            troop + scout level, so finding a member by eye stops working well before the
+            list stops being scrollable. */}
         <FormField label="Member" required error={errors.memberId}>
-          <Select
+          <Combobox
             options={memberSelectOptions}
             placeholder="Select a member"
+            searchPlaceholder="Search by name, troop or level…"
+            emptyMessage="No members match that search."
             value={values.memberId}
-            onChange={(event) => set('memberId', event.target.value)}
+            onChange={(memberId) => set('memberId', memberId)}
             disabled={memberOptions.length === 0}
           />
         </FormField>
 
         <FormField label="Badge" required error={errors.badgeId}>
           <div className="flex items-center gap-2.5">
-            {/* Native <select> can't render an icon per option (Combobox is still `planned` in
-                the registry) — this swatch is the icon feedback instead, updating with the pick. */}
+            {/* The badge catalog is a short, fixed list, so it stays a native <select> — which
+                cannot render an icon per option, so this swatch is the icon feedback instead,
+                updating with the pick. */}
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-warning-bg text-brand-gold-ink">
               <SelectedBadgeIcon className="text-[0.9rem]" aria-hidden />
             </span>
