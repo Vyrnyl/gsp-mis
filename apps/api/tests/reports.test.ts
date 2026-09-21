@@ -1,5 +1,7 @@
+import ExcelJS from 'exceljs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { generateExcelBuffer, generatePdfBuffer } from '../src/modules/reports/reports.generators';
 import { reportsRepository } from '../src/modules/reports/reports.repository';
 import { exportSchema, previewQuerySchema } from '../src/modules/reports/reports.schema';
 import { reportsService } from '../src/modules/reports/reports.service';
@@ -203,15 +205,65 @@ describe('reportsService financial preview', () => {
 
     const result = await reportsService.getPreview({ reportType: 'financial', ...RANGE }, ADMIN);
 
+    // `PHP`, not `₱`: the exported PDF's Helvetica has no peso glyph, so the
+    // symbol rendered as zero-width and vanished from the generated file.
     expect(result.stats).toEqual([
-      { label: 'Total Collected', value: '₱500' },
-      { label: 'Total Expenses', value: '₱1,500' },
-      { label: 'Balance', value: '-₱1,000' },
+      { label: 'Total Collected', value: 'PHP 500' },
+      { label: 'Total Expenses', value: 'PHP 1,500' },
+      { label: 'Balance', value: '-PHP 1,000' },
     ]);
     expect(result.rows).toEqual([
-      ['Jun 10, 2026', 'Expense', 'First Aid Supplies', '-₱1,500'],
-      ['Jun 1, 2026', 'Payment', 'Camp Fee — Ana Reyes', '₱500'],
+      ['Jun 10, 2026', 'Expense', 'First Aid Supplies', '-PHP 1,500'],
+      ['Jun 1, 2026', 'Payment', 'Camp Fee — Ana Reyes', 'PHP 500'],
     ]);
+  });
+});
+
+describe('report generators — currency cells', () => {
+  const financialPreview = {
+    reportType: 'financial' as const,
+    generatedAt: new Date('2026-09-21T00:00:00Z').toISOString(),
+    rangeLabel: 'Jan 1, 2026 – Sep 21, 2026',
+    stats: [{ label: 'Total Collected', value: 'PHP 12,500.00' }],
+    columns: ['Date', 'Type', 'Description', 'Amount'],
+    rows: [
+      ['Jun 1, 2026', 'Payment', 'Camp Fee', 'PHP 1,500.00'],
+      ['Jun 10, 2026', 'Expense', 'Supplies', '-PHP 800.00'],
+    ],
+  };
+
+  // The point of the `PHP` prefix is that it survives into the generated file;
+  // `₱` is zero-width in Helvetica, so it silently vanished from the PDF.
+  it('writes the PHP amount into the PDF as real, measurable text', async () => {
+    const buffer = await generatePdfBuffer('Financial Report', financialPreview as never);
+
+    expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(buffer.length).toBeGreaterThan(1000);
+  });
+
+  it('keeps PHP amounts as typed numbers in Excel, not text', async () => {
+    const buffer = await generateExcelBuffer('Financial Report', financialPreview as never);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as never);
+
+    const detail = workbook.getWorksheet('Detail')!;
+    const amount = detail.getRow(2).getCell(4);
+    const negative = detail.getRow(3).getCell(4);
+
+    // A currency string that stops parsing would land as a left-aligned string
+    // and lose sums/sorting in Excel — the bug the 2026-07-26 revision fixed.
+    expect(amount.value).toBe(1500);
+    expect(negative.value).toBe(-800);
+    expect(String(amount.numFmt)).toContain('PHP');
+  });
+
+  it('still parses the legacy ₱ form, so old exported rows keep their number type', async () => {
+    const legacy = { ...financialPreview, rows: [['Jun 1, 2026', 'Payment', 'Camp Fee', '₱1,500.00']] };
+    const buffer = await generateExcelBuffer('Financial Report', legacy as never);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as never);
+
+    expect(workbook.getWorksheet('Detail')!.getRow(2).getCell(4).value).toBe(1500);
   });
 });
 

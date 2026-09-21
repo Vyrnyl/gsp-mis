@@ -42,9 +42,14 @@ function endOfDay(isoDate: string): Date {
 function displayDate(date: Date): string {
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+/** Amounts are labelled `PHP`, not `₱`. The exported PDF uses the standard
+ * Helvetica font, whose WinAnsi encoding has no peso glyph — `₱` measures zero
+ * width there and drops out of the document, so the sign was invisible in the
+ * one place these strings are actually read. The ASCII code renders everywhere
+ * and stays unambiguous; `reports.generators.ts#parseCell` matches this format. */
 function formatCurrency(amount: number): string {
   const sign = amount < 0 ? '-' : '';
-  return `${sign}₱${Math.abs(amount).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
+  return `${sign}PHP ${Math.abs(amount).toLocaleString('en-PH', { maximumFractionDigits: 2 })}`;
 }
 function capitalize(value: string): string {
   return value.length === 0 ? value : value[0]!.toUpperCase() + value.slice(1);

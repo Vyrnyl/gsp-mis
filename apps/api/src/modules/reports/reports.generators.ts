@@ -17,7 +17,7 @@ const COLORS = {
 };
 
 /** A cell's display string, reclassified as an actual typed value so consumers
- * (Excel number formats, PDF column alignment) don't treat "₱1,500" / "67%" as text. */
+ * (Excel number formats, PDF column alignment) don't treat "PHP 1,500" / "67%" as text. */
 interface ParsedCell {
   raw: string;
   numeric: boolean;
@@ -28,14 +28,17 @@ interface ParsedCell {
 function parseCell(raw: string): ParsedCell {
   const trimmed = raw.trim();
 
-  const currency = trimmed.match(/^(-)?₱\s?([\d,]+(?:\.\d+)?)$/);
+  // Matches `formatCurrency`'s `PHP 1,500.00`. The legacy `₱` form is still
+  // accepted so previously-exported rows keep parsing as numbers rather than
+  // silently degrading to left-aligned text.
+  const currency = trimmed.match(/^(-)?(?:PHP\s?|₱\s?)([\d,]+(?:\.\d+)?)$/);
   if (currency) {
     const amount = Number(currency[2]!.replace(/,/g, ''));
     return {
       raw,
       numeric: true,
       value: currency[1] ? -amount : amount,
-      numFmt: '"₱"#,##0.00;[Red]-"₱"#,##0.00',
+      numFmt: '"PHP "#,##0.00;[Red]-"PHP "#,##0.00',
     };
   }
 
