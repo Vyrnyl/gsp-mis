@@ -88,13 +88,39 @@ export async function exportReport(
   return data.report;
 }
 
-/** Triggers the browser's native download flow via the BFF's `Content-Disposition`
- * header — no blob handling needed, the httpOnly cookie rides along on same-origin navigation. */
-export function downloadReport(report: GeneratedReport): void {
+/** Fetches the document, then hands the browser a blob to save.
+ *
+ * A plain anchor navigation would be simpler, but it renders whatever the server
+ * returns — so a failed download replaced the page with raw error JSON instead of
+ * reporting it. Fetching first lets the caller surface a real message; the
+ * httpOnly cookie still rides along, since this is same-origin. */
+export async function downloadReport(report: GeneratedReport): Promise<void> {
+  const response = await fetch(`/api/reports/${report.id}/download`, { credentials: 'same-origin' });
+
+  if (!response.ok) {
+    const message = await response
+      .json()
+      .then((body: { error?: { message?: string } }) => body.error?.message)
+      .catch(() => undefined);
+    throw new Error(message ?? 'The report could not be downloaded. Please try again.');
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  anchor.href = `/api/reports/${report.id}/download`;
+  anchor.href = objectUrl;
+  anchor.download = filenameFromResponse(response, report);
   anchor.rel = 'noopener';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+/** The server names the file in `Content-Disposition`; fall back to the report's
+ * own title so a proxied response stripping the header still saves sensibly. */
+function filenameFromResponse(response: Response, report: GeneratedReport): string {
+  const match = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '');
+  if (match?.[1]) return match[1];
+  return `${report.title.replace(/[^a-z0-9]+/gi, '-')}.${report.format === 'pdf' ? 'pdf' : 'xlsx'}`;
 }

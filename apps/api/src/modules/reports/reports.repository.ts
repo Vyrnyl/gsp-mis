@@ -113,7 +113,15 @@ export const reportsRepository = {
     return prisma.report.findUnique({ where: { id }, include: { generatedBy: true } });
   },
 
-  createReport(input: { title: string; reportType: string; format: 'pdf' | 'excel'; filePath: string; generatedById: string }) {
+  createReport(input: {
+    title: string;
+    reportType: string;
+    format: 'pdf' | 'excel';
+    generatedById: string;
+    dateFrom: Date;
+    dateTo: Date;
+    troopId: string | null;
+  }) {
     return prisma.report.create({ data: input, include: { generatedBy: true } });
   },
 };

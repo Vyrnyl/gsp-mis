@@ -2,7 +2,7 @@ import { ApiError } from '../../shared/utils/api-error';
 import type { RoleName } from '../../shared/constants/roles';
 import { generateExcelBuffer, generatePdfBuffer } from './reports.generators';
 import { reportsRepository } from './reports.repository';
-import type { ExportInput, ListHistoryQuery, PreviewQuery, ReportType } from './reports.schema';
+import type { ExportInput, ListHistoryQuery, PreviewQuery, ReportFormat, ReportType } from './reports.schema';
 import { reportsStorage } from './reports.storage';
 import type { ExportResultDto, GeneratedReportDto, ReportPreviewDto, ReportStatValueDto } from './reports.types';
 import { REPORT_TYPE_LABELS } from './reports.constants';
@@ -51,6 +51,11 @@ function capitalize(value: string): string {
 }
 function rangeLabel(dateFrom: string, dateTo: string): string {
   return `${displayDate(startOfDay(dateFrom))} – ${displayDate(startOfDay(dateTo))}`;
+}
+/** A stored `@db.Date` back to the `YYYY-MM-DD` the preview builders take. Read in
+ * UTC to match `startOfDay`, which is how the value was written. */
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 function stat(label: string, value: string | number): ReportStatValueDto {
   return { label, value: String(value) };
@@ -292,18 +297,20 @@ export const reportsService = {
   async exportReport(input: ExportInput, user: RequestingUser): Promise<ExportResultDto> {
     assertTypeAccess(input.reportType, user);
 
-    const preview = await buildPreview(input, user);
+    // Generation is a validity check, not a write: it proves the parameters
+    // produce a real report before the row claims they do. The buffer is
+    // discarded — `getDownload` rebuilds it from the stored parameters.
+    await buildPreview(input, user);
     const title = `${REPORT_TYPE_LABELS[input.reportType]} — ${rangeLabel(input.dateFrom, input.dateTo)}`;
-    const buffer =
-      input.format === 'pdf' ? await generatePdfBuffer(title, preview) : await generateExcelBuffer(title, preview);
-    const filename = await reportsStorage.save(input.format, buffer);
 
     const created = await reportsRepository.createReport({
       title,
       reportType: input.reportType,
       format: input.format,
-      filePath: filename,
       generatedById: user.id,
+      dateFrom: startOfDay(input.dateFrom),
+      dateTo: startOfDay(input.dateTo),
+      troopId: input.troopId ?? null,
     });
 
     return { report: toGeneratedReportDto(created), downloadUrl: `/api/v1/reports/${created.id}/download` };
@@ -313,12 +320,36 @@ export const reportsService = {
     const report = await reportsRepository.findReportById(id);
     if (!report) throw ApiError.notFound('Report not found.');
     assertTypeAccess(report.reportType as ReportType, user);
-    if (!report.filePath) throw ApiError.notFound('This report has no stored file.');
 
-    const buffer = await reportsStorage.read(report.filePath);
+    // Rows created before reports stored their parameters cannot be rebuilt.
+    // The range is only in the title as a localized display string and the troop
+    // scope is not there at all, so parsing it back would risk serving
+    // council-wide figures under a troop-scoped report's name. 404 instead.
+    if (!report.dateFrom || !report.dateTo) {
+      throw ApiError.notFound(
+        'This report was generated before downloads could be rebuilt, and its file is no longer stored. Generate it again to download it.',
+      );
+    }
+
+    // Regenerated per request rather than read from disk: the API's filesystem is
+    // ephemeral on Render, so a saved file disappears on the next deploy while the
+    // row advertising it lives on in Postgres.
+    const format = report.format as ReportFormat;
+    const preview = await buildPreview(
+      {
+        reportType: report.reportType as ReportType,
+        dateFrom: toIsoDate(report.dateFrom),
+        dateTo: toIsoDate(report.dateTo),
+        ...(report.troopId ? { troopId: report.troopId } : {}),
+      },
+      user,
+    );
+    const buffer =
+      format === 'pdf' ? await generatePdfBuffer(report.title, preview) : await generateExcelBuffer(report.title, preview);
+
     return {
-      filename: `${report.title.replace(/[^a-z0-9]+/gi, '-')}.${report.format === 'pdf' ? 'pdf' : 'xlsx'}`,
-      mimeType: reportsStorage.mimeTypeFor(report.format as 'pdf' | 'excel'),
+      filename: `${report.title.replace(/[^a-z0-9]+/gi, '-')}.${reportsStorage.extensionFor(format)}`,
+      mimeType: reportsStorage.mimeTypeFor(format),
       buffer,
       report: toGeneratedReportDto(report),
     };

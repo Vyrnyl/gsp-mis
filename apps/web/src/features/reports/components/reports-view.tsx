@@ -115,6 +115,14 @@ export function ReportsView({ role, canExport }: ReportsViewProps) {
     }
   }
 
+  async function handleDownload(report: GeneratedReport) {
+    try {
+      await downloadReport(report);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not download this report.', 'error');
+    }
+  }
+
   return (
     <div>
       <ReportTypeSelector types={availableTypes} value={activeType} onChange={handleSelectType} />
@@ -145,7 +153,7 @@ export function ReportsView({ role, canExport }: ReportsViewProps) {
         totalItems={historyTotal}
         onPageChange={setHistoryPage}
         onRetry={fetchHistory}
-        onDownload={downloadReport}
+        onDownload={handleDownload}
       />
     </div>
   );

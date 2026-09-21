@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reportsRepository } from '../src/modules/reports/reports.repository';
 import { exportSchema, previewQuerySchema } from '../src/modules/reports/reports.schema';
 import { reportsService } from '../src/modules/reports/reports.service';
-import { reportsStorage } from '../src/modules/reports/reports.storage';
 
 function decimal(value: number) {
   return { toNumber: () => value };
@@ -14,6 +13,7 @@ const COUNCIL = { id: 'council-1', role: 'executive_council' as const };
 const LEADER = { id: 'leader-1', role: 'troop_leader' as const };
 
 const RANGE = { dateFrom: '2026-01-01', dateTo: '2026-07-24' };
+const TROOP_ID = '11111111-2222-3333-4444-555555555555';
 
 describe('reportsService per-type access', () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -237,9 +237,8 @@ describe('reportsService listHistory', () => {
 describe('reportsService export + download', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('generates a file, persists a Report row, and returns a download URL', async () => {
+  it('persists the parameters a download is rebuilt from, and returns a download URL', async () => {
     vi.spyOn(reportsRepository, 'listMembersInRange').mockResolvedValue([]);
-    vi.spyOn(reportsStorage, 'save').mockResolvedValue('generated-file.pdf');
     const createSpy = vi.spyOn(reportsRepository, 'createReport').mockResolvedValue({
       id: 'report-1',
       title: 'Membership Report — Jan 1, 2026 – Jul 24, 2026',
@@ -249,22 +248,34 @@ describe('reportsService export + download', () => {
       generatedBy: { fullName: 'Marisol Tabuena' },
     } as never);
 
-    const result = await reportsService.exportReport({ reportType: 'membership', ...RANGE, format: 'pdf' }, ADMIN);
+    const result = await reportsService.exportReport(
+      { reportType: 'membership', ...RANGE, format: 'pdf', troopId: TROOP_ID },
+      ADMIN,
+    );
 
+    // The row must carry the range and troop scope: without them the report can
+    // never be rebuilt, and the title's localized range cannot be parsed back.
     expect(createSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ reportType: 'membership', format: 'pdf', filePath: 'generated-file.pdf', generatedById: ADMIN.id }),
+      expect.objectContaining({
+        reportType: 'membership',
+        format: 'pdf',
+        generatedById: ADMIN.id,
+        dateFrom: new Date(`${RANGE.dateFrom}T00:00:00.000Z`),
+        dateTo: new Date(`${RANGE.dateTo}T00:00:00.000Z`),
+        troopId: TROOP_ID,
+      }),
     );
     expect(result.report.id).toBe('report-1');
     expect(result.downloadUrl).toBe('/api/v1/reports/report-1/download');
   });
 
-  it('rejects a Troop Leader exporting a financial report before ever touching storage', async () => {
-    const saveSpy = vi.spyOn(reportsStorage, 'save');
+  it('rejects a Troop Leader exporting a financial report before persisting anything', async () => {
+    const createSpy = vi.spyOn(reportsRepository, 'createReport');
 
     await expect(
       reportsService.exportReport({ reportType: 'financial', ...RANGE, format: 'pdf' }, LEADER),
     ).rejects.toMatchObject({ statusCode: 403 });
-    expect(saveSpy).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalled();
   });
 
   it('404s a download for an unknown report id', async () => {
@@ -287,23 +298,69 @@ describe('reportsService export + download', () => {
     await expect(reportsService.getDownload('report-1', LEADER)).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  it('streams the stored file for a permitted download', async () => {
+  it('rebuilds the document from the stored parameters for a permitted download', async () => {
     vi.spyOn(reportsRepository, 'findReportById').mockResolvedValue({
       id: 'report-1',
       title: 'Membership Report',
       reportType: 'membership',
       format: 'excel',
-      filePath: 'file.xlsx',
       generatedAt: new Date(),
       generatedBy: { fullName: 'Marisol Tabuena' },
+      dateFrom: new Date('2026-01-01T00:00:00.000Z'),
+      dateTo: new Date('2026-07-24T00:00:00.000Z'),
+      troopId: null,
     } as never);
-    vi.spyOn(reportsStorage, 'read').mockResolvedValue(Buffer.from('fake-bytes'));
+    const rangeSpy = vi.spyOn(reportsRepository, 'listMembersInRange').mockResolvedValue([]);
 
     const result = await reportsService.getDownload('report-1', ADMIN);
 
-    expect(result.buffer.toString()).toBe('fake-bytes');
+    // A real document is produced now, not read off disk — nothing was stored.
+    expect(result.buffer.length).toBeGreaterThan(0);
     expect(result.mimeType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(result.filename).toBe('Membership-Report.xlsx');
+    // Rebuilt over the report's own recorded range, not today's.
+    expect(rangeSpy).toHaveBeenCalledWith(
+      new Date('2026-01-01T00:00:00.000Z'),
+      new Date('2026-07-24T23:59:59.999Z'),
+      undefined,
+    );
+  });
+
+  it('rebuilds a troop-scoped report against its recorded troop, not council-wide', async () => {
+    vi.spyOn(reportsRepository, 'findReportById').mockResolvedValue({
+      id: 'report-1',
+      title: 'Membership Report',
+      reportType: 'membership',
+      format: 'pdf',
+      generatedAt: new Date(),
+      generatedBy: null,
+      dateFrom: new Date('2026-01-01T00:00:00.000Z'),
+      dateTo: new Date('2026-07-24T00:00:00.000Z'),
+      troopId: TROOP_ID,
+    } as never);
+    const rangeSpy = vi.spyOn(reportsRepository, 'listMembersInRange').mockResolvedValue([]);
+
+    await reportsService.getDownload('report-1', ADMIN);
+
+    // Losing the scope here would serve council-wide figures under a
+    // troop-scoped report's title — wrong numbers presented as the real ones.
+    expect(rangeSpy).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), TROOP_ID);
+  });
+
+  it('404s a legacy row that predates stored parameters rather than guessing a range', async () => {
+    vi.spyOn(reportsRepository, 'findReportById').mockResolvedValue({
+      id: 'report-old',
+      title: 'Membership Report — Jan 1, 2026 – Jul 24, 2026',
+      reportType: 'membership',
+      format: 'pdf',
+      generatedAt: new Date(),
+      generatedBy: null,
+      dateFrom: null,
+      dateTo: null,
+      troopId: null,
+    } as never);
+
+    await expect(reportsService.getDownload('report-old', ADMIN)).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

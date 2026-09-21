@@ -181,6 +181,7 @@ model Troop {
   council Council  @relation(fields: [councilId], references: [id])
   leader  User?    @relation("TroopLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   members Member[]
+  reports Report[] @relation("ReportTroopScope")
 
   @@index([councilId])
   @@map("troops")
@@ -724,7 +725,17 @@ model Report {
   filePath      String?      @map("file_path")
   format        ReportFormat @default(pdf)
 
+  /// The parameters the report was generated from. A download regenerates the
+  /// file from these rather than reading it off disk — the API's filesystem is
+  /// ephemeral on Render, so a stored file does not survive a deploy. Nullable
+  /// because rows created before this column existed have no recorded range;
+  /// those downloads 404 instead of silently regenerating a different report.
+  dateFrom DateTime? @map("date_from") @db.Date
+  dateTo   DateTime? @map("date_to") @db.Date
+  troopId  String?   @map("troop_id") @db.Uuid
+
   generatedBy User? @relation("ReportGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
+  troop       Troop? @relation("ReportTroopScope", fields: [troopId], references: [id], onDelete: SetNull)
 
   @@index([reportType])
   @@map("reports")
