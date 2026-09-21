@@ -10,7 +10,7 @@ The repo is an npm-workspaces monorepo:
 - `apps/api` — Express + TypeScript + Prisma 7. Modules in `src/modules/<domain>/`, shared handlers in `src/shared/handlers/`.
 - `context/` — planning docs and the static prototype.
 
-**Phase 0 is complete** — 0.2 and 0.3 passed visual sign-off on 2026-07-22, and the database is live on **Neon PostgreSQL** (migration applied, seeded, `GET /api/v1/health` reports `database: up`). **Next feature: 1.1 Authentication.**
+**Phase 0 is complete** — 0.2 and 0.3 passed visual sign-off on 2026-07-22, and the database is live on **Neon PostgreSQL** (migration applied, seeded, `GET /api/v1/health/db` reports `database: up` — `/health` itself is a database-free liveness probe, because Render and the keep-alive cron poll it constantly and must not wake Neon). **Next feature: 1.1 Authentication.**
 
 Check [context/progress.md](context/progress.md) at the start of every session — it is the single source of truth for what is actually built. Never assume a feature exists; verify there first.
 
