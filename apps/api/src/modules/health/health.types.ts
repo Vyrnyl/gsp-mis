@@ -14,7 +14,8 @@ export interface HealthStatus {
 
 /**
  * Liveness only — "this process is running". Deliberately carries no
- * `dependencies`, because it touches none: see `healthController.getLiveness`.
+ * `dependencies`, because it touches none. Served at GET /api/v1/health;
+ * the dependency-checking shape is `HealthStatus`, at /health/db.
  */
 export interface LivenessStatus {
   status: 'ok';

@@ -13,7 +13,8 @@ export const healthController = {
 
   /**
    * Always 200 when the process is reachable — no dependency is consulted, so
-   * there is no status that could make it fail. Used by the keep-alive cron.
+   * there is no status that could make it fail. Serves the default
+   * /api/v1/health path, polled by Render's health check and the keep-alive cron.
    */
   getLiveness(_req: Request, res: Response): void {
     sendSuccess(res, healthService.getLiveness());

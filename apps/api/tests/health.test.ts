@@ -34,7 +34,7 @@ describe('health service', () => {
   });
 });
 
-describe('GET /api/v1/health', () => {
+describe('GET /api/v1/health/db', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -42,7 +42,7 @@ describe('GET /api/v1/health', () => {
   it('returns 200 and the success envelope when healthy', async () => {
     vi.spyOn(healthRepository, 'ping').mockResolvedValue(true);
 
-    const response = await request(app).get('/api/v1/health');
+    const response = await request(app).get('/api/v1/health/db');
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
@@ -54,14 +54,14 @@ describe('GET /api/v1/health', () => {
   it('returns 503 when a dependency is down', async () => {
     vi.spyOn(healthRepository, 'ping').mockResolvedValue(false);
 
-    const response = await request(app).get('/api/v1/health');
+    const response = await request(app).get('/api/v1/health/db');
 
     expect(response.status).toBe(503);
     expect(response.body.data.status).toBe('degraded');
   });
 });
 
-describe('GET /api/v1/health/live', () => {
+describe('GET /api/v1/health', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -69,21 +69,22 @@ describe('GET /api/v1/health/live', () => {
   it('returns 200 without touching the database', async () => {
     const ping = vi.spyOn(healthRepository, 'ping');
 
-    const response = await request(app).get('/api/v1/health/live');
+    const response = await request(app).get('/api/v1/health');
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       success: true,
       data: { status: 'ok', service: 'gsp-api' },
     });
-    // The whole point of this route: the keep-alive cron must not wake Neon.
+    // The whole point of this route: Render's health check and the keep-alive
+    // cron both poll it constantly, and neither must wake Neon.
     expect(ping).not.toHaveBeenCalled();
   });
 
   it('stays 200 even when the database is unreachable', async () => {
     vi.spyOn(healthRepository, 'ping').mockResolvedValue(false);
 
-    const response = await request(app).get('/api/v1/health/live');
+    const response = await request(app).get('/api/v1/health');
 
     expect(response.status).toBe(200);
     expect(response.body.data.status).toBe('ok');

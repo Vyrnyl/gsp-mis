@@ -5,6 +5,9 @@ services:
     plan: free
     region: singapore
     branch: master
+    # Must stay /api/v1/health, which touches no database. Render polls this
+    # continuously; pointing it at /api/v1/health/db would wake Neon on every
+    # poll and exhaust the free tier's compute-hour allowance.
     healthCheckPath: /api/v1/health
     # Root stays the repo root (not apps/api) — this is an npm workspaces monorepo, so
     # install/build must run from the workspace root to resolve the shared lockfile.

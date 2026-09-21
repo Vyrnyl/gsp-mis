@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Ping API liveness endpoint
         run: |
-          # /health/live deliberately, NOT /health: the latter queries Postgres,
-          # which would wake Neon every 10 minutes and exhaust the free tier's
-          # compute-hour allowance. This route touches no dependency.
-          curl -sf --max-time 30 https://gsp-api-4c5k.onrender.com/api/v1/health/live
+          # /health touches no database by design, so this ping keeps Render
+          # awake without waking Neon and burning its compute-hour allowance.
+          # The database check lives at /health/db -- never poll that one.
+          curl -sf --max-time 30 https://gsp-api-4c5k.onrender.com/api/v1/health
