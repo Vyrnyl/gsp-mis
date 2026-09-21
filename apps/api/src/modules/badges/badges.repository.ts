@@ -85,7 +85,7 @@ export const badgesRepository = {
         status: { name: { in: ['active', 'expiring'] } },
         ...(troopIds ? { troopId: { in: troopIds } } : {}),
       },
-      include: { troop: true },
+      include: { troop: true, scoutLevel: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
   },

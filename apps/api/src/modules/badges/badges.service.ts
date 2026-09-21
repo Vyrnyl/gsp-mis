@@ -54,11 +54,18 @@ function toMemberBadgeRecordDto(record: MemberBadgeWithRelations): MemberBadgeRe
   };
 }
 
-function toMemberOptionDto(member: { id: string; firstName: string; lastName: string; troop: { name: string } | null }): MemberOptionDto {
+function toMemberOptionDto(member: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  troop: { name: string } | null;
+  scoutLevel: { name: string } | null;
+}): MemberOptionDto {
   return {
     id: member.id,
     fullName: `${member.firstName} ${member.lastName}`,
     troopName: member.troop?.name ?? null,
+    scoutLevelName: member.scoutLevel?.name ?? null,
   };
 }
 

@@ -13,6 +13,8 @@ export interface MemberOption {
   id: string;
   fullName: string;
   troopName: string | null;
+  /** Null for adult leaders, who are not on the scout-level progression at all. */
+  scoutLevelName: string | null;
 }
 
 /** `GET /badges` row — the catalog. */

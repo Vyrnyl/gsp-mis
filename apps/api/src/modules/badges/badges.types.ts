@@ -53,6 +53,8 @@ export interface MemberOptionDto {
   id: string;
   fullName: string;
   troopName: string | null;
+  /** Null for adult leaders, who are not on the scout-level progression at all. */
+  scoutLevelName: string | null;
 }
 
 export interface ListBadgesResponseBody {

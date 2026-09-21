@@ -4,9 +4,29 @@ import type {
   AchievementFormValues,
   BadgeFormValues,
   MemberBadgeStatus,
+  MemberOption,
   RecordBadgeFormValues,
   BadgeTabId,
 } from './types';
+
+/**
+ * One label for every member picker in this feature — the Record Badge and Achievement
+ * modals read the same fetched array, so the same member must read identically in both.
+ *
+ * Troop and scout level are each omitted when absent rather than rendered as a
+ * placeholder: an adult leader has no level by design (not missing data), and a
+ * "No level" suffix on every leader row would be noise in a list you scan by name.
+ *
+ * The qualifiers are parenthesised rather than joined to the name with an em-dash,
+ * because troop names contain em-dashes themselves ("Troop 7 — San Andres"): the old
+ * `Name — Troop` form produced "Kyla Odtuhan — Troop 7 — San Andres · Junior Girl
+ * Scout", where two identical-looking dashes mean different things. Parentheses keep
+ * the name — the part you scan for — unambiguously first.
+ */
+export function formatMemberOptionLabel(member: MemberOption): string {
+  const qualifiers = [member.troopName, member.scoutLevelName].filter(Boolean);
+  return qualifiers.length > 0 ? `${member.fullName} (${qualifiers.join(' · ')})` : member.fullName;
+}
 
 export const MEMBER_BADGE_STATUS_LABELS: Record<MemberBadgeStatus, string> = {
   in_progress: 'In Progress',

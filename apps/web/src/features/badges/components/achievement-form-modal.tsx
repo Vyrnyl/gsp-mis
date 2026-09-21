@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { Alert, Button, FormField, Input, Modal, Select, Textarea } from '@/shared/components/ui';
 
-import { EMPTY_ACHIEVEMENT_FORM_VALUES } from '../constants';
+import { EMPTY_ACHIEVEMENT_FORM_VALUES, formatMemberOptionLabel } from '../constants';
 import type { AchievementFormValues, MemberOption } from '../types';
 
 export interface AchievementFormModalProps {
@@ -62,7 +62,7 @@ export function AchievementFormModal({ isOpen, memberOptions, onClose, onSubmit 
 
   const memberSelectOptions = memberOptions.map((member) => ({
     value: member.id,
-    label: member.troopName ? `${member.fullName} — ${member.troopName}` : member.fullName,
+    label: formatMemberOptionLabel(member),
   }));
 
   return (

@@ -109,6 +109,48 @@ describe('badgesService', () => {
     });
   });
 
+  describe('listMemberOptions', () => {
+    it('carries the scout level through, so the picker can show it beside the name', async () => {
+      vi.spyOn(badgesRepository, 'listMemberOptions').mockResolvedValue([
+        { ...MEMBER_ROW, scoutLevel: { name: 'Senior Girl Scout' } },
+      ] as never);
+
+      const { members } = await badgesService.listMemberOptions(ADMIN);
+
+      expect(members).toEqual([
+        {
+          id: 'mem-1',
+          fullName: 'Andrea Villareal',
+          troopName: 'Troop 12 — Virac',
+          scoutLevelName: 'Senior Girl Scout',
+        },
+      ]);
+    });
+
+    // Adult leaders are not on the level progression at all, so this is the normal
+    // shape of a leader row — null, never an empty string the label would render as a
+    // dangling separator.
+    it('maps a member with no scout level to null rather than dropping the row', async () => {
+      vi.spyOn(badgesRepository, 'listMemberOptions').mockResolvedValue([
+        { ...MEMBER_ROW, troop: null, scoutLevel: null },
+      ] as never);
+
+      const { members } = await badgesService.listMemberOptions(ADMIN);
+
+      expect(members).toHaveLength(1);
+      expect(members[0]).toMatchObject({ troopName: null, scoutLevelName: null });
+    });
+
+    it('scopes troop leaders to their own led troops', async () => {
+      vi.spyOn(badgesRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'troop-12' }] as never);
+      const listSpy = vi.spyOn(badgesRepository, 'listMemberOptions').mockResolvedValue([]);
+
+      await badgesService.listMemberOptions(TROOP_LEADER);
+
+      expect(listSpy).toHaveBeenCalledWith(['troop-12']);
+    });
+  });
+
   describe('listMemberProgress', () => {
     it('scopes troop leaders to members of their own led troop', async () => {
       vi.spyOn(badgesRepository, 'findTroopIdsLedBy').mockResolvedValue([{ id: 'troop-12' }] as never);

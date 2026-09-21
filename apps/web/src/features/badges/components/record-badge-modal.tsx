@@ -5,7 +5,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { resolveBadgeCategoryIcon } from '@/shared/components/icons';
 import { Alert, Button, FormField, Modal, Select } from '@/shared/components/ui';
 
-import { EMPTY_RECORD_BADGE_FORM_VALUES, MEMBER_BADGE_STATUS_LABELS } from '../constants';
+import {
+  EMPTY_RECORD_BADGE_FORM_VALUES,
+  MEMBER_BADGE_STATUS_LABELS,
+  formatMemberOptionLabel,
+} from '../constants';
 import type { BadgeCatalogItem, MemberOption, RecordBadgeFormValues } from '../types';
 
 export interface RecordBadgeModalProps {
@@ -67,7 +71,7 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
 
   const memberSelectOptions = memberOptions.map((member) => ({
     value: member.id,
-    label: member.troopName ? `${member.fullName} — ${member.troopName}` : member.fullName,
+    label: formatMemberOptionLabel(member),
   }));
   const badgeSelectOptions = badgeOptions.map((badge) => ({ value: badge.id, label: badge.name }));
   const selectedBadge = badgeOptions.find((badge) => badge.id === values.badgeId) ?? null;
