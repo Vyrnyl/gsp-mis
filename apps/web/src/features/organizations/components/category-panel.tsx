@@ -55,7 +55,8 @@ export interface CategoryPanelProps {
 /**
  * Shared table for the three lookup-table screens — Scout Levels, Badge Categories,
  * Activity Categories — which differ only in whether `orderNumber` applies and what
- * their usage count means (members / badges / events). Councils and Troops have
+ * their usage count means (members / badges / events). `orderNumber` only sorts the
+ * rows and is edited in the form — it is not shown as a column. Councils and Troops have
  * relational fields that don't fit this shape, so they get their own panels.
  */
 export function CategoryPanel({
@@ -126,7 +127,7 @@ export function CategoryPanel({
         }
       />
 
-      {viewState === 'loading' ? <TableSkeleton rows={showOrder ? 5 : 4} columns={showOrder ? 5 : 4} /> : null}
+      {viewState === 'loading' ? <TableSkeleton rows={showOrder ? 5 : 4} columns={4} /> : null}
 
       {viewState === 'error' ? (
         <ErrorState onRetry={onRetry} description={`We could not load ${title.toLowerCase()}. Check your connection and try again.`} />
@@ -152,7 +153,6 @@ export function CategoryPanel({
           <Table caption={title}>
             <TableHead>
               <TableRow>
-                {showOrder ? <TableHeaderCell>Order</TableHeaderCell> : null}
                 <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Description</TableHeaderCell>
                 <TableHeaderCell>{usageLabel}</TableHeaderCell>
@@ -169,7 +169,6 @@ export function CategoryPanel({
 
                 return (
                 <TableRow key={item.id}>
-                  {showOrder ? <TableCell>{item.orderNumber}</TableCell> : null}
                   <TableCell className="font-semibold text-ink">
                     {showIcon ? (
                       <span className="flex items-center gap-2">
