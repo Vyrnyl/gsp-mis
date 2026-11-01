@@ -49,12 +49,14 @@ export type RegistrationStatus = 'registered' | 'cancelled';
 export type AttendanceMark = 'present' | 'absent' | null;
 
 /** One row of `GET /events/:id/registrations` — a registration joined with its
- * member, troop, and (if recorded) attendance status. */
+ * member, troop, scout level, and (if recorded) attendance status. */
 export interface ParticipantDto {
   registrationId: string;
   memberId: string;
   fullName: string;
   troop: { troopCode: string; name: string } | null;
+  /** Null for adult leaders, who have no level by design. */
+  scoutLevelName: string | null;
   registrationStatus: RegistrationStatus;
   attendanceStatus: AttendanceMark;
 }

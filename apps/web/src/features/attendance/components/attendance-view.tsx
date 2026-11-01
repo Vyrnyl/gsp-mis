@@ -1,14 +1,14 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import { AddIcon, EventIcon } from '@/shared/components/icons';
+import { EventIcon, EyeIcon } from '@/shared/components/icons';
 import {
   Button,
   Card,
   CardHeader,
   Combobox,
-  ConfirmDialog,
   EmptyState,
   ErrorState,
   TableSkeleton,
@@ -18,32 +18,29 @@ import {
 import { listAllEvents } from '@/features/events/services/events.service';
 import type { EventSummary } from '@/features/events/types';
 import { formatEventDate } from '@/features/events/utils';
-import { listMembers } from '@/features/members/services/members.service';
 
 import { AttendanceSummaryCards } from './attendance-summary-cards';
 import { ParticipantAttendanceTable } from './participant-attendance-table';
-import { RegisterParticipantModal } from './register-participant-modal';
 import {
   AttendanceRequestError,
   listParticipants,
   recordAttendance,
-  registerParticipant,
-  updateRegistrationStatus,
 } from '../services/attendance.service';
-import type { AttendanceSummary, Participant, RegistrableMember } from '../types';
+import type { AttendanceSummary, Participant } from '../types';
 
 type ViewState = 'loading' | 'error' | 'ready';
 
 export interface AttendanceViewProps {
-  /** Gates registering participants, cancelling registrations, and recording
-   * attendance — `attendance:write` (Admin + Troop Leader; Executive Council reads
-   * only, per project-overview.md's monitoring-only Activity Monitoring section). */
+  /** Gates recording attendance — `attendance:write` (Admin + Troop Leader; Executive
+   * Council reads only, per project-overview.md's monitoring-only Activity Monitoring
+   * section). Registering participants lives on the event's own page. */
   canManage: boolean;
   initialEventId?: string;
 }
 
 export function AttendanceView({ canManage, initialEventId }: AttendanceViewProps) {
   const { showToast } = useToast();
+  const router = useRouter();
 
   const [eventsState, setEventsState] = useState<ViewState>('loading');
   const [events, setEvents] = useState<EventSummary[]>([]);
@@ -58,13 +55,7 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
     attendanceRate: 0,
   });
 
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [candidates, setCandidates] = useState<RegistrableMember[]>([]);
-  const [candidatesLoading, setCandidatesLoading] = useState(false);
-  const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [pendingRegistrationId, setPendingRegistrationId] = useState<string | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<Participant | null>(null);
-  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,7 +80,7 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
     setParticipantsState('loading');
     try {
       const result = await listParticipants(selectedEventId);
-      setParticipants(result.participants);
+      setParticipants(result.participants.filter((p) => p.registrationStatus !== 'cancelled'));
       setSummary(result.summary);
       setParticipantsState('ready');
     } catch {
@@ -103,28 +94,6 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
 
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
 
-  async function openRegisterModal() {
-    setIsRegisterOpen(true);
-    setCandidatesLoading(true);
-    try {
-      const { members } = await listMembers({ status: 'active', pageSize: 100 });
-      const participatingMemberIds = new Set(participants.map((p) => p.memberId));
-      setCandidates(
-        members
-          .filter((member) => !participatingMemberIds.has(member.id))
-          .map((member) => ({
-            id: member.id,
-            fullName: `${member.firstName} ${member.lastName}`,
-            troopName: member.troop?.name ?? null,
-          })),
-      );
-    } catch {
-      setCandidates([]);
-    } finally {
-      setCandidatesLoading(false);
-    }
-  }
-
   async function handleToggleAttendance(participant: Participant, next: 'present' | 'absent') {
     if (!selectedEventId) return;
     setPendingRegistrationId(participant.registrationId);
@@ -132,61 +101,33 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
       await recordAttendance(selectedEventId, participant.memberId, next);
       await fetchParticipants();
     } catch (err) {
-      showToast(err instanceof AttendanceRequestError ? err.message : 'Could not record attendance.', 'error');
+      showToast(
+        err instanceof AttendanceRequestError ? err.message : 'Could not record attendance.',
+        'error',
+      );
     } finally {
       setPendingRegistrationId(null);
     }
   }
 
-  async function handleRegister(member: RegistrableMember) {
-    if (!selectedEventId) return;
-    setRegisteringId(member.id);
-    try {
-      await registerParticipant(selectedEventId, member.id);
-      showToast(`${member.fullName} registered.`, 'success');
-      setIsRegisterOpen(false);
-      await fetchParticipants();
-    } catch (err) {
-      showToast(err instanceof AttendanceRequestError ? err.message : 'Could not register this member.', 'error');
-    } finally {
-      setRegisteringId(null);
-    }
-  }
-
-  async function confirmCancel() {
-    if (!cancelTarget || !selectedEventId) return;
-    setIsConfirmingCancel(true);
-    try {
-      await updateRegistrationStatus(selectedEventId, cancelTarget.memberId, 'cancelled');
-      showToast(`${cancelTarget.fullName}'s registration was cancelled.`, 'success');
-      setCancelTarget(null);
-      await fetchParticipants();
-    } catch (err) {
-      showToast(err instanceof AttendanceRequestError ? err.message : 'Could not cancel this registration.', 'error');
-    } finally {
-      setIsConfirmingCancel(false);
-    }
-  }
-
-  async function handleReactivate(participant: Participant) {
-    if (!selectedEventId) return;
-    setPendingRegistrationId(participant.registrationId);
-    try {
-      await updateRegistrationStatus(selectedEventId, participant.memberId, 'registered');
-      showToast(`${participant.fullName} re-registered.`, 'success');
-      await fetchParticipants();
-    } catch (err) {
-      showToast(err instanceof AttendanceRequestError ? err.message : 'Could not re-register this member.', 'error');
-    } finally {
-      setPendingRegistrationId(null);
-    }
-  }
+  const viewEventButton = selectedEvent ? (
+    <Button
+      variant="outline"
+      leadingIcon={<EyeIcon aria-hidden />}
+      onClick={() => router.push(`/events/${selectedEvent.id}`)}
+    >
+      View Event
+    </Button>
+  ) : undefined;
 
   return (
     <div>
       <Card className="mb-6">
         <div className="w-full sm:w-72">
-          <label htmlFor="attendance-event-picker" className="mb-1.5 block text-[0.85rem] font-semibold text-ink">
+          <label
+            htmlFor="attendance-event-picker"
+            className="mb-1.5 block text-[0.85rem] font-semibold text-ink"
+          >
             Event
           </label>
           {eventsState === 'ready' && events.length === 0 ? (
@@ -231,12 +172,12 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
         />
       ) : participantsState === 'error' ? (
         <ErrorState
-          description="We could not load this event's participants and attendance."
+          description="We could not load this event's attendance."
           onRetry={fetchParticipants}
         />
       ) : participantsState === 'loading' || !selectedEvent ? (
         <Card>
-          <TableSkeleton rows={5} columns={5} />
+          <TableSkeleton rows={5} columns={3} />
         </Card>
       ) : (
         <>
@@ -244,67 +185,28 @@ export function AttendanceView({ canManage, initialEventId }: AttendanceViewProp
 
           <Card>
             <CardHeader
-              title="Participants & Attendance"
+              title="Attendance"
               subtitle={`${selectedEvent.title} · ${formatEventDate(selectedEvent.eventDate, 'long')}`}
-              actions={
-                canManage ? (
-                  <Button leadingIcon={<AddIcon aria-hidden />} onClick={openRegisterModal}>
-                    Register Participant
-                  </Button>
-                ) : undefined
-              }
+              actions={participants.length > 0 ? viewEventButton : undefined}
             />
 
             {participants.length === 0 ? (
               <EmptyState
                 title="No one is registered yet"
-                description="Register the first participant to start taking attendance for this event."
-                action={
-                  canManage ? (
-                    <Button leadingIcon={<AddIcon aria-hidden />} onClick={openRegisterModal}>
-                      Register Participant
-                    </Button>
-                  ) : undefined
-                }
+                description="Participants are registered on the event's View Details page. Attendance can be taken once someone is registered."
+                action={viewEventButton}
               />
             ) : (
               <ParticipantAttendanceTable
                 participants={participants}
                 canRecordAttendance={canManage}
-                canManageRegistrations={canManage}
                 pendingRegistrationId={pendingRegistrationId}
                 onToggleAttendance={handleToggleAttendance}
-                onCancelRegistration={setCancelTarget}
-                onReactivateRegistration={handleReactivate}
               />
             )}
           </Card>
         </>
       )}
-
-      <RegisterParticipantModal
-        isOpen={isRegisterOpen}
-        candidates={candidatesLoading ? [] : candidates}
-        registeringId={registeringId}
-        onClose={() => setIsRegisterOpen(false)}
-        onRegister={handleRegister}
-      />
-
-      <ConfirmDialog
-        isOpen={cancelTarget !== null}
-        tone="danger"
-        title="Cancel registration?"
-        isConfirming={isConfirmingCancel}
-        description={
-          <>
-            <strong>{cancelTarget?.fullName}</strong> will be removed from this event&apos;s active roster. This
-            can be undone by re-registering them.
-          </>
-        }
-        confirmLabel="Cancel Registration"
-        onConfirm={confirmCancel}
-        onCancel={() => setCancelTarget(null)}
-      />
     </div>
   );
 }

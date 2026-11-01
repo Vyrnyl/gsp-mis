@@ -27,6 +27,7 @@ import {
 import type { Event, EventCategoryOption, EventFormValues, EventOrganizerOption } from '../types';
 import { formatEventDate, formatEventTimeRange } from '../utils';
 import { EventFormModal } from './event-form-modal';
+import { EventParticipantsCard } from './event-participants-card';
 import { EventStatusBadge } from './event-status-badge';
 
 type ViewState = 'loading' | 'error' | 'not-found' | 'ready';
@@ -47,9 +48,12 @@ function toFormValues(event: Event): EventFormValues {
 export interface EventDetailViewProps {
   eventId: string;
   canManage: boolean;
+  /** Register, cancel and re-register participants — `attendance:write`, which also covers
+   * Troop Leaders, unlike `canManage` (`events:write`, Administrator only). */
+  canManageRegistrations: boolean;
 }
 
-export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
+export function EventDetailView({ eventId, canManage, canManageRegistrations }: EventDetailViewProps) {
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -61,6 +65,7 @@ export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [didDelete, setDidDelete] = useState(false);
+  const [liveRegisteredCount, setLiveRegisteredCount] = useState<number | null>(null);
 
   const fetchEvent = useCallback(async () => {
     setViewState('loading');
@@ -152,6 +157,7 @@ export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
   }
 
   const timeRange = formatEventTimeRange(event.startTime, event.endTime);
+  const registeredCount = liveRegisteredCount ?? event.registeredCount;
 
   return (
     <div>
@@ -220,7 +226,7 @@ export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
               <MembersIcon aria-hidden />
             </span>
             <div>
-              <p className="text-[1.4rem] font-bold leading-none text-ink">{event.registeredCount}</p>
+              <p className="text-[1.4rem] font-bold leading-none text-ink">{registeredCount}</p>
               <p className="mt-1 text-[0.8rem] text-muted">members registered</p>
             </div>
           </div>
@@ -240,6 +246,12 @@ export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
         </Card>
       </div>
 
+      <EventParticipantsCard
+        eventId={eventId}
+        canManage={canManageRegistrations}
+        onRegisteredCountChange={setLiveRegisteredCount}
+      />
+
       <EventFormModal
         isOpen={isEditOpen}
         mode="edit"
@@ -258,8 +270,8 @@ export function EventDetailView({ eventId, canManage }: EventDetailViewProps) {
         description={
           <>
             <strong>{event.title}</strong> will be permanently deleted
-            {event.registeredCount > 0
-              ? `, along with its ${event.registeredCount} registration${event.registeredCount === 1 ? '' : 's'} and any attendance records`
+            {registeredCount > 0
+              ? `, along with its ${registeredCount} registration${registeredCount === 1 ? '' : 's'} and any attendance records`
               : ''}
             . This cannot be undone.
           </>

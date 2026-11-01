@@ -180,6 +180,7 @@ describe('eventsService', () => {
     firstName: 'Andrea',
     lastName: 'Kalaw',
     troop: { troopCode: 'CAT-VIR-012', name: 'Troop 12 — Virac' },
+    scoutLevel: { name: 'Junior Girl Scout' },
   };
 
   function makeRegistration(overrides: Partial<Record<string, unknown>> = {}) {
@@ -218,7 +219,11 @@ describe('eventsService', () => {
       vi.spyOn(eventsRepository, 'findById').mockResolvedValue(makeEvent() as never);
       vi.spyOn(eventsRepository, 'findRegistrationsForEvent').mockResolvedValue([
         makeRegistration(),
-        makeRegistration({ id: 'reg-2', memberId: 'member-2', member: { ...MEMBER, id: 'member-2', firstName: 'Bea' } }),
+        makeRegistration({
+          id: 'reg-2',
+          memberId: 'member-2',
+          member: { ...MEMBER, id: 'member-2', firstName: 'Bea', scoutLevel: null },
+        }),
       ] as never);
       vi.spyOn(eventsRepository, 'findAttendanceForEvent').mockResolvedValue([
         makeAttendanceRecord(),
@@ -231,10 +236,11 @@ describe('eventsService', () => {
         registrationId: 'reg-1',
         fullName: 'Andrea Kalaw',
         troop: { troopCode: 'CAT-VIR-012', name: 'Troop 12 — Virac' },
+        scoutLevelName: 'Junior Girl Scout',
         registrationStatus: 'registered',
         attendanceStatus: 'present',
       });
-      expect(result.participants[1]).toMatchObject({ attendanceStatus: null });
+      expect(result.participants[1]).toMatchObject({ attendanceStatus: null, scoutLevelName: null });
       expect(result.summary).toEqual({
         totalExpected: 2,
         totalPresent: 1,

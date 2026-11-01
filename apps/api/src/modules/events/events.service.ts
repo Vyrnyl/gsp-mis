@@ -1,4 +1,4 @@
-import type { AttendanceRecord, EventRegistration, Member, Troop } from '@prisma/client';
+import type { AttendanceRecord, EventRegistration, Member, ScoutLevel, Troop } from '@prisma/client';
 
 import { ApiError } from '../../shared/utils/api-error';
 import { buildPaginationMeta, type PaginationMeta } from '../../shared/utils/api-response';
@@ -58,7 +58,9 @@ async function requireEvent(id: string): Promise<EventWithRelations> {
   return event;
 }
 
-type RegistrationWithMember = EventRegistration & { member: Member & { troop: Troop | null } };
+type RegistrationWithMember = EventRegistration & {
+  member: Member & { troop: Troop | null; scoutLevel: ScoutLevel | null };
+};
 
 function toParticipant(
   registration: RegistrationWithMember,
@@ -71,6 +73,7 @@ function toParticipant(
     memberId: member.id,
     fullName: `${member.firstName} ${member.lastName}`,
     troop: member.troop ? { troopCode: member.troop.troopCode, name: member.troop.name } : null,
+    scoutLevelName: member.scoutLevel?.name ?? null,
     registrationStatus: registration.status === 'cancelled' ? 'cancelled' : 'registered',
     // `excused`/`late` fold into `absent` — out of this feature's scope (events.types.ts).
     attendanceStatus: record ? (record.attendanceStatus === 'present' ? 'present' : 'absent') : null,

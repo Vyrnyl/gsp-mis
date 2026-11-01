@@ -24,6 +24,8 @@ export interface Participant {
   memberId: string;
   fullName: string;
   troop: { troopCode: string; name: string } | null;
+  /** Null for adult leaders, who have no level by design. */
+  scoutLevelName: string | null;
   registrationStatus: RegistrationStatus;
   attendanceStatus: AttendanceMark;
 }

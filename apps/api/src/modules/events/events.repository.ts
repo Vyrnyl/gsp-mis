@@ -6,8 +6,13 @@ import type { CreateEventInput, ListEventsQuery, UpdateEventInput } from './even
 const eventInclude = {
   category: true,
   organizer: { include: { ledTroops: true } },
-  _count: { select: { registrations: true } },
+  // Cancelled rows stay on the event for re-registering, but they are not attendees.
+  _count: { select: { registrations: { where: { status: { not: 'cancelled' } } } } },
 } satisfies Prisma.EventInclude;
+
+const registrationInclude = {
+  member: { include: { troop: true, scoutLevel: true } },
+} satisfies Prisma.EventRegistrationInclude;
 
 export type EventWithRelations = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
@@ -100,7 +105,7 @@ export const eventsRepository = {
   findRegistrationsForEvent(eventId: string) {
     return prisma.eventRegistration.findMany({
       where: { eventId },
-      include: { member: { include: { troop: true } } },
+      include: registrationInclude,
       orderBy: [{ member: { lastName: 'asc' } }, { member: { firstName: 'asc' } }],
     });
   },
@@ -115,7 +120,7 @@ export const eventsRepository = {
   findRegistration(eventId: string, memberId: string) {
     return prisma.eventRegistration.findUnique({
       where: { eventId_memberId: { eventId, memberId } },
-      include: { member: { include: { troop: true } } },
+      include: registrationInclude,
     });
   },
 
@@ -131,7 +136,7 @@ export const eventsRepository = {
       where: { eventId_memberId: { eventId, memberId } },
       create: { eventId, memberId, registeredById, status: 'registered' },
       update: { status: 'registered' },
-      include: { member: { include: { troop: true } } },
+      include: registrationInclude,
     });
   },
 
@@ -139,7 +144,7 @@ export const eventsRepository = {
     return prisma.eventRegistration.update({
       where: { eventId_memberId: { eventId, memberId } },
       data: { status },
-      include: { member: { include: { troop: true } } },
+      include: registrationInclude,
     });
   },
 };

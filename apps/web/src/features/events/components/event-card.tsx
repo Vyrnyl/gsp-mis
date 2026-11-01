@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTransition } from 'react';
 
 import {
   ClockIcon,
@@ -28,6 +29,7 @@ export interface EventCardProps {
 
 export function EventCard({ event, canManage, isEditLoading = false, onEdit, onDelete }: EventCardProps) {
   const router = useRouter();
+  const [isOpening, startOpening] = useTransition();
   const timeRange = formatEventTimeRange(event.startTime, event.endTime);
 
   return (
@@ -79,7 +81,8 @@ export function EventCard({ event, canManage, isEditLoading = false, onEdit, onD
           variant="outline"
           size="sm"
           leadingIcon={<EyeIcon aria-hidden />}
-          onClick={() => router.push(`/events/${event.id}`)}
+          isLoading={isOpening}
+          onClick={() => startOpening(() => router.push(`/events/${event.id}`))}
         >
           View Details
         </Button>

@@ -9,11 +9,14 @@ import { cn } from '@/shared/utils/cn';
  * than reflow, and the wrapper must never be removed (ui-rules.md §5). Improvements
  * over the prototype: a required accessible name via `caption`, real
  * `<th scope="col">`, and a keyboard-reachable scroll container.
+ *
+ * `relative` is load-bearing: `sr-only` content is absolutely positioned, and without a
+ * positioned ancestor here it escapes the scroll container and makes the whole page scroll.
  */
 export function TableWrapper({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('-m-1 overflow-x-auto p-1', className)}
+      className={cn('relative -m-1 overflow-x-auto p-1', className)}
       tabIndex={0}
       role="region"
       {...props}
