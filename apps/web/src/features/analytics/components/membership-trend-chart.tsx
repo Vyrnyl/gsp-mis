@@ -1,22 +1,23 @@
 'use client';
 
 import {
-  BarElement,
   CategoryScale,
   Chart as ChartJS,
   LinearScale,
+  LineElement,
+  PointElement,
   Tooltip,
   type ChartOptions,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
 import { palette } from '@/shared/design/tokens';
 
 import type { TrendPoint } from '../types';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip);
 
-const CHART_OPTIONS: ChartOptions<'bar'> = {
+const CHART_OPTIONS: ChartOptions<'line'> = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
@@ -42,7 +43,7 @@ export interface MembershipTrendChartProps {
 }
 
 /**
- * Membership Trends bar chart — registry §4. Same port technique as the dashboard's
+ * Membership Trends line chart — registry §4. Same port technique as the dashboard's
  * `MembershipGrowthChart` (new registrations per month), a separate component here
  * because analytics owns its own chart set rather than importing across features.
  */
@@ -51,17 +52,19 @@ export function MembershipTrendChart({ data }: MembershipTrendChartProps) {
 
   return (
     <div style={{ height: 220 }} role="img" aria-label={`New registrations by month: ${summary}`}>
-      <Bar
+      <Line
         aria-hidden
         data={{
           labels: data.map((point) => point.label),
           datasets: [
             {
               data: data.map((point) => point.value),
-              backgroundColor: palette.green2,
-              hoverBackgroundColor: palette.green,
-              borderRadius: 6,
-              maxBarThickness: 40,
+              borderColor: palette.green2,
+              borderWidth: 2,
+              pointBackgroundColor: palette.green2,
+              pointHoverBackgroundColor: palette.green,
+              pointRadius: 4,
+              pointHoverRadius: 6,
             },
           ],
         }}
