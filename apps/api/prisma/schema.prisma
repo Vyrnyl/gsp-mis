@@ -162,9 +162,10 @@ model Council {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  troops  Troop[]
-  schools School[]
-  members Member[]
+  troops         Troop[]
+  municipalities Municipality[]
+  schools        School[]
+  members        Member[]
 
   @@map("councils")
 }
@@ -187,23 +188,44 @@ model Troop {
   @@map("troops")
 }
 
-/// Sponsoring school/institution a member is affiliated with (e.g. a school-based
-/// troop's host university) — separate from Troop, since a school and a troop are
-/// distinct real-world entities, and not every member has one. Scoped to Council like
-/// Troop, so the picker only offers schools relevant to the member's own council.
-model School {
+/// A municipality schools are grouped under, managed as a list by an Administrator. Scoped
+/// to Council like School, so the same name can exist in two councils.
+model Municipality {
   id        String   @id @default(uuid()) @db.Uuid
   councilId String   @map("council_id") @db.Uuid
   name      String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  council  Council   @relation(fields: [councilId], references: [id])
-  members  Member[]
-  expenses Expense[]
+  council Council  @relation(fields: [councilId], references: [id])
+  schools School[]
 
   @@unique([councilId, name])
   @@index([councilId])
+  @@map("municipalities")
+}
+
+/// Sponsoring school/institution a member is affiliated with (e.g. a school-based
+/// troop's host university) — separate from Troop, since a school and a troop are
+/// distinct real-world entities, and not every member has one. Scoped to Council like
+/// Troop, so the picker only offers schools relevant to the member's own council.
+model School {
+  id             String   @id @default(uuid()) @db.Uuid
+  councilId      String   @map("council_id") @db.Uuid
+  /// Null until an Administrator assigns one — schools that predate municipalities have none.
+  municipalityId String?  @map("municipality_id") @db.Uuid
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  council      Council       @relation(fields: [councilId], references: [id])
+  municipality Municipality? @relation(fields: [municipalityId], references: [id])
+  members      Member[]
+  expenses     Expense[]
+
+  @@unique([councilId, name])
+  @@index([councilId])
+  @@index([municipalityId])
   @@map("schools")
 }
 

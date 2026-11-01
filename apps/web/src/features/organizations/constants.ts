@@ -5,6 +5,7 @@ import {
   BadgeIcon,
   CouncilIcon,
   DEFAULT_BADGE_CATEGORY_ICON,
+  LocationIcon,
   SchoolIcon,
   ScoutLevelIcon,
   TroopLeaderIcon,
@@ -14,6 +15,7 @@ import type { IconPickerOption, TabItem } from '@/shared/components/ui';
 import type {
   CategoryFormValues,
   CouncilFormValues,
+  MunicipalityFormValues,
   OrganizationTabId,
   SchoolFormValues,
   TroopFormValues,
@@ -22,6 +24,7 @@ import type {
 export const ORGANIZATION_TABS: (TabItem & { id: OrganizationTabId })[] = [
   { id: 'councils', label: 'Councils', icon: CouncilIcon },
   { id: 'troops', label: 'Troops', icon: TroopLeaderIcon },
+  { id: 'municipalities', label: 'Municipalities', icon: LocationIcon },
   { id: 'schools', label: 'Schools', icon: SchoolIcon },
   { id: 'scout-levels', label: 'Scout Levels', icon: ScoutLevelIcon },
   { id: 'badge-categories', label: 'Badge Categories', icon: BadgeIcon },
@@ -40,10 +43,20 @@ export const EMPTY_TROOP_FORM_VALUES: TroopFormValues = {
   leaderId: '',
 };
 
-export const EMPTY_SCHOOL_FORM_VALUES: SchoolFormValues = {
+export const EMPTY_MUNICIPALITY_FORM_VALUES: MunicipalityFormValues = {
   name: '',
   councilId: '',
 };
+
+export const EMPTY_SCHOOL_FORM_VALUES: SchoolFormValues = {
+  name: '',
+  councilId: '',
+  municipalityId: '',
+};
+
+/** Schools tab filter values that aren't a municipality id. */
+export const ALL_MUNICIPALITIES = 'all';
+export const UNASSIGNED_MUNICIPALITY = 'unassigned';
 
 export const EMPTY_CATEGORY_FORM_VALUES: CategoryFormValues = {
   name: '',

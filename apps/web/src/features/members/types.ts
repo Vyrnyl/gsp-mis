@@ -35,6 +35,8 @@ export interface SchoolOption {
   id: string;
   name: string;
   councilId: string;
+  municipalityId: string | null;
+  municipalityName: string | null;
 }
 
 /** One term on the member's `memberships` history — renewal appends a new row. */

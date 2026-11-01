@@ -5,20 +5,29 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, FormField, Input, Modal, Select } from '@/shared/components/ui';
 
 import { EMPTY_SCHOOL_FORM_VALUES } from '../constants';
-import type { Council, SchoolFormValues } from '../types';
+import type { Council, Municipality, SchoolFormValues } from '../types';
 
 export interface SchoolFormModalProps {
   isOpen: boolean;
   mode: 'create' | 'edit';
   initialValues?: SchoolFormValues;
   councils: Council[];
+  municipalities: Municipality[];
   onClose: () => void;
   onSubmit: (values: SchoolFormValues) => Promise<void>;
 }
 
 type FieldErrors = Partial<Record<'name' | 'councilId', string>>;
 
-export function SchoolFormModal({ isOpen, mode, initialValues, councils, onClose, onSubmit }: SchoolFormModalProps) {
+export function SchoolFormModal({
+  isOpen,
+  mode,
+  initialValues,
+  councils,
+  municipalities,
+  onClose,
+  onSubmit,
+}: SchoolFormModalProps) {
   const [values, setValues] = useState<SchoolFormValues>(initialValues ?? EMPTY_SCHOOL_FORM_VALUES);
   const [snapshot, setSnapshot] = useState<SchoolFormValues>(initialValues ?? EMPTY_SCHOOL_FORM_VALUES);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -45,6 +54,9 @@ export function SchoolFormModal({ isOpen, mode, initialValues, councils, onClose
 
   const isDirty = JSON.stringify(values) !== JSON.stringify(snapshot);
   const councilOptions = councils.map((council) => ({ value: council.id, label: council.name }));
+  const municipalityOptions = municipalities
+    .filter((municipality) => municipality.councilId === values.councilId)
+    .map((municipality) => ({ value: municipality.id, label: municipality.name }));
 
   const errors: FieldErrors = submitAttempted
     ? {
@@ -102,7 +114,30 @@ export function SchoolFormModal({ isOpen, mode, initialValues, councils, onClose
             options={councilOptions}
             placeholder="Select council"
             value={values.councilId}
-            onChange={(event) => setValues((current) => ({ ...current, councilId: event.target.value }))}
+            onChange={(event) =>
+              // A municipality belongs to one council, so it can't survive a council change.
+              setValues((current) => ({ ...current, councilId: event.target.value, municipalityId: '' }))
+            }
+          />
+        </FormField>
+
+        <FormField
+          label="Municipality"
+          hint={
+            !values.councilId
+              ? 'Optional — select a council first'
+              : municipalityOptions.length === 0
+                ? 'No municipalities in this council yet — add them in the Municipalities tab'
+                : 'Optional'
+          }
+        >
+          <Select
+            /* A real option, not `placeholder`: Select disables its placeholder, and an
+               Administrator must be able to take a school back out of a municipality. */
+            options={[{ value: '', label: 'Not assigned' }, ...municipalityOptions]}
+            value={values.municipalityId}
+            disabled={municipalityOptions.length === 0}
+            onChange={(event) => setValues((current) => ({ ...current, municipalityId: event.target.value }))}
           />
         </FormField>
       </form>

@@ -6,12 +6,14 @@ import {
   createBadgeCategorySchema,
   createCategorySchema,
   createCouncilSchema,
+  createMunicipalitySchema,
   createSchoolSchema,
   createScoutLevelSchema,
   createTroopSchema,
   updateBadgeCategorySchema,
   updateCategorySchema,
   updateCouncilSchema,
+  updateMunicipalitySchema,
   updateSchoolSchema,
   updateScoutLevelSchema,
   updateTroopSchema,
@@ -120,6 +122,26 @@ export const organizationsController = {
   },
   async deleteActivityCategory(req: Request, res: Response): Promise<void> {
     await organizationsService.deleteActivityCategory(req.params['id']!);
+    sendSuccess(res, { deleted: true });
+  },
+
+  // Municipalities
+  async listMunicipalities(_req: Request, res: Response): Promise<void> {
+    const result = await organizationsService.listMunicipalities();
+    sendSuccess(res, result);
+  },
+  async createMunicipality(req: Request, res: Response): Promise<void> {
+    const input = createMunicipalitySchema.parse(req.body);
+    const municipality = await organizationsService.createMunicipality(input);
+    sendSuccess(res, { municipality }, 201);
+  },
+  async updateMunicipality(req: Request, res: Response): Promise<void> {
+    const input = updateMunicipalitySchema.parse(req.body);
+    const municipality = await organizationsService.updateMunicipality(req.params['id']!, input);
+    sendSuccess(res, { municipality });
+  },
+  async deleteMunicipality(req: Request, res: Response): Promise<void> {
+    await organizationsService.deleteMunicipality(req.params['id']!);
     sendSuccess(res, { deleted: true });
   },
 

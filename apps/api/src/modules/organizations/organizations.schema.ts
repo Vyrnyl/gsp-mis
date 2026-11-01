@@ -28,6 +28,10 @@ import { z } from 'zod';
  *   POST   /activity-categories         — createCategorySchema
  *   PUT    /activity-categories/:id     — updateCategorySchema
  *   DELETE /activity-categories/:id     — no body
+ *   GET    /municipalities              — no query
+ *   POST   /municipalities              — createMunicipalitySchema
+ *   PUT    /municipalities/:id          — updateMunicipalitySchema
+ *   DELETE /municipalities/:id          — no body
  *   GET    /schools                     — no query (widened for 1.3's registration-form picker)
  *   POST   /schools                     — createSchoolSchema
  *   PUT    /schools/:id                 — updateSchoolSchema
@@ -104,10 +108,25 @@ export const createScoutLevelSchema = createCategorySchema.extend({
 });
 export const updateScoutLevelSchema = createScoutLevelSchema;
 
-/** Scoped to a council, same shape as a troop minus its code/leader — see `createTroopSchema`. */
+export const createMunicipalitySchema = z.object({
+  name: z.string().trim().min(1, 'Municipality name is required.'),
+  councilId: z.string().uuid('Select a council.'),
+});
+export const updateMunicipalitySchema = createMunicipalitySchema;
+
+/** Scoped to a council, same shape as a troop minus its code/leader — see `createTroopSchema`.
+ * An empty `municipalityId` from the form's "Not assigned" option clears the municipality. */
 export const createSchoolSchema = z.object({
   name: z.string().trim().min(1, 'School name is required.'),
   councilId: z.string().uuid('Select a council.'),
+  municipalityId: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : undefined))
+    .refine((value) => value === undefined || z.string().uuid().safeParse(value).success, {
+      message: 'Invalid municipality selection.',
+    }),
 });
 export const updateSchoolSchema = createSchoolSchema;
 
@@ -122,5 +141,7 @@ export type UpdateBadgeCategoryInput = z.infer<typeof updateBadgeCategorySchema>
 export type BadgeCategoryIconKey = (typeof BADGE_CATEGORY_ICON_KEYS)[number];
 export type CreateScoutLevelInput = z.infer<typeof createScoutLevelSchema>;
 export type UpdateScoutLevelInput = z.infer<typeof updateScoutLevelSchema>;
+export type CreateMunicipalityInput = z.infer<typeof createMunicipalitySchema>;
+export type UpdateMunicipalityInput = z.infer<typeof updateMunicipalitySchema>;
 export type CreateSchoolInput = z.infer<typeof createSchoolSchema>;
 export type UpdateSchoolInput = z.infer<typeof updateSchoolSchema>;

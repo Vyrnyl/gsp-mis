@@ -3,6 +3,8 @@ import type {
   CategoryItem,
   Council,
   CouncilFormValues,
+  Municipality,
+  MunicipalityFormValues,
   School,
   SchoolFormValues,
   Troop,
@@ -201,8 +203,37 @@ export async function deleteActivityCategory(id: string): Promise<void> {
   await request<{ deleted: true }>(`/api/organizations/activity-categories/${id}`, { method: 'DELETE' });
 }
 
-function toSchoolRequestBody(values: SchoolFormValues) {
+function toMunicipalityRequestBody(values: MunicipalityFormValues) {
   return { name: values.name, councilId: values.councilId };
+}
+
+export async function listMunicipalities(): Promise<Municipality[]> {
+  const data = await request<{ municipalities: Municipality[] }>('/api/organizations/municipalities');
+  return data.municipalities;
+}
+
+export async function createMunicipality(values: MunicipalityFormValues): Promise<Municipality> {
+  const data = await request<{ municipality: Municipality }>('/api/organizations/municipalities', {
+    method: 'POST',
+    body: JSON.stringify(toMunicipalityRequestBody(values)),
+  });
+  return data.municipality;
+}
+
+export async function updateMunicipality(id: string, values: MunicipalityFormValues): Promise<Municipality> {
+  const data = await request<{ municipality: Municipality }>(`/api/organizations/municipalities/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(toMunicipalityRequestBody(values)),
+  });
+  return data.municipality;
+}
+
+export async function deleteMunicipality(id: string): Promise<void> {
+  await request<{ deleted: true }>(`/api/organizations/municipalities/${id}`, { method: 'DELETE' });
+}
+
+function toSchoolRequestBody(values: SchoolFormValues) {
+  return { name: values.name, councilId: values.councilId, municipalityId: values.municipalityId };
 }
 
 export async function listSchools(): Promise<School[]> {

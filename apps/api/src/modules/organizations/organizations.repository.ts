@@ -5,18 +5,22 @@ import type {
   CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
+  CreateMunicipalityInput,
   CreateSchoolInput,
   CreateScoutLevelInput,
   CreateTroopInput,
   UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
+  UpdateMunicipalityInput,
   UpdateSchoolInput,
   UpdateScoutLevelInput,
   UpdateTroopInput,
 } from './organizations.schema';
 
-const councilInclude = { _count: { select: { troops: true, members: true } } } satisfies Prisma.CouncilInclude;
+const councilInclude = {
+  _count: { select: { troops: true, members: true, schools: true, municipalities: true } },
+} satisfies Prisma.CouncilInclude;
 const troopInclude = {
   council: true,
   leader: true,
@@ -25,13 +29,19 @@ const troopInclude = {
 const scoutLevelInclude = { _count: { select: { members: true } } } satisfies Prisma.ScoutLevelInclude;
 const badgeCategoryInclude = { _count: { select: { badges: true } } } satisfies Prisma.BadgeCategoryInclude;
 const activityCategoryInclude = { _count: { select: { events: true } } } satisfies Prisma.ActivityCategoryInclude;
-const schoolInclude = { council: true, _count: { select: { members: true } } } satisfies Prisma.SchoolInclude;
+const municipalityInclude = { council: true, _count: { select: { schools: true } } } satisfies Prisma.MunicipalityInclude;
+const schoolInclude = {
+  council: true,
+  municipality: true,
+  _count: { select: { members: true } },
+} satisfies Prisma.SchoolInclude;
 
 export type CouncilWithCounts = Prisma.CouncilGetPayload<{ include: typeof councilInclude }>;
 export type TroopWithRelations = Prisma.TroopGetPayload<{ include: typeof troopInclude }>;
 export type ScoutLevelWithCount = Prisma.ScoutLevelGetPayload<{ include: typeof scoutLevelInclude }>;
 export type BadgeCategoryWithCount = Prisma.BadgeCategoryGetPayload<{ include: typeof badgeCategoryInclude }>;
 export type ActivityCategoryWithCount = Prisma.ActivityCategoryGetPayload<{ include: typeof activityCategoryInclude }>;
+export type MunicipalityWithRelations = Prisma.MunicipalityGetPayload<{ include: typeof municipalityInclude }>;
 export type SchoolWithRelations = Prisma.SchoolGetPayload<{ include: typeof schoolInclude }>;
 
 export const organizationsRepository = {
@@ -186,6 +196,33 @@ export const organizationsRepository = {
     return prisma.activityCategory.delete({ where: { id } });
   },
 
+  // Municipalities
+  listMunicipalities() {
+    return prisma.municipality.findMany({ include: municipalityInclude, orderBy: { name: 'asc' } });
+  },
+  findMunicipalityByCouncilAndName(councilId: string, name: string) {
+    return prisma.municipality.findUnique({ where: { councilId_name: { councilId, name } } });
+  },
+  findMunicipalityById(id: string) {
+    return prisma.municipality.findUnique({ where: { id }, include: municipalityInclude });
+  },
+  createMunicipality(input: CreateMunicipalityInput) {
+    return prisma.municipality.create({
+      data: { name: input.name.trim(), councilId: input.councilId },
+      include: municipalityInclude,
+    });
+  },
+  updateMunicipality(id: string, input: UpdateMunicipalityInput) {
+    return prisma.municipality.update({
+      where: { id },
+      data: { name: input.name.trim(), councilId: input.councilId },
+      include: municipalityInclude,
+    });
+  },
+  deleteMunicipality(id: string) {
+    return prisma.municipality.delete({ where: { id } });
+  },
+
   // Schools — `listSchools` is also consumed by 1.3's registration-form picker, same
   // precedent as `listTroops`/`listScoutLevels`.
   listSchools() {
@@ -199,14 +236,14 @@ export const organizationsRepository = {
   },
   createSchool(input: CreateSchoolInput) {
     return prisma.school.create({
-      data: { name: input.name.trim(), councilId: input.councilId },
+      data: { name: input.name.trim(), councilId: input.councilId, municipalityId: input.municipalityId ?? null },
       include: schoolInclude,
     });
   },
   updateSchool(id: string, input: UpdateSchoolInput) {
     return prisma.school.update({
       where: { id },
-      data: { name: input.name.trim(), councilId: input.councilId },
+      data: { name: input.name.trim(), councilId: input.councilId, municipalityId: input.municipalityId ?? null },
       include: schoolInclude,
     });
   },

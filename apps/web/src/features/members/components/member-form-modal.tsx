@@ -51,6 +51,8 @@ export function MemberFormModal({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** Null until the user picks one, so editing a member starts on their school's municipality. */
+  const [pickedMunicipalityId, setPickedMunicipalityId] = useState<string | null>(null);
 
   /**
    * Resets only on the closed→open transition, not on every re-render while the modal
@@ -66,6 +68,7 @@ export function MemberFormModal({
         mode === 'create' && isRestricted ? { ...next, troopId: restrictToTroopId ?? '' } : next;
       setValues(resetValues);
       setSnapshot(resetValues);
+      setPickedMunicipalityId(null);
       setSubmitAttempted(false);
       setSubmitError(null);
       setIsSubmitting(false);
@@ -90,10 +93,34 @@ export function MemberFormModal({
 
   /** Schools are scoped to a council, same as the troop picker — filtered to the selected troop's own council. */
   const selectedTroopCouncilId = troopOptions.find((troop) => troop.id === values.troopId)?.councilId;
-  const availableSchoolOptions = selectedTroopCouncilId
+  const councilSchools = selectedTroopCouncilId
     ? schoolOptions.filter((school) => school.councilId === selectedTroopCouncilId)
     : [];
-  const schoolSelectOptions = availableSchoolOptions.map((school) => ({ value: school.id, label: school.name }));
+
+  /** Municipalities come from the schools themselves, so one with no schools is never offered. */
+  const municipalitySelectOptions = [
+    ...new Map(
+      councilSchools.flatMap((school) =>
+        school.municipalityId ? [[school.municipalityId, school.municipalityName ?? ''] as const] : [],
+      ),
+    ),
+  ]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const selectedMunicipalityId =
+    pickedMunicipalityId ?? schoolOptions.find((school) => school.id === values.schoolId)?.municipalityId ?? '';
+
+  /** No municipality chosen lists the unassigned schools, so they stay reachable. */
+  const schoolSelectOptions = councilSchools
+    .filter((school) => (school.municipalityId ?? '') === selectedMunicipalityId)
+    .map((school) => ({ value: school.id, label: school.name }));
+
+  function handleMunicipalityChange(municipalityId: string) {
+    const currentSchool = schoolOptions.find((school) => school.id === values.schoolId);
+    const currentSchoolStillValid = (currentSchool?.municipalityId ?? '') === municipalityId;
+    setPickedMunicipalityId(municipalityId);
+    setValues((current) => ({ ...current, schoolId: currentSchoolStillValid ? current.schoolId : '' }));
+  }
 
   function handleTroopChange(troopId: string) {
     const nextCouncilId = troopOptions.find((troop) => troop.id === troopId)?.councilId;
@@ -105,6 +132,7 @@ export function MemberFormModal({
       troopId,
       schoolId: currentSchoolStillValid ? current.schoolId : '',
     }));
+    setPickedMunicipalityId(null);
   }
 
   const errors: FieldErrors = submitAttempted
@@ -225,22 +253,45 @@ export function MemberFormModal({
           </FormField>
         </div>
 
-        <FormField
-          label="School"
-          hint={
-            values.troopId
-              ? 'Optional — filtered to the selected troop’s council'
-              : 'Optional — select a troop first'
-          }
-        >
-          <Select
-            options={schoolSelectOptions}
-            placeholder={values.troopId ? 'No school affiliation' : 'Select a troop first'}
-            value={values.schoolId}
-            disabled={!values.troopId}
-            onChange={(event) => set('schoolId', event.target.value)}
-          />
-        </FormField>
+        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+          <FormField
+            label="Municipality"
+            hint={
+              !values.troopId
+                ? 'Optional — select a troop first'
+                : municipalitySelectOptions.length === 0
+                  ? 'No schools are grouped by municipality yet'
+                  : 'Optional — narrows the schools listed'
+            }
+          >
+            <Select
+              /* A real option, not `placeholder`: Select disables its placeholder, and this
+                 is the only way back to the schools with no municipality. */
+              options={[
+                { value: '', label: values.troopId ? 'No municipality' : 'Select a troop first' },
+                ...municipalitySelectOptions,
+              ]}
+              value={selectedMunicipalityId}
+              disabled={municipalitySelectOptions.length === 0}
+              onChange={(event) => handleMunicipalityChange(event.target.value)}
+            />
+          </FormField>
+          <FormField label="School" hint={values.troopId ? 'Optional' : 'Optional — select a troop first'}>
+            <Select
+              options={schoolSelectOptions}
+              placeholder={
+                !values.troopId
+                  ? 'Select a troop first'
+                  : schoolSelectOptions.length === 0
+                    ? 'Select a municipality first'
+                    : 'No school affiliation'
+              }
+              value={values.schoolId}
+              disabled={schoolSelectOptions.length === 0}
+              onChange={(event) => set('schoolId', event.target.value)}
+            />
+          </FormField>
+        </div>
 
         {isScout ? (
           <FormField label="Scout Level" required error={errors.scoutLevelId}>

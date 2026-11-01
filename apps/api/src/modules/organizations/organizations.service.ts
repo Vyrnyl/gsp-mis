@@ -3,6 +3,7 @@ import type {
   ActivityCategoryWithCount,
   BadgeCategoryWithCount,
   CouncilWithCounts,
+  MunicipalityWithRelations,
   SchoolWithRelations,
   ScoutLevelWithCount,
   TroopWithRelations,
@@ -12,12 +13,14 @@ import type {
   CreateBadgeCategoryInput,
   CreateCategoryInput,
   CreateCouncilInput,
+  CreateMunicipalityInput,
   CreateSchoolInput,
   CreateScoutLevelInput,
   CreateTroopInput,
   UpdateBadgeCategoryInput,
   UpdateCategoryInput,
   UpdateCouncilInput,
+  UpdateMunicipalityInput,
   UpdateSchoolInput,
   UpdateScoutLevelInput,
   UpdateTroopInput,
@@ -29,10 +32,12 @@ import type {
   ListActivityCategoriesResponseBody,
   ListBadgeCategoriesResponseBody,
   ListCouncilsResponseBody,
+  ListMunicipalitiesResponseBody,
   ListSchoolsResponseBody,
   ListScoutLevelsResponseBody,
   ListTroopLeadersResponseBody,
   ListTroopsResponseBody,
+  MunicipalityDto,
   SchoolDto,
   ScoutLevelDto,
   TroopDto,
@@ -92,12 +97,25 @@ function toActivityCategoryDto(category: ActivityCategoryWithCount): ActivityCat
   };
 }
 
+function toMunicipalityDto(municipality: MunicipalityWithRelations): MunicipalityDto {
+  return {
+    id: municipality.id,
+    name: municipality.name,
+    councilId: municipality.councilId,
+    councilName: municipality.council.name,
+    schoolCount: municipality._count.schools,
+    createdAt: municipality.createdAt.toISOString(),
+  };
+}
+
 function toSchoolDto(school: SchoolWithRelations): SchoolDto {
   return {
     id: school.id,
     name: school.name,
     councilId: school.councilId,
     councilName: school.council.name,
+    municipalityId: school.municipalityId,
+    municipalityName: school.municipality?.name ?? null,
     memberCount: school._count.members,
     createdAt: school.createdAt.toISOString(),
   };
@@ -106,6 +124,14 @@ function toSchoolDto(school: SchoolWithRelations): SchoolDto {
 async function requireCouncilExists(id: string): Promise<void> {
   const council = await organizationsRepository.findCouncilById(id);
   if (!council) throw ApiError.badRequest('Selected council does not exist.');
+}
+
+async function requireMunicipalityInCouncil(municipalityId: string | undefined, councilId: string): Promise<void> {
+  if (!municipalityId) return;
+  const municipality = await organizationsRepository.findMunicipalityById(municipalityId);
+  if (!municipality || municipality.councilId !== councilId) {
+    throw ApiError.badRequest('Selected municipality does not belong to this council.');
+  }
 }
 
 async function requireLeaderIsTroopLeader(leaderId: string | undefined): Promise<void> {
@@ -152,7 +178,8 @@ export const organizationsService = {
   async deleteCouncil(id: string): Promise<void> {
     const council = await organizationsRepository.findCouncilById(id);
     if (!council) throw ApiError.notFound('Council not found.');
-    if (council._count.troops > 0 || council._count.members > 0) {
+    const { troops, members, schools, municipalities } = council._count;
+    if (troops > 0 || members > 0 || schools > 0 || municipalities > 0) {
       throw ApiError.conflict('Reassign this council’s troops and members before deleting it.');
     }
     await organizationsRepository.deleteCouncil(id);
@@ -301,6 +328,51 @@ export const organizationsService = {
     await organizationsRepository.deleteActivityCategory(id);
   },
 
+  // Municipalities — scoped to a council like School.
+  async listMunicipalities(): Promise<ListMunicipalitiesResponseBody> {
+    const municipalities = await organizationsRepository.listMunicipalities();
+    return { municipalities: municipalities.map(toMunicipalityDto) };
+  },
+
+  async createMunicipality(input: CreateMunicipalityInput): Promise<MunicipalityDto> {
+    await requireCouncilExists(input.councilId);
+
+    const existing = await organizationsRepository.findMunicipalityByCouncilAndName(input.councilId, input.name.trim());
+    if (existing) throw ApiError.conflict('A municipality with this name already exists in this council.');
+
+    const created = await organizationsRepository.createMunicipality(input);
+    return toMunicipalityDto(created);
+  },
+
+  async updateMunicipality(id: string, input: UpdateMunicipalityInput): Promise<MunicipalityDto> {
+    const municipality = await organizationsRepository.findMunicipalityById(id);
+    if (!municipality) throw ApiError.notFound('Municipality not found.');
+
+    await requireCouncilExists(input.councilId);
+
+    // Its schools would otherwise be left pointing at a municipality in another council.
+    if (input.councilId !== municipality.councilId && municipality._count.schools > 0) {
+      throw ApiError.conflict('Reassign the schools in this municipality before moving it to another council.');
+    }
+
+    const existing = await organizationsRepository.findMunicipalityByCouncilAndName(input.councilId, input.name.trim());
+    if (existing && existing.id !== id) {
+      throw ApiError.conflict('A municipality with this name already exists in this council.');
+    }
+
+    const updated = await organizationsRepository.updateMunicipality(id, input);
+    return toMunicipalityDto(updated);
+  },
+
+  async deleteMunicipality(id: string): Promise<void> {
+    const municipality = await organizationsRepository.findMunicipalityById(id);
+    if (!municipality) throw ApiError.notFound('Municipality not found.');
+    if (municipality._count.schools > 0) {
+      throw ApiError.conflict('Reassign the schools in this municipality before deleting it.');
+    }
+    await organizationsRepository.deleteMunicipality(id);
+  },
+
   // Schools — scoped to a council like Troop; name only needs to be unique within
   // that council, not globally, since two different councils could sponsor
   // same-named institutions.
@@ -311,6 +383,7 @@ export const organizationsService = {
 
   async createSchool(input: CreateSchoolInput): Promise<SchoolDto> {
     await requireCouncilExists(input.councilId);
+    await requireMunicipalityInCouncil(input.municipalityId, input.councilId);
 
     const existing = await organizationsRepository.findSchoolByCouncilAndName(input.councilId, input.name.trim());
     if (existing) throw ApiError.conflict('A school with this name already exists in this council.');
@@ -324,6 +397,7 @@ export const organizationsService = {
     if (!school) throw ApiError.notFound('School not found.');
 
     await requireCouncilExists(input.councilId);
+    await requireMunicipalityInCouncil(input.municipalityId, input.councilId);
 
     const existing = await organizationsRepository.findSchoolByCouncilAndName(input.councilId, input.name.trim());
     if (existing && existing.id !== id) throw ApiError.conflict('A school with this name already exists in this council.');

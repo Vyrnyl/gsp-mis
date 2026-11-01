@@ -60,8 +60,97 @@ const SCHOOL = {
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
   council: COUNCIL,
+  municipalityId: null,
+  municipality: null,
   _count: { members: 0 },
 };
+
+const MUNICIPALITY = {
+  id: 'municipality-1',
+  name: 'Virac',
+  councilId: COUNCIL.id,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+  council: COUNCIL,
+  _count: { schools: 0 },
+};
+
+describe('organizationsService municipalities', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('lists municipalities with council names and school counts', async () => {
+    vi.spyOn(organizationsRepository, 'listMunicipalities').mockResolvedValue([
+      { ...MUNICIPALITY, _count: { schools: 3 } },
+    ] as never);
+
+    const result = await organizationsService.listMunicipalities();
+
+    expect(result.municipalities[0]).toMatchObject({ name: 'Virac', councilName: COUNCIL.name, schoolCount: 3 });
+  });
+
+  it('rejects a duplicate municipality name within the same council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findMunicipalityByCouncilAndName').mockResolvedValue(MUNICIPALITY as never);
+
+    await expect(
+      organizationsService.createMunicipality({ name: 'Virac', councilId: COUNCIL.id }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('creates a municipality when the name is free within the council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findMunicipalityByCouncilAndName').mockResolvedValue(null);
+    vi.spyOn(organizationsRepository, 'createMunicipality').mockResolvedValue(MUNICIPALITY as never);
+
+    const result = await organizationsService.createMunicipality({ name: 'Virac', councilId: COUNCIL.id });
+
+    expect(result.name).toBe('Virac');
+  });
+
+  it('blocks moving a municipality with schools to another council', async () => {
+    vi.spyOn(organizationsRepository, 'findMunicipalityById').mockResolvedValue({
+      ...MUNICIPALITY,
+      _count: { schools: 1 },
+    } as never);
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+
+    await expect(
+      organizationsService.updateMunicipality(MUNICIPALITY.id, { name: 'Virac', councilId: 'council-other' }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('blocks deleting a municipality that still has schools', async () => {
+    vi.spyOn(organizationsRepository, 'findMunicipalityById').mockResolvedValue({
+      ...MUNICIPALITY,
+      _count: { schools: 2 },
+    } as never);
+    const deleteSpy = vi.spyOn(organizationsRepository, 'deleteMunicipality');
+
+    await expect(organizationsService.deleteMunicipality(MUNICIPALITY.id)).rejects.toMatchObject({ statusCode: 409 });
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('deletes an empty municipality', async () => {
+    vi.spyOn(organizationsRepository, 'findMunicipalityById').mockResolvedValue(MUNICIPALITY as never);
+    const deleteSpy = vi.spyOn(organizationsRepository, 'deleteMunicipality').mockResolvedValue(MUNICIPALITY as never);
+
+    await organizationsService.deleteMunicipality(MUNICIPALITY.id);
+
+    expect(deleteSpy).toHaveBeenCalledWith(MUNICIPALITY.id);
+  });
+
+  it('rejects a school whose municipality belongs to another council', async () => {
+    vi.spyOn(organizationsRepository, 'findCouncilById').mockResolvedValue(COUNCIL as never);
+    vi.spyOn(organizationsRepository, 'findMunicipalityById').mockResolvedValue({
+      ...MUNICIPALITY,
+      councilId: 'council-other',
+    } as never);
+
+    await expect(
+      organizationsService.createSchool({ name: 'X', councilId: COUNCIL.id, municipalityId: MUNICIPALITY.id }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
 
 describe('organizationsService councils', () => {
   beforeEach(() => vi.restoreAllMocks());

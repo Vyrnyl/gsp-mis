@@ -43,6 +43,11 @@ router.post('/activity-categories', canManage, asyncHandler(organizationsControl
 router.put('/activity-categories/:id', canManage, asyncHandler(organizationsController.updateActivityCategory));
 router.delete('/activity-categories/:id', canManage, asyncHandler(organizationsController.deleteActivityCategory));
 
+router.get('/municipalities', anyRole, asyncHandler(organizationsController.listMunicipalities));
+router.post('/municipalities', canManage, asyncHandler(organizationsController.createMunicipality));
+router.put('/municipalities/:id', canManage, asyncHandler(organizationsController.updateMunicipality));
+router.delete('/municipalities/:id', canManage, asyncHandler(organizationsController.deleteMunicipality));
+
 router.get('/schools', anyRole, asyncHandler(organizationsController.listSchools));
 router.post('/schools', canManage, asyncHandler(organizationsController.createSchool));
 router.put('/schools/:id', canManage, asyncHandler(organizationsController.updateSchool));

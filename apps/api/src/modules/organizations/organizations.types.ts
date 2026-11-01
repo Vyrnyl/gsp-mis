@@ -43,11 +43,22 @@ export interface ActivityCategoryDto {
   usageCount: number;
 }
 
+export interface MunicipalityDto {
+  id: string;
+  name: string;
+  councilId: string;
+  councilName: string;
+  schoolCount: number;
+  createdAt: string;
+}
+
 export interface SchoolDto {
   id: string;
   name: string;
   councilId: string;
   councilName: string;
+  municipalityId: string | null;
+  municipalityName: string | null;
   memberCount: number;
   createdAt: string;
 }
@@ -80,6 +91,10 @@ export interface ListActivityCategoriesResponseBody {
 
 export interface ListTroopLeadersResponseBody {
   troopLeaders: TroopLeaderOptionDto[];
+}
+
+export interface ListMunicipalitiesResponseBody {
+  municipalities: MunicipalityDto[];
 }
 
 export interface ListSchoolsResponseBody {

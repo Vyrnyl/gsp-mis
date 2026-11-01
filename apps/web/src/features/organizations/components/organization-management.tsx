@@ -5,11 +5,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIcon, BadgeIcon, ScoutLevelIcon } from '@/shared/components/icons';
 import { TabPanel, Tabs } from '@/shared/components/ui';
 
-import { ORGANIZATION_TABS } from '../constants';
+import { ALL_MUNICIPALITIES, ORGANIZATION_TABS } from '../constants';
 import * as organizationsService from '../services/organizations.service';
 import type {
   CategoryItem,
   Council,
+  Municipality,
   OrganizationTabId,
   School,
   Troop,
@@ -18,6 +19,7 @@ import type {
 } from '../types';
 import { CategoryPanel } from './category-panel';
 import { CouncilsPanel } from './councils-panel';
+import { MunicipalitiesPanel } from './municipalities-panel';
 import { SchoolsPanel } from './schools-panel';
 import { TroopsPanel } from './troops-panel';
 
@@ -49,10 +51,12 @@ function useResourceList<T>(fetcher: () => Promise<T[]>) {
 
 export function OrganizationManagement({ canManage }: OrganizationManagementProps) {
   const [activeTab, setActiveTab] = useState<OrganizationTabId>('councils');
+  const [schoolMunicipalityFilter, setSchoolMunicipalityFilter] = useState(ALL_MUNICIPALITIES);
 
   const councils = useResourceList<Council>(organizationsService.listCouncils);
   const troops = useResourceList<Troop>(organizationsService.listTroops);
   const troopLeaders = useResourceList<TroopLeaderOption>(organizationsService.listTroopLeaders);
+  const municipalities = useResourceList<Municipality>(organizationsService.listMunicipalities);
   const schools = useResourceList<School>(organizationsService.listSchools);
   const scoutLevels = useResourceList<CategoryItem>(organizationsService.listScoutLevels);
   const badgeCategories = useResourceList<CategoryItem>(organizationsService.listBadgeCategories);
@@ -118,25 +122,60 @@ export function OrganizationManagement({ canManage }: OrganizationManagementProp
         </TabPanel>
       ) : null}
 
+      {activeTab === 'municipalities' ? (
+        <TabPanel id="municipalities">
+          <MunicipalitiesPanel
+            viewState={municipalities.viewState}
+            municipalities={municipalities.items}
+            councils={councils.items}
+            canManage={canManage}
+            onRetry={municipalities.refetch}
+            onCreate={async (values) => {
+              await organizationsService.createMunicipality(values);
+              await municipalities.refetch();
+            }}
+            onUpdate={async (id, values) => {
+              await organizationsService.updateMunicipality(id, values);
+              await municipalities.refetch();
+              await schools.refetch();
+            }}
+            onDelete={async (id) => {
+              await organizationsService.deleteMunicipality(id);
+              await municipalities.refetch();
+            }}
+            onViewSchools={(municipalityId) => {
+              setSchoolMunicipalityFilter(municipalityId);
+              setActiveTab('schools');
+            }}
+          />
+        </TabPanel>
+      ) : null}
+
       {activeTab === 'schools' ? (
         <TabPanel id="schools">
           <SchoolsPanel
             viewState={schools.viewState}
             schools={schools.items}
             councils={councils.items}
+            municipalities={municipalities.items}
+            municipalityFilter={schoolMunicipalityFilter}
+            onMunicipalityFilterChange={setSchoolMunicipalityFilter}
             canManage={canManage}
             onRetry={schools.refetch}
             onCreate={async (values) => {
               await organizationsService.createSchool(values);
               await schools.refetch();
+              await municipalities.refetch();
             }}
             onUpdate={async (id, values) => {
               await organizationsService.updateSchool(id, values);
               await schools.refetch();
+              await municipalities.refetch();
             }}
             onDelete={async (id) => {
               await organizationsService.deleteSchool(id);
               await schools.refetch();
+              await municipalities.refetch();
             }}
           />
         </TabPanel>
