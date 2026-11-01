@@ -17,6 +17,7 @@ const anyRole = requireRole('admin', 'executive_council', 'troop_leader');
 const canManageCatalog = requireRole('admin');
 const canRecord = requireRole('admin', 'troop_leader');
 const canVerify = requireRole('admin');
+const canRemove = requireRole('admin');
 
 const catalogRouter = Router();
 catalogRouter.use(requireAuth);
@@ -31,6 +32,7 @@ memberBadgesRouter.use(requireAuth);
 memberBadgesRouter.get('/', anyRole, asyncHandler(badgesController.listMemberProgress));
 memberBadgesRouter.post('/', canRecord, asyncHandler(badgesController.recordMemberBadge));
 memberBadgesRouter.patch('/:id/verify', canVerify, asyncHandler(badgesController.verifyMemberBadge));
+memberBadgesRouter.delete('/:id', canRemove, asyncHandler(badgesController.removeMemberBadge));
 
 const achievementsRouter = Router();
 achievementsRouter.use(requireAuth);

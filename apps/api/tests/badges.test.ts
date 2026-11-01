@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/shared/utils/notify', () => ({ notifyUser: vi.fn() }));
+vi.mock('../src/shared/utils/audit-log', () => ({ writeAuditLog: vi.fn() }));
 
 import { badgesRepository } from '../src/modules/badges/badges.repository';
 import { badgesService } from '../src/modules/badges/badges.service';
+import { writeAuditLog } from '../src/shared/utils/audit-log';
 import { notifyUser } from '../src/shared/utils/notify';
 import type { CreateAchievementInput, CreateBadgeInput, RecordMemberBadgeInput } from '../src/modules/badges/badges.schema';
 
@@ -57,7 +59,7 @@ const CREATE_BADGE_INPUT: CreateBadgeInput = {
   requirements: ['Read a topographic map'],
 };
 
-const RECORD_INPUT: RecordMemberBadgeInput = { memberId: 'mem-1', badgeId: 'badge-1', status: 'earned' };
+const RECORD_INPUT: RecordMemberBadgeInput = { memberId: 'mem-1', badgeId: 'badge-1' };
 
 const ACHIEVEMENT_INPUT: CreateAchievementInput = {
   memberId: 'mem-1',
@@ -221,17 +223,75 @@ describe('badgesService', () => {
       });
     });
 
-    it('upserts the member badge once member and badge are both confirmed', async () => {
+    it('saves a new record as earned once member and badge are both confirmed', async () => {
       vi.spyOn(badgesRepository, 'findMemberById').mockResolvedValue(MEMBER_ROW as never);
       vi.spyOn(badgesRepository, 'findBadgeById').mockResolvedValue(BADGE_ROW as never);
+      vi.spyOn(badgesRepository, 'findMemberBadge').mockResolvedValue(null);
       const upsertSpy = vi
-        .spyOn(badgesRepository, 'upsertMemberBadge')
+        .spyOn(badgesRepository, 'upsertEarnedMemberBadge')
         .mockResolvedValue(MEMBER_BADGE_ROW as never);
 
       const result = await badgesService.recordMemberBadge(RECORD_INPUT, TROOP_LEADER);
 
-      expect(upsertSpy).toHaveBeenCalledWith('mem-1', 'badge-1', 'earned');
+      expect(upsertSpy).toHaveBeenCalledWith('mem-1', 'badge-1');
       expect(result).toMatchObject({ id: 'mb-1', status: 'earned' });
+    });
+
+    it('moves an existing in_progress record to earned', async () => {
+      vi.spyOn(badgesRepository, 'findMemberById').mockResolvedValue(MEMBER_ROW as never);
+      vi.spyOn(badgesRepository, 'findBadgeById').mockResolvedValue(BADGE_ROW as never);
+      vi.spyOn(badgesRepository, 'findMemberBadge').mockResolvedValue({
+        ...MEMBER_BADGE_ROW,
+        status: 'in_progress',
+      } as never);
+      const upsertSpy = vi
+        .spyOn(badgesRepository, 'upsertEarnedMemberBadge')
+        .mockResolvedValue(MEMBER_BADGE_ROW as never);
+
+      await badgesService.recordMemberBadge(RECORD_INPUT, TROOP_LEADER);
+
+      expect(upsertSpy).toHaveBeenCalledWith('mem-1', 'badge-1');
+    });
+
+    it.each(['earned', 'verified'])('rejects re-recording a %s badge with 409', async (status) => {
+      vi.spyOn(badgesRepository, 'findMemberById').mockResolvedValue(MEMBER_ROW as never);
+      vi.spyOn(badgesRepository, 'findBadgeById').mockResolvedValue(BADGE_ROW as never);
+      vi.spyOn(badgesRepository, 'findMemberBadge').mockResolvedValue({ ...MEMBER_BADGE_ROW, status } as never);
+      const upsertSpy = vi.spyOn(badgesRepository, 'upsertEarnedMemberBadge');
+
+      await expect(badgesService.recordMemberBadge(RECORD_INPUT, TROOP_LEADER)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+      expect(upsertSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeMemberBadge', () => {
+    it('rejects an unknown member badge with 404', async () => {
+      vi.spyOn(badgesRepository, 'findMemberBadgeById').mockResolvedValue(null);
+      const deleteSpy = vi.spyOn(badgesRepository, 'deleteMemberBadge');
+
+      await expect(badgesService.removeMemberBadge('missing', 'user-admin')).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('deletes the record and audits who was affected', async () => {
+      vi.mocked(writeAuditLog).mockClear();
+      vi.spyOn(badgesRepository, 'findMemberBadgeById').mockResolvedValue(MEMBER_BADGE_ROW as never);
+      const deleteSpy = vi.spyOn(badgesRepository, 'deleteMemberBadge').mockResolvedValue(MEMBER_BADGE_ROW as never);
+
+      await badgesService.removeMemberBadge('mb-1', 'user-admin');
+
+      expect(deleteSpy).toHaveBeenCalledWith('mb-1');
+      expect(writeAuditLog).toHaveBeenCalledWith({
+        userId: 'user-admin',
+        action: 'member_badge.remove',
+        entityType: 'member_badge',
+        entityId: 'mb-1',
+        details: { member: 'Andrea Villareal', badge: 'Trailblazer', status: 'earned' },
+      });
     });
   });
 

@@ -84,6 +84,10 @@ export async function verifyMemberBadge(memberBadgeId: string): Promise<void> {
   await request(`/api/member-badges/${memberBadgeId}/verify`, { method: 'PATCH' });
 }
 
+export async function removeMemberBadge(memberBadgeId: string): Promise<void> {
+  await request<{ deleted: true }>(`/api/member-badges/${memberBadgeId}`, { method: 'DELETE' });
+}
+
 // Achievements
 export async function listAchievements(): Promise<AchievementRecordSummary[]> {
   const { achievements } = await request<{ achievements: AchievementRecordSummary[] }>('/api/achievements');

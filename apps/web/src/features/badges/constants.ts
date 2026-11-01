@@ -58,7 +58,6 @@ export const EMPTY_BADGE_FORM_VALUES: BadgeFormValues = {
 export const EMPTY_RECORD_BADGE_FORM_VALUES: RecordBadgeFormValues = {
   memberId: '',
   badgeId: '',
-  status: 'in_progress',
 };
 
 export const EMPTY_ACHIEVEMENT_FORM_VALUES: AchievementFormValues = {

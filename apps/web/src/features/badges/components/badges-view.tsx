@@ -17,6 +17,7 @@ import {
   listMemberOptions,
   listMemberProgress,
   recordMemberBadge,
+  removeMemberBadge,
   updateBadge,
   verifyMemberBadge,
 } from '../services/badges.service';
@@ -130,7 +131,7 @@ export function BadgesView({ user }: BadgesViewProps) {
   async function handleRecordBadge(values: RecordBadgeFormValues) {
     await recordMemberBadge(values);
     setIsRecordModalOpen(false);
-    showToast('Badge progress recorded.', 'success');
+    showToast('Badge recorded as earned.', 'success');
     await fetchAll();
   }
 
@@ -143,6 +144,12 @@ export function BadgesView({ user }: BadgesViewProps) {
     } finally {
       setVerifyingId(null);
     }
+  }
+
+  async function handleRemoveMemberBadge(memberBadgeId: string) {
+    await removeMemberBadge(memberBadgeId);
+    showToast('Badge record removed.', 'success');
+    await fetchAll();
   }
 
   async function handleCreateAchievement(values: AchievementFormValues) {
@@ -194,6 +201,7 @@ export function BadgesView({ user }: BadgesViewProps) {
           onRetry={fetchAll}
           onVerify={handleVerify}
           verifyingId={verifyingId}
+          onRemove={handleRemoveMemberBadge}
         />
       ) : null}
 

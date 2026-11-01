@@ -70,7 +70,6 @@ export interface MemberProgressSummary {
 export interface RecordBadgeFormValues {
   memberId: string;
   badgeId: string;
-  status: 'in_progress' | 'earned';
 }
 
 export interface AchievementRecordSummary {

@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 import { ApiError } from '../../shared/utils/api-error';
+import { writeAuditLog } from '../../shared/utils/audit-log';
 import { notifyUser } from '../../shared/utils/notify';
 import type { RoleName } from '../../shared/constants/roles';
 import { badgesRepository } from './badges.repository';
@@ -175,7 +176,14 @@ export const badgesService = {
     const badge = await badgesRepository.findBadgeById(input.badgeId);
     if (!badge) throw ApiError.badRequest('Selected badge does not exist.');
 
-    const record = await badgesRepository.upsertMemberBadge(input.memberId, input.badgeId, input.status);
+    // Recording is the only write left here, so a repeat must not reset the earned date or
+    // wipe a verification. An older `in_progress` record is the one row that may move forward.
+    const existing = await badgesRepository.findMemberBadge(input.memberId, input.badgeId);
+    if (existing && existing.status !== 'in_progress') {
+      throw ApiError.conflict('This badge is already recorded as earned for this member.');
+    }
+
+    const record = await badgesRepository.upsertEarnedMemberBadge(input.memberId, input.badgeId);
     return toMemberBadgeRecordDto(record);
   },
 
@@ -195,6 +203,25 @@ export const badgesService = {
       });
     }
     return toMemberBadgeRecordDto(verified);
+  },
+
+  /** The undo for a badge recorded by mistake. Audited, since the row itself is gone afterwards. */
+  async removeMemberBadge(id: string, removedById: string): Promise<void> {
+    const record = await badgesRepository.findMemberBadgeById(id);
+    if (!record) throw ApiError.notFound('Member badge record not found.');
+
+    await badgesRepository.deleteMemberBadge(id);
+    await writeAuditLog({
+      userId: removedById,
+      action: 'member_badge.remove',
+      entityType: 'member_badge',
+      entityId: id,
+      details: {
+        member: `${record.member.firstName} ${record.member.lastName}`,
+        badge: record.badge.name,
+        status: record.status,
+      },
+    });
   },
 
   // Achievements

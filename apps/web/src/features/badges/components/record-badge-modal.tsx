@@ -5,11 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { resolveBadgeCategoryIcon } from '@/shared/components/icons';
 import { Alert, Button, Combobox, FormField, Modal, Select } from '@/shared/components/ui';
 
-import {
-  EMPTY_RECORD_BADGE_FORM_VALUES,
-  MEMBER_BADGE_STATUS_LABELS,
-  formatMemberOptionLabel,
-} from '../constants';
+import { EMPTY_RECORD_BADGE_FORM_VALUES, formatMemberOptionLabel } from '../constants';
 import type { BadgeCatalogItem, MemberOption, RecordBadgeFormValues } from '../types';
 
 export interface RecordBadgeModalProps {
@@ -24,8 +20,8 @@ type FieldErrors = Partial<Record<'memberId' | 'badgeId', string>>;
 
 /**
  * Troop Leader + Admin only — "Record earned badges" / "Update achievements" (project-overview.md,
- * Troop Leader's Badge Tracking section). Only ever writes `in_progress`/`earned`; moving a record
- * to `verified` is a separate Admin-only action on the Member Progress tab.
+ * Troop Leader's Badge Tracking section). Only ever writes `earned`; moving a record to `verified`
+ * is a separate Admin-only action on the Member Progress tab.
  */
 export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose, onSubmit }: RecordBadgeModalProps) {
   const [values, setValues] = useState<RecordBadgeFormValues>(EMPTY_RECORD_BADGE_FORM_VALUES);
@@ -76,16 +72,12 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
   const badgeSelectOptions = badgeOptions.map((badge) => ({ value: badge.id, label: badge.name }));
   const selectedBadge = badgeOptions.find((badge) => badge.id === values.badgeId) ?? null;
   const SelectedBadgeIcon = resolveBadgeCategoryIcon(selectedBadge?.categoryIcon);
-  const statusOptions = (['in_progress', 'earned'] as const).map((status) => ({
-    value: status,
-    label: MEMBER_BADGE_STATUS_LABELS[status],
-  }));
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Record Badge Progress"
+      title="Record Earned Badge"
       dismissible={!isSubmitting}
       footer={
         <>
@@ -120,7 +112,12 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
           />
         </FormField>
 
-        <FormField label="Badge" required error={errors.badgeId}>
+        <FormField
+          label="Badge"
+          required
+          error={errors.badgeId}
+          hint="Saved as Earned. Verification happens separately."
+        >
           <div className="flex items-center gap-2.5">
             {/* The badge catalog is a short, fixed list, so it stays a native <select> — which
                 cannot render an icon per option, so this swatch is the icon feedback instead,
@@ -138,14 +135,6 @@ export function RecordBadgeModal({ isOpen, memberOptions, badgeOptions, onClose,
               />
             </div>
           </div>
-        </FormField>
-
-        <FormField label="Status" hint="Verification happens separately, after the badge is earned">
-          <Select
-            options={statusOptions}
-            value={values.status}
-            onChange={(event) => set('status', event.target.value as RecordBadgeFormValues['status'])}
-          />
         </FormField>
       </form>
     </Modal>

@@ -591,10 +591,10 @@ async function seedBadges(memberIds: string[], verifierId: string | undefined) {
   }> = [
     { member: 0, badge: 0, status: 'verified' },
     { member: 0, badge: 1, status: 'earned' },
-    { member: 0, badge: 2, status: 'in_progress' },
+    { member: 0, badge: 2, status: 'earned' },
     { member: 2, badge: 0, status: 'verified' },
     { member: 2, badge: 3, status: 'earned' },
-    { member: 4, badge: 4, status: 'in_progress' },
+    { member: 4, badge: 4, status: 'earned' },
     { member: 5, badge: 4, status: 'earned' },
   ];
 

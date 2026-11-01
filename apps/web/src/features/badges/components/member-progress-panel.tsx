@@ -35,6 +35,7 @@ export interface MemberProgressPanelProps {
   onRetry: () => void;
   onVerify: (memberBadgeId: string) => Promise<void>;
   verifyingId: string | null;
+  onRemove: (memberBadgeId: string) => Promise<void>;
 }
 
 /** Progress tracker — registry §3 `ProgressBar`. Replaces the prototype's static "Member Badge Progress" table. */
@@ -45,6 +46,7 @@ export function MemberProgressPanel({
   onRetry,
   onVerify,
   verifyingId,
+  onRemove,
 }: MemberProgressPanelProps) {
   // Tracks the id, not the row object, so the modal re-reads live data from `members`
   // on every render instead of freezing the snapshot captured when "View" was clicked
@@ -140,6 +142,7 @@ export function MemberProgressPanel({
         canVerify={canVerify}
         verifyingId={verifyingId}
         onVerify={onVerify}
+        onRemove={onRemove}
         onClose={() => setDetailMemberId(null)}
       />
     </Card>

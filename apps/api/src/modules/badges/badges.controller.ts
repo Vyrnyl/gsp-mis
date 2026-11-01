@@ -45,6 +45,10 @@ export const badgesController = {
     const record = await badgesService.verifyMemberBadge(req.params['id']!, req.user!.id);
     sendSuccess(res, { record });
   },
+  async removeMemberBadge(req: Request, res: Response): Promise<void> {
+    await badgesService.removeMemberBadge(req.params['id']!, req.user!.id);
+    sendSuccess(res, { deleted: true });
+  },
 
   // Achievements
   async listAchievements(req: Request, res: Response): Promise<void> {

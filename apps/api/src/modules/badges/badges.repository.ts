@@ -101,12 +101,15 @@ export const badgesRepository = {
   findMemberBadgeById(id: string) {
     return prisma.memberBadge.findUnique({ where: { id }, include: memberBadgeInclude });
   },
-  upsertMemberBadge(memberId: string, badgeId: string, status: 'in_progress' | 'earned') {
-    const earnedAt = status === 'earned' ? new Date() : null;
+  findMemberBadge(memberId: string, badgeId: string) {
+    return prisma.memberBadge.findUnique({ where: { memberId_badgeId: { memberId, badgeId } } });
+  },
+  upsertEarnedMemberBadge(memberId: string, badgeId: string) {
+    const earned = { status: 'earned', earnedAt: new Date() } as const;
     return prisma.memberBadge.upsert({
       where: { memberId_badgeId: { memberId, badgeId } },
-      update: { status, earnedAt, verifiedById: null },
-      create: { memberId, badgeId, status, earnedAt },
+      update: earned,
+      create: { memberId, badgeId, ...earned },
       include: memberBadgeInclude,
     });
   },
@@ -116,6 +119,9 @@ export const badgesRepository = {
       data: { status: 'verified', verifiedById },
       include: memberBadgeInclude,
     });
+  },
+  deleteMemberBadge(id: string) {
+    return prisma.memberBadge.delete({ where: { id } });
   },
 
   // Achievements

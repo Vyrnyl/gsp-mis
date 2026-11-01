@@ -15,6 +15,7 @@ import { z } from 'zod';
  *   GET    /member-badges             — no query, scoped server-side by role
  *   POST   /member-badges             — recordMemberBadgeSchema
  *   PATCH  /member-badges/:id/verify  — no body
+ *   DELETE /member-badges/:id         — no body
  *   GET    /achievements              — no query, scoped server-side by role
  *   POST   /achievements              — createAchievementSchema
  */
@@ -45,7 +46,6 @@ export const updateBadgeSchema = createBadgeSchema;
 export const recordMemberBadgeSchema = z.object({
   memberId: z.string().uuid('Select a member.'),
   badgeId: z.string().uuid('Select a badge.'),
-  status: z.enum(['in_progress', 'earned']),
 });
 
 export const createAchievementSchema = z.object({
