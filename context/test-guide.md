@@ -438,15 +438,16 @@ Good active picks to register: **Althea Ramos**, **Elena Sarmiento** (Troop 12),
 one. *(Bea Delfin / Dana Villar / Nadine Sorreda are pending/archived/expired and won't
 appear in the picker — use them to confirm the exclusion.)*
 
-- [ ] 🅐 Admin: open **New Leader Orientation** → **Manage Attendance**. **Create**:
-      register the active members above.
-- [ ] **Update**: mark two `present`, one `absent`. Change one registration's status to
-      `cancelled` → confirm it drops out of the attendance-eligible list.
+- [ ] 🅐 Admin: open **New Leader Orientation** → **View Details**. **Create**: register
+      the active members above and confirm each shows their scout level.
+- [ ] **Update**: **Manage Attendance** → mark two `present`, one `absent`. Back on View
+      Details, cancel one registration → confirm it drops out of Attendance.
 - [ ] **Negative picker check**: confirm Bea Delfin/Dana Villar/Nadine Sorreda don't
       appear in the register-participant picker.
-- [ ] 🅣 Liza: open **Cookie Fundraiser Kickoff** → register/mark attendance for an active
-      member of **any** troop (org-wide picker, even for a leader — unlike Badges below).
-- [ ] 🅔 EC: open either event → stat cards + table render, but no register/mark controls.
+- [ ] 🅣 Liza: open **Cookie Fundraiser Kickoff** → **View Details** → register an active
+      member of Troop 12, then mark that member's attendance.
+- [ ] 🅔 EC: open either event → the participant list and Attendance render, but no
+      register/mark controls.
 
 ---
 
@@ -494,13 +495,13 @@ past 2026-07-25).
 
 | Member | Troop | Badge | Status |
 | --- | --- | --- | --- |
-| Althea Ramos | Troop 12 — Virac | Trailblazer | in_progress |
+| Althea Ramos | Troop 12 — Virac | Trailblazer | earned |
 | Elena Sarmiento | Troop 12 — Virac | First Aider | earned |
 
 - [ ] 🅣 Liza: **Record Badge**, confirm the picker only lists Troop 12 members (Althea,
       Cristina, Elena). Record both rows above.
 - [ ] 🅣 Grace: confirm her picker instead offers only Troop 4 members (e.g. record Faith
-      Bermundo → any badge, `in_progress`).
+      Bermundo → any badge, saved as `earned`).
 - [ ] 🅐 Admin: confirm the picker offers **every** member regardless of troop.
 
 ### 9.3 Verify a badge — 🅐 only

@@ -173,9 +173,12 @@ ask an Administrator to link the account under **Councils & Troops**.
 
 ### 5.2 Councils & Troops (`Organizations`)
 
-Browsable by everyone; only Administrators see the Add/Edit/Delete controls. Five tabs:
+Browsable by everyone; only Administrators see the Add/Edit/Delete controls. Tabs:
 
 - **Councils** — name, description
+- **Municipalities** — a list that schools are grouped under. Its **Schools** button shows
+  the schools in that municipality. A municipality with schools can't be deleted until
+  they are reassigned.
 - **Troops** — troop code, name, parent council, assigned leader
 - **Scout Levels** — the age-band ladder (Twinkler → Cadet, extendable), with a display
   order
@@ -223,16 +226,18 @@ Attendance**, which deep-links into the Attendance screen for that event.
 
 ### 5.6 Attendance
 
-Pick an event, then work from one combined table of registered participants:
+Participants are managed on the event's **View Details** page, which lists each member's
+scout level, troop and registration status:
 
 - **Register a participant** — Administrator and Troop Leader only; opens a search
   picker limited to active members not already registered for that event.
-- **Mark present/absent** — Administrator and Troop Leader only.
-- Executive Council can view the same screen (stat cards + table) but has no write
-  controls.
+- **Cancel or re-register** — Administrator and Troop Leader only. Cancelling removes
+  that member from the attendance-eligible list for the event.
 
-Cancelling a registration removes that member from the attendance-eligible list for the
-event.
+On **Attendance**, pick an event and mark who came:
+
+- **Mark present/absent** — Administrator and Troop Leader only.
+- Executive Council can view both screens but has no write controls.
 
 ### 5.7 Activity Reports
 
@@ -257,8 +262,9 @@ One screen, three tabs, plus a page-level **Record Badge** action:
 - **Achievement History** — a free-form log of notable accomplishments (not tied to the
   badge catalog), e.g. delegate appointments or awards.
 
-**Record Badge** (Administrator + Troop Leader) logs a member as `in_progress` or
-`earned` against a catalog badge. A separately-recorded **Achievement** just needs a
+**Record Badge** (Administrator + Troop Leader) logs a member as `earned` against a
+catalog badge. An Administrator can undo a mistake with **Remove** on the record in
+Member Progress. A separately-recorded **Achievement** just needs a
 member, a name, and a date.
 
 ### 5.9 Announcements & Notifications

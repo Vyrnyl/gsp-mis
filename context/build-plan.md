@@ -331,3 +331,31 @@ A revision changes already-correct, already-shipped behavior in a feature marked
 **Process:** read the feature's file list in [progress.md](progress.md) → classify blast radius → revise, respecting layer boundaries (§2) → visually re-verify the changed screen's states (900/768/480px), plus every other consumer if shared → `npm run typecheck && npm run lint && npm test` in both workspaces regardless of scope → append to the feature's existing progress.md entry (don't renumber its Loop step) and update [ui-registry.md](ui-registry.md) if a shared component's contract changed → add a Session Log line.
 
 A revision must never regress the Definition of Done (§3) for the feature it touches, or for any shared consumer it reaches.
+
+---
+
+## 10. Client Revision Batch — 2026-11-01
+
+Source: the 9-item brief in `update.txt`. Item numbers are kept from the brief so they can be traced back to the client, which means they are not in build order. Status is tracked in [progress.md](progress.md#client-revision-batch--2026-11-01).
+
+These are revisions to done features, not new features, so the 21-feature count does not change. Run each row through `revise-feature`, one at a time and in this order: finish and verify a row before starting the next. **Orders 6 and 7 (items 8 + 9 and item 7) are paused and must not be started until the user resumes them.** Item 7 also needs its scope from the user first.
+
+| Order | Item | Change | Feature | Schema | Blast radius |
+| ----- | ---- | ------ | ------- | ------ | ------------ |
+| 1 | 1 | Membership Growth becomes a line graph | 3.3 | None | Isolated |
+| 2 | 2 | Record Badge Progress saves only Earned | 2.4 | None | Isolated |
+| 3 | 3 + 4 | Participant list moves to the event's View Details page, with a scout level column and a loader | 2.1, 2.2 | None | Shared |
+| 4 | 5 | Municipalities, with schools grouped under them | 1.6, 1.3 | Migration | Shared |
+| 5 | 6 | GSP logo on downloaded reports | 3.2 | None | Isolated |
+| 6 | 8 + 9 | Population tab first with an automatic benchmark, Decisions tab last | 3.3 | None | Isolated — **paused** |
+| 7 | 7 | Council Board user and new page | New scope | Unknown | Shared — **paused** |
+
+### Decisions by item
+
+- **Item 1:** Analytics only (`membership-trend-chart.tsx`). The chart still plots new registrations per month. The Dashboard's separate `MembershipGrowthChart` stays a bar chart.
+- **Item 2:** The status choice is removed from the Record Badge modal and new records are always `earned`. The user first chose to keep existing `in_progress` records, then on 2026-11-01 asked to convert them, so all of them are now `earned`. The `in_progress` enum value stays, so Analytics and Reports keep working and simply count 0. Re-recording a badge that is already `earned` or `verified` is rejected with a 409, so it cannot reset the earned date or wipe a verification. An Administrator-only **Remove** action on each Member Progress record undoes a mistake, with a confirm dialog and an audit entry.
+- **Items 3 + 4 (one revision):** The event View Details page currently shows only a registered count and a Manage Attendance link. The participant list and the Register Participant action move there, and the list gains a scout level column (blank for adult leaders). View Details shows a loader until the details open. The Attendance page stays as the place to mark present or absent, and shows active registrations only with a link back to the event. `registeredCount` excludes cancelled registrations so it matches the list. **Events get no scout level field and registration is not restricted by level** — the user clarified on 2026-11-01 that item 3 means moving the list, not adding eligibility.
+- **Item 5:** New council-scoped `Municipality` resource with full CRUD in Councils & Troops, shaped as Municipalities → list → Schools. `School` gains a municipality FK, nullable so existing schools stay valid until an Administrator assigns them. The list starts empty. The Municipalities tab links to the Schools tab narrowed to that municipality. The Register Member form picks a municipality, then a school from that municipality; "No municipality" lists unassigned schools, so registration keeps working before any are assigned. Re-verify every `School` consumer: Membership, Pending Approvals, Analytics filters and Finance's expense attribution.
+- **Item 6:** PDF only, since `ExportFormat` is `'pdf'` and Excel export is disabled. Use the existing `logo.jpg`. The API needs its own copy, and it must be available in the deployed build because `tsc` does not copy assets.
+- **Items 8 + 9 (one revision):** Tab order becomes **Population**, Membership, Attendance, Participation, Badges, Financial, Organization, **Decisions**, and Population becomes the default landing tab. Population counts scouts only, excluding adult leaders, with status active or expiring. The benchmark is automatic: the smallest power of ten at or above the count, with a minimum of 10 (7 → 7/10, 40 → 40/100, 100 → 100/100, 101 → 101/1000). It is labelled **Next milestone**, because it is a round number rather than a real target. No schema or settings change.
+- **Item 7 (paused):** The user confirmed this needs a **new page**, not Councils & Troops. Still needed before it can start: what the page shows, whether the role is view-only, and whether it also gets Dashboard, Announcements, Notifications and My Profile, which have no permission gate today. It adds a fourth role, so RBAC, navigation, middleware and the documented three-role model all change.
