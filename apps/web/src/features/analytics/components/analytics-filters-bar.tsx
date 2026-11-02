@@ -18,6 +18,10 @@ export interface AnalyticsFiltersBarProps {
   /** Income and expenses have no troop association in the schema — `Expense` has no
    * member link at all — so the Financial tab's figures are council-wide regardless. */
   troopFilterNote: string | null;
+  /** Population is a current headcount, so a date range changes nothing on that tab.
+   * Disabled and explained, the same way as the troop filter above. */
+  isDateFilterDisabled: boolean;
+  dateFilterNote: string | null;
 }
 
 /**
@@ -31,6 +35,8 @@ export function AnalyticsFiltersBar({
   troopOptions,
   isTroopFilterDisabled,
   troopFilterNote,
+  isDateFilterDisabled,
+  dateFilterNote,
 }: AnalyticsFiltersBarProps) {
   const troopSelectOptions: SelectOption[] = [
     { value: ALL_TROOPS, label: 'All Troops' },
@@ -38,11 +44,12 @@ export function AnalyticsFiltersBar({
   ];
 
   return (
-    <div className="mb-4 grid grid-cols-1 items-end gap-3.5 xs:grid-cols-2 lg2:grid-cols-4">
-      <FormField label="Date range">
+    <div className="mb-4 grid grid-cols-1 items-start gap-3.5 xs:grid-cols-2 lg2:grid-cols-4">
+      <FormField label="Date range" hint={dateFilterNote ?? undefined}>
         <Select
           options={DATE_RANGE_OPTIONS}
           value={filters.range}
+          disabled={isDateFilterDisabled}
           onChange={(event) => onChange({ ...filters, range: event.target.value as DateRange })}
         />
       </FormField>

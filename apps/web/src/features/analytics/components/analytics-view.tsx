@@ -7,6 +7,7 @@ import { MEMBER_STATUS_LABELS } from '@/features/members/constants';
 import {
   listActivityCategories,
   listBadgeCategories,
+  listMunicipalities,
   listSchools,
   listScoutLevels,
   listTroops,
@@ -32,6 +33,7 @@ import { FinancialTrendsPanel } from './financial-trends-panel';
 import { MembershipTrendsPanel } from './membership-trends-panel';
 import { OrganizationPerformancePanel } from './organization-performance-panel';
 import { ParticipationPanel } from './participation-panel';
+import { PopulationPanel } from './population-panel';
 
 /**
  * Loop steps 3–4 (Contract + Wire Read) for feature 3.3. One combined fetch drives
@@ -55,9 +57,12 @@ import { ParticipationPanel } from './participation-panel';
  * became a second way to view the same numbers — which the reuse rule forbids. The
  * `breakdown` key stays in the API response: it is what the Decisions tab and the
  * per-tab cards are both built from, so the two can never disagree.
+ *
+ * 2026-11-02 revision: Population is the new landing tab and Decisions moves to last,
+ * at the client's request (batch items 8 + 9).
  */
 export function AnalyticsView() {
-  const [activeTab, setActiveTab] = useState<AnalyticsTabId>('decisions');
+  const [activeTab, setActiveTab] = useState<AnalyticsTabId>('population');
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [filters, setFilters] = useState<AnalyticsFilters>({
@@ -67,6 +72,7 @@ export function AnalyticsView() {
   });
   const [troopOptions, setTroopOptions] = useState<SelectOption[] | null>(null);
   const [dimensionOptions, setDimensionOptions] = useState<DimensionOptions>({
+    municipalityId: null,
     schoolId: null,
     scoutLevelId: null,
     activityCategoryId: null,
@@ -122,6 +128,7 @@ export function AnalyticsView() {
         .catch(() => setDimensionOptions((current) => ({ ...current, [key]: [] })));
     };
 
+    load('municipalityId', listMunicipalities);
     load('schoolId', listSchools);
     load('scoutLevelId', listScoutLevels);
     load('activityCategoryId', listActivityCategories);
@@ -134,6 +141,7 @@ export function AnalyticsView() {
   const isOrganizationTab = activeTab === 'organization';
   const isFinancialTab = activeTab === 'financial';
   const isBadgesTab = activeTab === 'badges';
+  const isPopulationTab = activeTab === 'population';
 
   const troopFilterNote = useMemo(() => {
     if (isOrganizationTab) return 'This tab compares all troops.';
@@ -178,6 +186,8 @@ export function AnalyticsView() {
         troopOptions={troopOptions}
         isTroopFilterDisabled={isOrganizationTab || isFinancialTab}
         troopFilterNote={troopFilterNote}
+        isDateFilterDisabled={isPopulationTab}
+        dateFilterNote={isPopulationTab ? 'This tab is a current headcount.' : null}
       />
 
       <div className="mb-4">
@@ -196,8 +206,8 @@ export function AnalyticsView() {
         note={tabFilterNote}
       />
 
-      {activeTab === 'decisions' ? (
-        <DecisionSupportPanel viewState={viewState} data={snapshot?.decisionSupport ?? null} onRetry={onRetry} />
+      {activeTab === 'population' ? (
+        <PopulationPanel viewState={viewState} data={snapshot?.population ?? null} onRetry={onRetry} />
       ) : null}
 
       {activeTab === 'membership' ? (
@@ -224,6 +234,9 @@ export function AnalyticsView() {
         <OrganizationPerformancePanel viewState={viewState} data={snapshot?.organization ?? null} onRetry={onRetry} />
       ) : null}
 
+      {activeTab === 'decisions' ? (
+        <DecisionSupportPanel viewState={viewState} data={snapshot?.decisionSupport ?? null} onRetry={onRetry} />
+      ) : null}
     </div>
   );
 }

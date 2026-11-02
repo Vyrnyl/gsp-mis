@@ -122,7 +122,19 @@ const EXPENSE_CAT_CAMP = { id: 'ec-1', name: 'Camp' };
  * existing assertions below keep testing exactly what they always did. */
 const DEFAULT_QUERY = { range: '6m', troopId: undefined } as const;
 
+const MUNICIPALITY_VIRAC = { id: 'mun-1', name: 'Virac' };
+
+/** Population rows as the repository returns them: scouts only, pending included. */
+const POPULATION_ROWS = [
+  { status: { name: 'active' }, school: { ...SCHOOL_A, municipality: MUNICIPALITY_VIRAC }, scoutLevel: LEVEL_SENIOR },
+  { status: { name: 'active' }, school: { ...SCHOOL_A, municipality: MUNICIPALITY_VIRAC }, scoutLevel: LEVEL_JUNIOR },
+  { status: { name: 'expiring' }, school: { ...SCHOOL_B, municipality: null }, scoutLevel: LEVEL_JUNIOR },
+  { status: { name: 'active' }, school: null, scoutLevel: null },
+  { status: { name: 'pending' }, school: { ...SCHOOL_A, municipality: MUNICIPALITY_VIRAC }, scoutLevel: LEVEL_JUNIOR },
+];
+
 function mockRepository() {
+  vi.spyOn(analyticsRepository, 'listPopulation').mockResolvedValue(POPULATION_ROWS as never);
   vi.spyOn(analyticsRepository, 'listMembers').mockResolvedValue(MEMBERS as never);
   vi.spyOn(analyticsRepository, 'listEventsWithDetail').mockResolvedValue(EVENTS as never);
   vi.spyOn(analyticsRepository, 'listBadgeCatalog').mockResolvedValue(BADGE_CATALOG as never);
@@ -142,6 +154,69 @@ function mockRepository() {
     { expenseDate: THIS_MONTH, amount: decimal(12500), category: null, expenseCategory: EXPENSE_CAT_CAMP, school: SCHOOL_A, event: null },
   ] as never);
 }
+
+describe('analyticsService.getOverview population', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockRepository();
+  });
+
+  it('counts active and expiring scouts and reports pending separately', async () => {
+    const { population } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(population.total).toBe(4);
+    expect(population.pendingApproval).toBe(1);
+    expect(population.nextMilestone).toBe(10);
+    expect(population.percent).toBe(40);
+  });
+
+  it.each([
+    [0, 10],
+    [7, 10],
+    [10, 10],
+    [11, 100],
+    [40, 100],
+    [100, 100],
+    [101, 1000],
+  ])('sets the milestone for %i scouts to %i', async (count, milestone) => {
+    vi.spyOn(analyticsRepository, 'listPopulation').mockResolvedValue(
+      Array.from({ length: count }, () => POPULATION_ROWS[0]) as never,
+    );
+
+    const { population } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(population.nextMilestone).toBe(milestone);
+  });
+
+  it('breaks down counted scouts only, keeping members with no school or level', async () => {
+    const { population } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(population.byMunicipality).toEqual([
+      { id: MUNICIPALITY_VIRAC.id, label: 'Virac', memberCount: 2, share: 50 },
+      { id: 'unassigned', label: 'No municipality assigned', memberCount: 2, share: 50 },
+    ]);
+    expect(population.bySchool.map((row) => [row.label, row.memberCount])).toEqual([
+      ['CATSU', 2],
+      ['CAVSU', 1],
+      ['No school recorded', 1],
+    ]);
+  });
+
+  it('keeps levels in progression order, with no level last', async () => {
+    const { population } = await analyticsService.getOverview(DEFAULT_QUERY);
+
+    expect(population.byLevel.map((row) => row.label)).toEqual(['Junior Girl Scout', 'Senior Girl Scout', 'No level assigned']);
+  });
+
+  it('applies the municipality filter to Population alone and ignores the status filter', async () => {
+    await analyticsService.getOverview({ ...DEFAULT_QUERY, municipalityId: MUNICIPALITY_VIRAC.id, status: 'pending' });
+
+    const populationScope = vi.mocked(analyticsRepository.listPopulation).mock.calls[0]![0]!;
+    expect(populationScope).toMatchObject({ municipalityId: MUNICIPALITY_VIRAC.id });
+    expect(populationScope).not.toHaveProperty('status');
+    expect(analyticsRepository.listMembers).toHaveBeenCalledWith(expect.not.objectContaining({ municipalityId: expect.anything() }));
+  });
+});
 
 describe('analyticsService.getOverview', () => {
   beforeEach(() => {

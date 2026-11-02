@@ -1,13 +1,14 @@
 export type ViewState = 'loading' | 'error' | 'ready';
 
 export type AnalyticsTabId =
-  | 'decisions'
+  | 'population'
   | 'membership'
   | 'attendance'
   | 'participation'
   | 'badges'
   | 'financial'
-  | 'organization';
+  | 'organization'
+  | 'decisions';
 
 /** Mirrors `analytics.schema.ts`'s `dateRangeSchema` by hand — same cross-workspace
  * convention as reports/finance/members. Presets rather than free-form dates so the
@@ -18,6 +19,8 @@ export type DateRange = '3m' | '6m' | '12m' | 'ytd';
  * string holding either `ALL_OPTION` or an id, mirroring `troopId`'s sentinel
  * convention rather than using `undefined` — a `<Select>` always has a value. */
 export interface AnalyticsDimensionFilters {
+  /** Population only — see `analytics.schema.ts`. */
+  municipalityId: string;
   schoolId: string;
   scoutLevelId: string;
   /** `MemberStatus.name`, not an id — see `analytics.schema.ts`. */
@@ -68,6 +71,22 @@ export interface StatusBreakdownRow {
   label: string;
   memberCount: number;
   share: number;
+}
+
+/** One group of the population — same shape as a status row, count and share only. */
+export type PopulationBreakdownRow = StatusBreakdownRow;
+
+/** The Population tab (2026-11-02, client batch items 8 + 9). */
+export interface PopulationAnalytics {
+  /** Scouts who are active or expiring. Adult leaders and pending scouts are excluded. */
+  total: number;
+  /** The smallest power of ten at or above `total`, minimum 10. Not a client target. */
+  nextMilestone: number;
+  percent: number;
+  pendingApproval: number;
+  byMunicipality: PopulationBreakdownRow[];
+  bySchool: PopulationBreakdownRow[];
+  byLevel: PopulationBreakdownRow[];
 }
 
 export interface MembershipAnalytics {
@@ -232,6 +251,7 @@ export interface OrganizationAnalytics {
 }
 
 export interface AnalyticsSnapshot {
+  population: PopulationAnalytics;
   membership: MembershipAnalytics;
   attendance: AttendanceAnalytics;
   participation: ParticipationAnalytics;

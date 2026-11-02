@@ -64,6 +64,10 @@ export const overviewQuerySchema = z.object({
   /** Membership + Attendance + Participation + Financial — reached through the member
    * (or, for expenses, through `Expense.schoolId` since the R3b attribution migration). */
   schoolId: optionalIdFilter(),
+  /** Population only — `School.municipalityId`, reached through the member's school.
+   * Applied to the Population read alone, so it cannot narrow a tab that shows no
+   * Municipality filter. */
+  municipalityId: optionalIdFilter(),
   /** Membership + Attendance + Badges — `Member.scoutLevelId`. */
   scoutLevelId: optionalIdFilter(),
   /** Membership only — matched against `MemberStatus.name`, not an id. */

@@ -1,4 +1,9 @@
-import { analyticsRepository, type AnalyticsFilterScope } from './analytics.repository';
+import {
+  analyticsRepository,
+  PENDING_STATUS,
+  POPULATION_STATUSES,
+  type AnalyticsFilterScope,
+} from './analytics.repository';
 import type { DateRange, OverviewQuery } from './analytics.schema';
 import type {
   ActivityCategoryRowDto,
@@ -18,6 +23,8 @@ import type {
   MonthlyFinancePointDto,
   OrganizationAnalyticsDto,
   ParticipationAnalyticsDto,
+  PopulationAnalyticsDto,
+  PopulationBreakdownRowDto,
   PromotionReadinessRowDto,
   SchoolFinanceRowDto,
   SchoolParticipationRowDto,
@@ -39,6 +46,11 @@ type MemberRow = {
   status: { name: string };
   birthDate: Date | null;
   school: NamedRef;
+  scoutLevel: LevelRef;
+};
+type PopulationRow = {
+  status: { name: string };
+  school: (NonNullable<NamedRef> & { municipality: NamedRef }) | null;
   scoutLevel: LevelRef;
 };
 type ScoutLevelRow = { id: string; name: string; orderNumber: number; minAge: number | null; maxAge: number | null };
@@ -161,6 +173,72 @@ function buildStatusBreakdown(members: MemberRow[]): StatusBreakdownRowDto[] {
       share: share(count, members.length),
     }))
     .sort((a, b) => b.memberCount - a.memberCount);
+}
+
+/** The smallest power of ten at or above the count, minimum 10: 7 → 10, 40 → 100,
+ * 100 → 100, 101 → 1000. An automatic round number, not a target the client set. */
+function nextMilestone(count: number): number {
+  let milestone = 10;
+  while (milestone < count) milestone *= 10;
+  return milestone;
+}
+
+/** Groups the population by one dimension. Missing values land in the given bucket
+ * rather than being dropped, so every breakdown adds up to the total. */
+function buildPopulationDimension(
+  rows: PopulationRow[],
+  dimension: (row: PopulationRow) => { id: string; name: string; order?: number } | null,
+  fallbackLabel: string,
+): (PopulationBreakdownRowDto & { order: number })[] {
+  const groups = new Map<string, { label: string; count: number; order: number }>();
+
+  for (const row of rows) {
+    const ref = dimension(row);
+    const id = ref?.id ?? 'unassigned';
+    const group = groups.get(id) ?? { label: ref?.name ?? fallbackLabel, count: 0, order: ref?.order ?? Number.MAX_SAFE_INTEGER };
+    group.count += 1;
+    groups.set(id, group);
+  }
+
+  return Array.from(groups.entries()).map(([id, group]) => ({
+    id,
+    label: group.label,
+    memberCount: group.count,
+    share: share(group.count, rows.length),
+    order: group.order,
+  }));
+}
+
+function buildPopulationAnalytics(rows: PopulationRow[]): PopulationAnalyticsDto {
+  const counted = rows.filter((row) => POPULATION_STATUSES.includes(row.status.name));
+  const total = counted.length;
+  const milestone = nextMilestone(total);
+  const bySize = (a: PopulationBreakdownRowDto, b: PopulationBreakdownRowDto) => b.memberCount - a.memberCount;
+  const withoutOrder = ({ id, label, memberCount, share: rowShare }: PopulationBreakdownRowDto) => ({
+    id,
+    label,
+    memberCount,
+    share: rowShare,
+  });
+
+  return {
+    total,
+    nextMilestone: milestone,
+    percent: rate(total, milestone),
+    pendingApproval: rows.filter((row) => row.status.name === PENDING_STATUS).length,
+    byMunicipality: buildPopulationDimension(counted, (row) => row.school?.municipality ?? null, UNASSIGNED_MUNICIPALITY)
+      .sort(bySize)
+      .map(withoutOrder),
+    bySchool: buildPopulationDimension(counted, (row) => row.school, UNASSIGNED_SCHOOL).sort(bySize).map(withoutOrder),
+    // Levels stay in their progression order, same as the Membership tab's level card.
+    byLevel: buildPopulationDimension(
+      counted,
+      (row) => (row.scoutLevel ? { ...row.scoutLevel, order: row.scoutLevel.orderNumber } : null),
+      UNASSIGNED_LEVEL,
+    )
+      .sort((a, b) => a.order - b.order)
+      .map(withoutOrder),
+  };
 }
 
 /** Roster counts (total/active/pending) are point-in-time and stay unfiltered by date
@@ -682,6 +760,7 @@ function buildOrganizationAnalytics(
 /** Members with no school/level still belong to the council, so they are bucketed
  * under an explicit label rather than dropped — a breakdown that silently loses rows
  * makes "which school is worst?" wrong in a way nobody can see. */
+const UNASSIGNED_MUNICIPALITY = 'No municipality assigned';
 const UNASSIGNED_SCHOOL = 'No school recorded';
 const UNASSIGNED_LEVEL = 'No level assigned';
 const UNASSIGNED_TROOP = 'No troop assigned';
@@ -1225,7 +1304,7 @@ export const analyticsService = {
   // `AnalyticsSnapshot` the schema model stays unused (build-plan.md never scopes
   // saving/browsing historical snapshots, only live aggregation).
   async getOverview(query: OverviewQuery): Promise<AnalyticsSnapshotDto> {
-    const { range, troopId, ...dimensions } = query;
+    const { range, troopId, municipalityId, ...dimensions } = query;
     const since = rangeStart(range);
 
     // The scope every tab's own figures are read through: the page-level troop filter
@@ -1252,6 +1331,7 @@ export const analyticsService = {
     // instead of an implicit promise about what the repository happens to read.
     const { troopId: _troopId, scoutLevelId: _scoutLevelId, status: _status, ...moneyScope } = scope;
     const [
+      populationRows,
       members,
       events,
       badgeCatalog,
@@ -1265,6 +1345,14 @@ export const analyticsService = {
       scoutLevels,
       [allBadgeCategories, allActivityCategories],
     ] = await Promise.all([
+        // Its own read, not derived from `members`: Population needs the municipality
+        // filter that no other tab has, and must ignore Membership's status filter.
+        analyticsRepository.listPopulation({
+          troopId,
+          municipalityId,
+          schoolId: dimensions.schoolId,
+          scoutLevelId: dimensions.scoutLevelId,
+        }),
         analyticsRepository.listMembers(scope),
         analyticsRepository.listEventsWithDetail(since, scope),
         analyticsRepository.listBadgeCatalog(scope),
@@ -1291,6 +1379,7 @@ export const analyticsService = {
     const money = buildMoneyBreakdown(paymentsSince, expensesSince);
 
     return {
+      population: buildPopulationAnalytics(populationRows),
       membership: buildMembershipAnalytics(members, range, breakdown),
       // School/level reuse the shared breakdown rows; troop is built here because the
       // Organization tab's troop rows are deliberately unscoped and would not move

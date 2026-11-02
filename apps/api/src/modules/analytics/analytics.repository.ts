@@ -34,6 +34,17 @@ function memberWhere(scope: AnalyticsFilterScope) {
   };
 }
 
+/** The filters the Population tab shows. `status` is left out because Population
+ * defines its own statuses, so a status filter set on Membership cannot change it. */
+export interface PopulationFilterScope extends Pick<AnalyticsFilterScope, 'troopId' | 'schoolId' | 'scoutLevelId'> {
+  municipalityId?: string;
+}
+
+/** Counted in the population — current members, whether or not renewal is near. */
+export const POPULATION_STATUSES = ['active', 'expiring'];
+/** Not counted, but read so the tab can say how many are waiting for approval. */
+export const PENDING_STATUS = 'pending';
+
 /** `{}` would be a valid-but-pointless Prisma filter; collapse it to `undefined` so
  * the unfiltered query plan stays identical to the pre-revision one. */
 function orUndefined<T extends object>(where: T): T | undefined {
@@ -71,6 +82,24 @@ export const analyticsRepository = {
         // the council total, and silently losing rows from a breakdown is exactly
         // how a "which school is worst?" answer goes wrong.
         school: { select: { id: true, name: true } },
+        scoutLevel: { select: { id: true, name: true, orderNumber: true } },
+      },
+    });
+  },
+
+  /** Scouts only — adult leaders are excluded here rather than in the service, so a
+   * leader can never reach a population figure. Not date-filtered: this is a headcount. */
+  listPopulation(scope: PopulationFilterScope = {}) {
+    return prisma.member.findMany({
+      where: {
+        ...memberWhere(scope),
+        ...(scope.municipalityId ? { school: { municipalityId: scope.municipalityId } } : {}),
+        memberType: 'scout',
+        status: { name: { in: [...POPULATION_STATUSES, PENDING_STATUS] } },
+      },
+      select: {
+        status: { select: { name: true } },
+        school: { select: { id: true, name: true, municipality: { select: { id: true, name: true } } } },
         scoutLevel: { select: { id: true, name: true, orderNumber: true } },
       },
     });

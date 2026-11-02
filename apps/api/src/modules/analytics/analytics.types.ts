@@ -38,6 +38,27 @@ export interface MembershipAnalyticsDto {
   byStatus: StatusBreakdownRowDto[];
 }
 
+/** One group of the population. Only the count and share apply, so it does not carry
+ * the attendance and badge figures of `DimensionBreakdownRowDto`. */
+export type PopulationBreakdownRowDto = StatusBreakdownRowDto;
+
+/** The Population tab (2026-11-02, client batch items 8 + 9): how many girls the
+ * council has, against a round-number milestone. */
+export interface PopulationAnalyticsDto {
+  /** Scouts who are active or expiring. Adult leaders and pending scouts are excluded. */
+  total: number;
+  /** The smallest power of ten at or above `total`, minimum 10. Not a client target. */
+  nextMilestone: number;
+  /** `total` as a percentage of `nextMilestone`. */
+  percent: number;
+  /** Scouts waiting for approval, stated beside the total so it reconciles with the
+   * Membership tab, which counts them. */
+  pendingApproval: number;
+  byMunicipality: PopulationBreakdownRowDto[];
+  bySchool: PopulationBreakdownRowDto[];
+  byLevel: PopulationBreakdownRowDto[];
+}
+
 /** One troop's attendance (2026-09-16 R4 step 6). Distinct from the Organization
  * tab's troop rows, which stay council-wide under any filter because that tab *is*
  * the council-wide comparison — these narrow with the page's filters, answering
@@ -213,6 +234,7 @@ export interface OrganizationAnalyticsDto {
 }
 
 export interface AnalyticsSnapshotDto {
+  population: PopulationAnalyticsDto;
   membership: MembershipAnalyticsDto;
   attendance: AttendanceAnalyticsDto;
   participation: ParticipationAnalyticsDto;

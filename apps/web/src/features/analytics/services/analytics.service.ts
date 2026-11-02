@@ -30,6 +30,7 @@ async function request<T>(path: string): Promise<T> {
  * of them, so the sentinel-stripping is done in one loop rather than repeated per
  * param, which is how one of them would end up sent as the literal `'all'`. */
 const DIMENSION_PARAMS = [
+  'municipalityId',
   'schoolId',
   'scoutLevelId',
   'status',

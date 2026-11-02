@@ -57,6 +57,7 @@ export const ALL_TROOPS = ALL_OPTION;
  * comparison, and Decisions is the unfiltered "what needs attention?" view.
  */
 export const TAB_DIMENSION_FILTERS: Partial<Record<AnalyticsTabId, AnalyticsDimensionId[]>> = {
+  population: ['municipalityId', 'schoolId', 'scoutLevelId'],
   membership: ['schoolId', 'scoutLevelId', 'status'],
   attendance: ['schoolId', 'scoutLevelId'],
   participation: ['activityCategoryId', 'schoolId'],
@@ -67,6 +68,7 @@ export const TAB_DIMENSION_FILTERS: Partial<Record<AnalyticsTabId, AnalyticsDime
 /** Label + "all" option text per dimension, so every tab's filter bar names a
  * dimension the same way. */
 export const DIMENSION_FILTER_META: Record<AnalyticsDimensionId, { label: string; allLabel: string }> = {
+  municipalityId: { label: 'Municipality', allLabel: 'All Municipalities' },
   schoolId: { label: 'School', allLabel: 'All Schools' },
   scoutLevelId: { label: 'Scout level', allLabel: 'All Levels' },
   status: { label: 'Status', allLabel: 'All Statuses' },
@@ -78,6 +80,7 @@ export const DIMENSION_FILTER_META: Record<AnalyticsDimensionId, { label: string
 /** Every dimension filter starts unset — the page opens on the same council-wide view
  * it showed before this revision. */
 export const EMPTY_DIMENSION_FILTERS: AnalyticsDimensionFilters = {
+  municipalityId: ALL_OPTION,
   schoolId: ALL_OPTION,
   scoutLevelId: ALL_OPTION,
   status: ALL_OPTION,
@@ -86,17 +89,17 @@ export const EMPTY_DIMENSION_FILTERS: AnalyticsDimensionFilters = {
   expenseCategoryId: ALL_OPTION,
 };
 
-/** Decisions leads — it is the "what should we do about this?" summary, and the six
- * aggregate tabs are the evidence behind it. Breakdown trails as the detailed
- * per-dimension slices (added 2026-09-16). */
+/** Population leads and is the landing tab, and Decisions closes the page, reading the
+ * tabs before it as its evidence (client batch items 8 + 9, 2026-11-02). */
 export const ANALYTICS_TABS: { id: AnalyticsTabId; label: string }[] = [
-  { id: 'decisions', label: 'Decisions' },
+  { id: 'population', label: 'Population' },
   { id: 'membership', label: 'Membership' },
   { id: 'attendance', label: 'Attendance' },
   { id: 'participation', label: 'Participation' },
   { id: 'badges', label: 'Badges' },
   { id: 'financial', label: 'Financial' },
   { id: 'organization', label: 'Organization' },
+  { id: 'decisions', label: 'Decisions' },
 ];
 
 /** Severity → Alert tone + label. Keeps the mapping in one place so the panel and any
