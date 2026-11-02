@@ -19,7 +19,7 @@ import { z } from 'zod';
  *   GET    /api/v1/audit-logs              — listAuditLogsQuerySchema
  */
 
-export const roleNameSchema = z.enum(['admin', 'executive_council', 'troop_leader']);
+export const roleNameSchema = z.enum(['admin', 'executive_council', 'troop_leader', 'council_board']);
 
 /** Directly mirrors `SystemSettingsFormValues` — the API owns the string-keyed row mapping. */
 export const updateSystemSettingsSchema = z.object({

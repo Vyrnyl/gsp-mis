@@ -25,4 +25,10 @@ export const DEMO_ACCOUNTS: Record<AuthRoleId, DemoAccount> = {
     email: 'leader.virac@gsp-catanduanes.ph',
     password: 'GspDemo!2026',
   },
+  council_board: {
+    roleId: 'council_board',
+    name: 'Carmen Tolentino',
+    email: 'board@gsp-catanduanes.ph',
+    password: 'GspDemo!2026',
+  },
 };

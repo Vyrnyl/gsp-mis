@@ -96,4 +96,4 @@ export type DashboardResponseBody =
 
 /** Narrows `RoleName` down to the three the dashboard actually branches on — every
  *  seeded role, so this is exhaustive today but stays explicit if that ever changes. */
-export type DashboardRole = Extract<RoleName, 'admin' | 'executive_council' | 'troop_leader'>;
+export type DashboardRole = Extract<RoleName, 'admin' | 'executive_council' | 'troop_leader' | 'council_board'>;

@@ -55,6 +55,11 @@ export const signupSchema = z.discriminatedUnion('role', [
     region: z.string().trim().min(1, 'Region is required.'),
     councilCode: z.string().trim().min(1, 'Council code is required.'),
   }),
+  // View-only, so it collects nothing beyond the base fields. Who these people are is
+  // for the Administrator who activates the account to judge.
+  signupBaseSchema.extend({
+    role: z.literal('council_board'),
+  }),
 ]);
 
 export const forgotPasswordSchema = z.object({

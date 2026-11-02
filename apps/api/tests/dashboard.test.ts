@@ -114,6 +114,22 @@ describe('dashboardService.getDashboard — admin', () => {
   });
 });
 
+describe('dashboardService.getDashboard — council_board', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('gets the same read-only council overview as Executive Council', async () => {
+    vi.spyOn(dashboardRepository, 'countTroops').mockResolvedValue(2);
+    vi.spyOn(dashboardRepository, 'countMembers').mockResolvedValue(10);
+    vi.spyOn(dashboardRepository, 'countMembersByStatus').mockResolvedValueOnce(2).mockResolvedValueOnce(6);
+    vi.spyOn(dashboardRepository, 'listTroopsWithLeaderAndCount').mockResolvedValue(TROOP_ROWS as never);
+    vi.spyOn(dashboardRepository, 'scoutLevelBreakdown').mockResolvedValue(SCOUT_LEVEL_ROWS as never);
+
+    const result = await dashboardService.getDashboard('board-1', 'council_board');
+
+    expect(result.role).toBe('executive_council');
+  });
+});
+
 describe('dashboardService.getDashboard — executive_council', () => {
   beforeEach(() => vi.restoreAllMocks());
 

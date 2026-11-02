@@ -7,6 +7,8 @@ export interface TopbarProps {
   title: string;
   onOpenSidebar: () => void;
   isSidebarOpen: boolean;
+  /** Council Board has no `notifications:read`, so it gets no bell. */
+  showNotifications: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface TopbarProps {
  * same button carries an inline `display:none` that nothing overrides, so the
  * off-canvas sidebar can never be reopened (ui-rules.md §5 defect 1).
  */
-export function Topbar({ title, onOpenSidebar, isSidebarOpen }: TopbarProps) {
+export function Topbar({ title, onOpenSidebar, isSidebarOpen, showNotifications }: TopbarProps) {
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-[#e5e5e5] bg-surface px-4 py-3 shadow-topbar md:px-7 md:py-3.5">
       <div className="flex min-w-0 items-center gap-3">
@@ -34,7 +36,7 @@ export function Topbar({ title, onOpenSidebar, isSidebarOpen }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
-        <NotificationBell />
+        {showNotifications ? <NotificationBell /> : null}
       </div>
     </header>
   );

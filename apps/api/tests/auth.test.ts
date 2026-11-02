@@ -13,6 +13,7 @@ import { hashPassword } from '../src/shared/utils/password';
 const ROLE_ADMIN = { id: 'role-admin', name: 'admin', description: null };
 const ROLE_TROOP_LEADER = { id: 'role-troop-leader', name: 'troop_leader', description: null };
 const ROLE_EXECUTIVE_COUNCIL = { id: 'role-executive-council', name: 'executive_council', description: null };
+const ROLE_COUNCIL_BOARD = { id: 'role-council-board', name: 'council_board', description: null };
 
 function buildUser(overrides: {
   id?: string;
@@ -150,6 +151,25 @@ describe('authService.signup', () => {
     expect(result).toMatchObject({ status: 'pending' });
   });
 
+  it('creates a Council Board account as inactive and pending too', async () => {
+    vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null);
+    vi.spyOn(authRepository, 'findRoleByName').mockResolvedValue(ROLE_COUNCIL_BOARD);
+    const createSpy = vi
+      .spyOn(authRepository, 'createUserWithRole')
+      .mockResolvedValue(buildUser({ id: 'user-5', email: 'carmen@example.com', role: ROLE_COUNCIL_BOARD, isActive: false }));
+
+    const result = await authService.signup({
+      role: 'council_board',
+      firstName: 'Carmen',
+      lastName: 'Tolentino',
+      email: 'carmen@example.com',
+      password: 'StrongPass1!',
+    });
+
+    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }), ROLE_COUNCIL_BOARD.id);
+    expect(result).toMatchObject({ status: 'pending' });
+  });
+
   it('rejects login for a pending (not-yet-approved) account with the same generic message', async () => {
     const passwordHash = await hashPassword('StrongPass1!');
     vi.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(
@@ -197,6 +217,18 @@ describe('signupSchema — admin self-signup is blocked', () => {
   it('rejects role "admin" even when no secret key is supplied at all', () => {
     const { adminSecretKey: _omitted, ...withoutKey } = adminPayload;
     expect(signupSchema.safeParse(withoutKey).success).toBe(false);
+  });
+
+  it('accepts Council Board with only the common fields', () => {
+    expect(
+      signupSchema.safeParse({
+        role: 'council_board',
+        firstName: 'Carmen',
+        lastName: 'Tolentino',
+        email: 'carmen@example.com',
+        password: 'StrongPass1!',
+      }).success,
+    ).toBe(true);
   });
 
   it('still accepts the two self-signup roles', () => {

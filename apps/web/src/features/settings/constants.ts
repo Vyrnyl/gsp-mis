@@ -3,6 +3,7 @@ import {
   ActivityIcon,
   AdminIcon,
   CouncilIcon,
+  EyeIcon,
   MembersIcon,
   SettingsIcon,
   TroopLeaderIcon,
@@ -29,12 +30,14 @@ export const ROLE_BADGE_TONES: Record<AuthRoleId, BadgeTone> = {
   admin: 'red',
   executive_council: 'blue',
   troop_leader: 'green',
+  council_board: 'gold',
 };
 
 export const ROLE_ICONS: Record<AuthRoleId, IconType> = {
   admin: AdminIcon,
   executive_council: CouncilIcon,
   troop_leader: TroopLeaderIcon,
+  council_board: EyeIcon,
 };
 
 export const USER_ROLE_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -42,12 +45,14 @@ export const USER_ROLE_FILTER_OPTIONS: Array<{ value: string; label: string }> =
   { value: 'admin', label: 'Administrator' },
   { value: 'executive_council', label: 'Executive Council' },
   { value: 'troop_leader', label: 'Troop Leader' },
+  { value: 'council_board', label: 'Council Board' },
 ];
 
 export const ROLE_ASSIGN_OPTIONS: Array<{ value: AuthRoleId; label: string }> = [
   { value: 'admin', label: 'Administrator' },
   { value: 'executive_council', label: 'Executive Council' },
   { value: 'troop_leader', label: 'Troop Leader' },
+  { value: 'council_board', label: 'Council Board' },
 ];
 
 export const EMPTY_USER_FORM_VALUES: UserFormValues = {

@@ -134,6 +134,7 @@ export function SignupForm({ role, onRoleChange, onSwitchToLogin }: SignupFormPr
         homeCouncilName: homeCouncilName.trim(),
       };
     }
+    if (role === 'council_board') return { ...base, role };
     return null;
   }
 

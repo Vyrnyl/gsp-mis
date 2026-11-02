@@ -7,6 +7,7 @@ import { logout } from '@/features/auth/services/auth.service';
 import { resolvePageTitle } from '@/shared/components/layout/nav-items';
 import { Sidebar } from '@/shared/components/layout/sidebar';
 import { Topbar } from '@/shared/components/layout/topbar';
+import { roleHasPermission } from '@/shared/constants/roles';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 import { useIsMobileViewport } from '@/shared/hooks/use-media-query';
 
@@ -86,6 +87,7 @@ export function AppShell({ children, user }: AppShellProps) {
           title={resolvePageTitle(pathname)}
           onOpenSidebar={() => setIsSidebarOpen(true)}
           isSidebarOpen={isSidebarOpen}
+          showNotifications={roleHasPermission(user.role, 'notifications:read')}
         />
         <main id="main-content" tabIndex={-1} className="flex-1 p-4 md:p-7">
           {children}

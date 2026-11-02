@@ -12,7 +12,7 @@ const router = Router();
  * `events:write` grant was removed pre-build (confirmed 2026-07-23) since the role
  * matrix scopes event Create/Edit/Delete/"Assign troop leaders" to Administrator only.
  */
-const anyRole = requireRole('admin', 'executive_council', 'troop_leader');
+const anyRole = requireRole('admin', 'executive_council', 'troop_leader', 'council_board');
 const canManage = requireRole('admin');
 
 /**

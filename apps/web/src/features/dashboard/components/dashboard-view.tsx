@@ -55,7 +55,7 @@ export function DashboardView({ user }: DashboardViewProps) {
     );
   }
 
-  if (user.role === 'executive_council') {
+  if (user.role === 'executive_council' || user.role === 'council_board') {
     return (
       <CouncilDashboard
         state={state}

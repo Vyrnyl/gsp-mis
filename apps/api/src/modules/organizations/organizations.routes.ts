@@ -11,7 +11,7 @@ const router = Router();
  * everywhere — 1.3's registration form depends on it). Create/update/delete is
  * Admin-only per project-overview.md's role matrix and build-plan.md §1.6.
  */
-const anyRole = requireRole('admin', 'executive_council', 'troop_leader');
+const anyRole = requireRole('admin', 'executive_council', 'troop_leader', 'council_board');
 const canManage = requireRole('admin');
 
 router.use(requireAuth);

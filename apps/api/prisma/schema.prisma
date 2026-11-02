@@ -62,7 +62,7 @@ model User {
 
 model Role {
   id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique // admin | executive_council | troop_leader
+  name        String  @unique // admin | executive_council | troop_leader | council_board
   description String?
 
   userRoles       UserRole[]

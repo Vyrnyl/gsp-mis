@@ -1,5 +1,5 @@
 /**
- * The three seeded roles (build-plan.md §7).
+ * The four seeded roles (build-plan.md §7).
  *
  * Roles are relational — a user's role comes from `user_roles`, never from a column
  * on `users`. These constants name the seeded rows; they are not a substitute for
@@ -9,11 +9,12 @@ export const ROLES = {
   ADMIN: 'admin',
   EXECUTIVE_COUNCIL: 'executive_council',
   TROOP_LEADER: 'troop_leader',
+  COUNCIL_BOARD: 'council_board',
 } as const;
 
 export type RoleName = (typeof ROLES)[keyof typeof ROLES];
 
-export const ALL_ROLES: RoleName[] = [ROLES.ADMIN, ROLES.EXECUTIVE_COUNCIL, ROLES.TROOP_LEADER];
+export const ALL_ROLES: RoleName[] = [ROLES.ADMIN, ROLES.EXECUTIVE_COUNCIL, ROLES.TROOP_LEADER, ROLES.COUNCIL_BOARD];
 
 /**
  * Permission names seeded into `permissions` and linked through `role_permissions`.
@@ -84,4 +85,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     PERMISSIONS.REPORTS_READ,
     PERMISSIONS.NOTIFICATIONS_READ,
   ],
+  // View-only: Dashboard, Councils & Troops, Events and Analytics, plus My Profile,
+  // which needs no permission. Dashboard has none either.
+  [ROLES.COUNCIL_BOARD]: [PERMISSIONS.ORGANIZATIONS_READ, PERMISSIONS.EVENTS_READ, PERMISSIONS.ANALYTICS_READ],
 };

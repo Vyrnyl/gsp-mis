@@ -8,7 +8,7 @@ const router = Router();
 
 /** Every authenticated role has a dashboard variant — no `permission` gate on the
  *  nav item either (`shared/components/layout/nav-items.ts`), just a session. */
-const anyRole = requireRole('admin', 'executive_council', 'troop_leader');
+const anyRole = requireRole('admin', 'executive_council', 'troop_leader', 'council_board');
 
 router.get('/', requireAuth, anyRole, asyncHandler(dashboardController.get));
 

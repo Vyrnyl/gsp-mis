@@ -107,6 +107,7 @@ async function seedRolesAndPermissions(): Promise<Record<RoleName, string>> {
     [ROLES.ADMIN]: 'Registration processor and system administrator',
     [ROLES.EXECUTIVE_COUNCIL]: 'Council officers who approve and oversee',
     [ROLES.TROOP_LEADER]: 'Leads a troop; records attendance and badges',
+    [ROLES.COUNCIL_BOARD]: 'Board members with view-only access to council, event and analytics data',
   };
 
   const roleIds = {} as Record<RoleName, string>;
@@ -164,6 +165,12 @@ async function seedUsers(roleIds: Record<RoleName, string>) {
       fullName: 'Grace Tapel',
       role: ROLES.TROOP_LEADER,
       phone: '+63 917 100 0004',
+    },
+    {
+      email: 'board@gsp-catanduanes.ph',
+      fullName: 'Carmen Tolentino',
+      role: ROLES.COUNCIL_BOARD,
+      phone: '+63 917 100 0005',
     },
   ];
 

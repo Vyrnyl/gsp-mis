@@ -15,6 +15,9 @@ const router = Router();
  */
 const canRead = requireRole('admin', 'executive_council');
 const canManage = requireRole('admin');
+/** The category names only, which fill the Analytics tab's filter. Council Board reads
+ * Analytics but holds no `finance:read`, so it gets none of the records behind them. */
+const canListExpenseCategories = requireRole('admin', 'executive_council', 'council_board');
 
 router.use(requireAuth);
 
@@ -24,7 +27,7 @@ router.get('/member-options', canManage, asyncHandler(financeController.listMemb
 router.get('/payments', canRead, asyncHandler(financeController.listPayments));
 router.post('/payments', canManage, asyncHandler(financeController.createPayment));
 
-router.get('/expense-categories', canRead, asyncHandler(financeController.listExpenseCategories));
+router.get('/expense-categories', canListExpenseCategories, asyncHandler(financeController.listExpenseCategories));
 router.get('/expenses', canRead, asyncHandler(financeController.listExpenses));
 router.post('/expenses', canManage, asyncHandler(financeController.createExpense));
 

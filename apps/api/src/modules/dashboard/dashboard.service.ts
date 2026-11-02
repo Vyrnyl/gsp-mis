@@ -245,7 +245,8 @@ export const dashboardService = {
    *  (settled decision #4, build-plan.md §1.5). */
   async getDashboard(userId: string, role: DashboardRole): Promise<DashboardResponseBody> {
     if (role === 'admin') return getAdminDashboard();
-    if (role === 'executive_council') return getCouncilDashboard();
+    // Council Board sees the same read-only council overview as Executive Council.
+    if (role === 'executive_council' || role === 'council_board') return getCouncilDashboard();
     return getTroopLeaderDashboard(userId);
   },
 };

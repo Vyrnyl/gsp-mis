@@ -120,15 +120,15 @@ export const authService = {
    * troop leader to a real `Troop` or an executive to a `Council` is an admin action in
    * feature 1.6 (Organization Management), not something self-signup can assert.
    *
-   * Security gate: Executive Council and Troop Leader are otherwise fully open
-   * self-signup with no verification of the affiliation they typed in, which would
-   * let anyone grant themselves live approval/finance/reporting access. They land
+   * Security gate: Executive Council, Troop Leader and Council Board are otherwise fully
+   * open self-signup with no verification of who they say they are, which would let
+   * anyone grant themselves live approval/finance/reporting access. They land
    * `isActive: false` and get no session; an Administrator must activate them from
    * Settings > Users & Access (3.4's existing activate/deactivate action) before they
    * can log in.
    *
    * Since Administrator self-signup was removed (2026-07-27 — `signupSchema` no longer
-   * accepts `role: "admin"`, so it 400s at validation), those two roles are the only
+   * accepts `role: "admin"`, so it 400s at validation), those three roles are the only
    * ones that reach here and *every* signup is now pending-approval. This method
    * therefore never returns the `status: "active"` arm of `SignupResponseBody`; that
    * arm is kept on the type so the BFF's cookie-setting branch and the web client stay

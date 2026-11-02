@@ -13,11 +13,12 @@ const router = Router();
  * `announcements:write` grant (no RBAC correction needed, same outcome as 2.2's
  * pre-build check).
  */
+const canRead = requireRole('admin', 'executive_council', 'troop_leader');
 const canPost = requireRole('admin', 'executive_council');
 
 router.use(requireAuth);
 
-router.get('/', asyncHandler(announcementsController.list));
+router.get('/', canRead, asyncHandler(announcementsController.list));
 router.post('/', canPost, asyncHandler(announcementsController.create));
 
 export const announcementsRoutes = router;

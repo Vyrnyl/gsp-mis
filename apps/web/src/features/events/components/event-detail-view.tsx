@@ -51,9 +51,11 @@ export interface EventDetailViewProps {
   /** Register, cancel and re-register participants — `attendance:write`, which also covers
    * Troop Leaders, unlike `canManage` (`events:write`, Administrator only). */
   canManageRegistrations: boolean;
+  /** `attendance:read`. Council Board can view events but not the Attendance page. */
+  canOpenAttendance: boolean;
 }
 
-export function EventDetailView({ eventId, canManage, canManageRegistrations }: EventDetailViewProps) {
+export function EventDetailView({ eventId, canManage, canManageRegistrations, canOpenAttendance }: EventDetailViewProps) {
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -235,14 +237,16 @@ export function EventDetailView({ eventId, canManage, canManageRegistrations }: 
               No organizer assigned yet.
             </p>
           ) : null}
-          <Button
-            variant="outline"
-            className="mt-4 w-full"
-            leadingIcon={<AttendanceIcon aria-hidden />}
-            onClick={() => router.push(`/attendance?eventId=${event.id}`)}
-          >
-            Manage Attendance
-          </Button>
+          {canOpenAttendance ? (
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              leadingIcon={<AttendanceIcon aria-hidden />}
+              onClick={() => router.push(`/attendance?eventId=${event.id}`)}
+            >
+              Manage Attendance
+            </Button>
+          ) : null}
         </Card>
       </div>
 

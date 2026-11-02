@@ -14,6 +14,14 @@ export default async function EventDetailPage({
   const [user, { id }] = await Promise.all([getSession(), params]);
   const canManage = user ? roleHasPermission(user.role, 'events:write') : false;
   const canManageRegistrations = user ? roleHasPermission(user.role, 'attendance:write') : false;
+  const canOpenAttendance = user ? roleHasPermission(user.role, 'attendance:read') : false;
 
-  return <EventDetailView eventId={id} canManage={canManage} canManageRegistrations={canManageRegistrations} />;
+  return (
+    <EventDetailView
+      eventId={id}
+      canManage={canManage}
+      canManageRegistrations={canManageRegistrations}
+      canOpenAttendance={canOpenAttendance}
+    />
+  );
 }

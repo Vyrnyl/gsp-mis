@@ -42,6 +42,7 @@ const ROLE_LABELS: Record<PortalUserSummary['role'], string> = {
   admin: 'Administrator',
   executive_council: 'Executive Council',
   troop_leader: 'Troop Leader',
+  council_board: 'Council Board',
 };
 
 function toDisplayDateTime(iso: string | null): string {

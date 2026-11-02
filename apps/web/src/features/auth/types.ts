@@ -4,7 +4,7 @@
  * uses relative imports and the workspaces don't share a types package, so this is
  * kept in sync by hand with `apps/api/src/modules/auth/{auth.types,auth.schema}.ts`.
  */
-export type AuthRoleId = 'admin' | 'executive_council' | 'troop_leader';
+export type AuthRoleId = 'admin' | 'executive_council' | 'troop_leader' | 'council_board';
 
 export interface DemoAccount {
   roleId: AuthRoleId;
@@ -57,7 +57,8 @@ export type SignupRequest =
       councilName: string;
       region: string;
       councilCode: string;
-    });
+    })
+  | (SignupRequestBase & { role: 'council_board' });
 
 export interface ForgotPasswordRequest {
   email: string;

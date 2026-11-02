@@ -95,6 +95,7 @@ export const ROLE_PERMISSIONS: Record<AuthRoleId, PermissionName[]> = {
     'reports:read',
     'notifications:read',
   ],
+  council_board: ['organizations:read', 'events:read', 'analytics:read'],
 };
 
 export function roleHasPermission(role: AuthRoleId, permission: PermissionName): boolean {
@@ -114,6 +115,8 @@ export const ROUTE_PERMISSIONS: Partial<Record<string, PermissionName>> = {
   '/attendance': 'attendance:read',
   '/activity-reports': 'activity-reports:read',
   '/badges': 'badges:read',
+  '/announcements': 'notifications:read',
+  '/notifications': 'notifications:read',
   '/finance': 'finance:read',
   '/reports': 'reports:read',
   '/analytics': 'analytics:read',
@@ -132,4 +135,5 @@ export const ROLE_LABELS: Record<AuthRoleId, string> = {
   admin: 'Administrator',
   executive_council: 'Executive Council',
   troop_leader: 'Troop Leader',
+  council_board: 'Council Board',
 };

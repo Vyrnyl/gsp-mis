@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 
-import { AdminIcon, CouncilIcon, TroopLeaderIcon, type IconType } from '@/shared/components/icons';
+import { AdminIcon, CouncilIcon, EyeIcon, TroopLeaderIcon, type IconType } from '@/shared/components/icons';
 import { cn } from '@/shared/utils/cn';
 
 import type { AuthRoleId } from '../types';
@@ -13,11 +13,12 @@ export interface RoleOption {
   icon: IconType;
 }
 
-/** Order matches CLAUDE.md's canonical role list: Administrator, Executive Council, Troop Leader. */
+/** Order matches CLAUDE.md's canonical role list: Administrator, Executive Council, Troop Leader, Council Board. */
 export const ROLE_OPTIONS: RoleOption[] = [
   { id: 'admin', label: 'Administrator', icon: AdminIcon },
   { id: 'executive_council', label: 'Executive Council', icon: CouncilIcon },
   { id: 'troop_leader', label: 'Troop Leader', icon: TroopLeaderIcon },
+  { id: 'council_board', label: 'Council Board', icon: EyeIcon },
 ];
 
 /**
@@ -33,7 +34,7 @@ export interface RoleSelectorProps {
   legend: string;
   value: AuthRoleId;
   onChange: (id: AuthRoleId) => void;
-  /** Defaults to all three roles; signup passes `SIGNUP_ROLE_OPTIONS`. */
+  /** Defaults to every role; signup passes `SIGNUP_ROLE_OPTIONS`. */
   options?: RoleOption[];
   className?: string;
 }
