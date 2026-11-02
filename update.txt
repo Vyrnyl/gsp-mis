@@ -10,8 +10,8 @@
 
 6. Update the downloadable file it should a logo of the gsp
 
-7. Add new user Council Board, ang module/web page nya lang po is yung analytics then council and board page ras events page po
+7. Add new user Council Board, ang module/web page nya lang po is yung analytics then council and board page and events page
 
 8. then so analytics po ung desicion nya po dapat nasa last part po sya ning mga tabs po tas ang pinka unang tab po is ung total population of girls 
 
-9. add a bench mark po (bagi pamantayan siya) like 40/100 so total girls population po
+9. add a bench mark po (parang pamantayan siya) like 40/100 so total girls population po
