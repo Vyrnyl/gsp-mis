@@ -13,13 +13,14 @@ events and attendance, badges and achievements, announcements, finances, reports
 analytics — all under role-based access so each person only sees and does what their
 role allows.
 
-The system serves three roles:
+The system serves four roles:
 
 | Role | Who they are | Focus |
 | --- | --- | --- |
 | **Administrator** | Council/system staff running the platform | Full access — membership, events, finance, users, system settings |
 | **Executive Council** | Council leadership overseeing operations | Approvals, monitoring, reporting, analytics, announcements |
 | **Troop Leader** | Leader of a single troop | Their troop's members, attendance, activity reports, badges |
+| **Council Board** | Board members who need to see, not change, council data | View-only Dashboard, Councils & Troops, Events and Analytics, plus My Profile |
 
 Every screen adapts to the signed-in role automatically — there is no way to view another
 role's data by changing a menu or a URL. Access is enforced on the server, not just hidden
@@ -48,10 +49,12 @@ Each role collects different account details:
 | Employee ID | — | — | ✅ |
 | Admin secret key | — | — | ✅ (issued by IT/system owner) |
 
+**Council Board** asks only for the first three rows: name, email and password.
+
 > **Administrator** signup creates the account immediately and signs you in.
 >
-> **Troop Leader** and **Executive Council** signups are different: since nothing yet
-> verifies the troop/council you typed in, the account is created but held **inactive** —
+> **Troop Leader**, **Executive Council** and **Council Board** signups are different: since
+> nothing yet verifies who you say you are, the account is created but held **inactive** —
 > you're signed out, not signed in — until an Administrator reviews and activates it
 > (**Settings → Users & Access**). Trying to log in before that shows the same generic
 > "Invalid email or password" message you'd get from a wrong password; that's expected,
@@ -138,6 +141,14 @@ what each role can see and do anywhere in the system.
 
 Notes:
 - The **Administrator** holds every permission.
+- **Council Board** is not in the table above because it holds only three of these:
+  `organizations:read`, `events:read` and `analytics:read`. It has no notification bell and
+  no Announcements page. The only thing it can change is its own My Profile details and
+  password. An account comes from Sign Up, held inactive until an Administrator activates it,
+  or directly from an Administrator in Settings > Users & Access. Analytics includes the
+  Financial and Decisions tabs, so these accounts see those figures even though Financial
+  Tracking itself is closed to them. Check who a Council Board signup really is before
+  activating it.
 - **Membership** data (register, edit) is open to all three roles because troop leaders
   are the primary source of new registrations; **approval and archiving** require Executive
   Council or Administrator judgment.
@@ -146,7 +157,7 @@ Notes:
   Badges, and Finance.
 - **Financial Tracking, Analytics, Settings, and User Management** are not visible to
   Troop Leaders at all.
-- **Report Generation** is visible to everyone, but a Troop Leader can only generate
+- **Report Generation** is visible to everyone except Council Board, but a Troop Leader can only generate
   Membership, Attendance, Badge, and Activity reports for their own troop — **Financial**
   and **Executive** report types are Administrator/Executive Council only, and exporting
   (PDF/Excel) is restricted to Administrator and Executive Council.
@@ -305,9 +316,15 @@ recorded in a **Report History** table you can revisit and re-download later.
 
 ### 5.12 Analytics (Administrator + Executive Council only)
 
-Six tabs of aggregate, org-wide insight — **Membership**, **Attendance**, **Participation**,
-**Badges**, **Financial**, **Organization** (per-troop performance) — each with stat cards
-and a chart. This module is read-only; nothing here is editable.
+Eight tabs of aggregate, org-wide insight — **Population**, **Membership**, **Attendance**,
+**Participation**, **Badges**, **Financial**, **Organization** (per-troop performance) and
+**Decisions**. This module is read-only; nothing here is editable.
+
+**Population** opens first. It shows the total population of girls, meaning scouts who are
+active or expiring, against a **Next milestone**, plus breakdowns by municipality, school and
+scout level. Adult leaders are not counted, and scouts pending approval are shown as a
+separate number under the total. The milestone is the next round number (10, 100, 1,000), set
+automatically, not a target chosen by the council.
 
 ### 5.13 Settings & System Administration (Administrator only)
 
@@ -321,7 +338,7 @@ Four tabs:
   or delete them. The system will not let you deactivate, delete, or demote the **last
   remaining Administrator** — this guard exists so the portal can never be left with no
   one able to manage it.
-  A new Troop Leader or Executive Council **self-signup** (§2.1) also lands here, shown
+  A new Troop Leader, Executive Council or Council Board **self-signup** (§2.1) also lands here, shown
   as **Inactive** — the same **Activate** button used to reinstate a deactivated account
   is how you approve a pending signup; there's no separate approval queue for accounts.
 - **Audit Log** — a read-only, searchable, paginated record of who did what and when
@@ -378,8 +395,8 @@ accounts (§2.1) until an Administrator assigns you under **Councils & Troops**.
 
 **"I signed up but can't log in — it says my email or password is wrong, but I'm sure
 they're right."**
-Troop Leader and Executive Council accounts created through self-signup are held
-inactive until an Administrator approves them (§2.1, §5.13) — this looks identical to a
+Troop Leader, Executive Council and Council Board accounts created through self-signup are
+held inactive until an Administrator approves them (§2.1, §5.13) — this looks identical to a
 wrong password on purpose, so the login form never confirms or denies that an account
 exists. Contact your Administrator to have the account activated under **Settings →
 Users & Access**, then try again.

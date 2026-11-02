@@ -37,7 +37,7 @@ The primary goal is to improve efficiency, transparency, reporting, and decision
 
 # Target Users
 
-There are three primary user roles.
+There are three primary user roles, plus the view-only Council Board role added in the 2026-11 client revision ([build-plan.md](build-plan.md) §10).
 
 ---
 

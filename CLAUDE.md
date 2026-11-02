@@ -1,6 +1,6 @@
 # GSP Management Information System
 
-Web platform for the **Girl Scouts of the Philippines** — membership, events, attendance, badges, finance, reports, and analytics with role-based access. Three roles: **Administrator**, **Executive Council**, **Troop Leader**.
+Web platform for the **Girl Scouts of the Philippines** — membership, events, attendance, badges, finance, reports, and analytics with role-based access. Four roles: **Administrator**, **Executive Council**, **Troop Leader**, and the view-only **Council Board**.
 
 ## Current state — read this first
 

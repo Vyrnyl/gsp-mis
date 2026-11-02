@@ -604,10 +604,30 @@ past 2026-07-25).
 
 ## 13. Analytics (`/analytics`) — 🅐/🅔 only, fully read-only
 
-- [ ] 🅐 Admin: open all 6 tabs (Membership, Attendance, Participation, Badges, Financial,
-      Organization) → stat cards + chart render on each, no edit controls.
-- [ ] 🅔 EC: same 6 tabs, same read-only confirmation.
+- [ ] 🅐 Admin: open all 8 tabs (Population, Membership, Attendance, Participation, Badges,
+      Financial, Organization, Decisions) → each renders, no edit controls. Population
+      opens first and Decisions is last.
+- [ ] 🅐 Population: the total counts active and expiring scouts only, the pending count sits
+      under it, and the Municipality, School and Scout level filters narrow the figures.
+- [ ] 🅔 EC: same 8 tabs, same read-only confirmation.
 - [ ] 🅣 Liza: directly visit `/analytics` → redirected to Dashboard.
+
+**Council Board (view-only).** This role has no seeded account in Neon. Create one through Sign
+Up and activate it, or as Admin in Settings > Users & Access, then sign in as that user.
+
+- [ ] Sidebar shows only Dashboard, Councils & Troops, Event Management, Analytics and My Profile.
+      There is no notification bell.
+- [ ] Councils & Troops and Event Management show no add, edit or delete controls.
+- [ ] Event details shows the participant list, with no Register Participant, cancel or
+      Manage Attendance controls.
+- [ ] Analytics: all 8 tabs render, and the Financial tab's Expense category filter has options.
+- [ ] My Profile: can change own details and password.
+- [ ] Directly visit `/members`, `/approvals`, `/attendance`, `/badges`, `/activity-reports`,
+      `/announcements`, `/notifications`, `/finance`, `/reports` and `/settings` → each redirects
+      to Dashboard.
+- [ ] Sign Up: pick **Council Board** → only name, email and password are asked for → submit →
+      the "must approve your account" toast appears and you land on Log In, signed out. Logging
+      in fails until an Admin activates the account in Users & Access, then it works.
 
 ---
 

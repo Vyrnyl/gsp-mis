@@ -44,7 +44,7 @@ Stores user accounts, authentication details, role assignments, permissions, and
 
 > **Authoritative role model.** Roles are **relational** — a user's role(s) come from `user_roles`, and a role's capabilities come from `role_permissions`. There is **no role string column on `users`**. This is required because "Manage permissions" and "Assign user roles" are explicit Administrator features ([project-overview.md](project-overview.md) → Administrator → User Management), which a flat string cannot support.
 >
-> The join table supports many-to-many, but **v1 enforces exactly one role per user** at the service layer. The three seeded roles are `admin`, `executive_council`, and `troop_leader`.
+> The join table supports many-to-many, but **v1 enforces exactly one role per user** at the service layer. The four roles are `admin`, `executive_council`, `troop_leader` and `council_board`. The last is added by migration `20261102120000_add_council_board_role`, so it reaches live databases, which are never seeded.
 
 #### Suggested Fields
 
