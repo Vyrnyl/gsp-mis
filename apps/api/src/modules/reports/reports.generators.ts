@@ -1,7 +1,14 @@
+import path from 'node:path';
+
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 
 import type { ReportPreviewDto } from './reports.types';
+
+// __dirname is src/modules/reports in dev and dist/modules/reports after a build —
+// both are three levels below apps/api, so this resolves without a copy step (tsc
+// does not copy assets, and Render runs from the repo checkout).
+const LOGO_PATH = path.resolve(__dirname, '../../../assets/logo.jpg');
 
 /** GSP brand tokens (context/ui-rules.md §2) mirrored here since generators run
  * outside Tailwind/CSS — keep in sync if the palette ever changes. */
@@ -85,22 +92,45 @@ export function generatePdfBuffer(title: string, preview: ReportPreviewDto): Pro
     const FOOTER_ZONE = 36;
 
     function drawBanner(): void {
-      doc.rect(0, 0, pageWidth, 96).fill(COLORS.green);
+      const BANNER_HEIGHT = 96;
+      const LOGO_SIZE = 76;
+      const logoY = (BANNER_HEIGHT - LOGO_SIZE) / 2;
+      const textX = MARGIN + LOGO_SIZE + 14;
+      const textWidth = pageWidth - MARGIN - textX;
+
+      doc.rect(0, 0, pageWidth, BANNER_HEIGHT).fill(COLORS.green);
+
+      // The logo is a green seal on a white JPEG, so it sits on a white disc rather
+      // than as a white square on the green banner.
+      const logoRadius = LOGO_SIZE / 2;
+      doc.save();
+      doc.circle(MARGIN + logoRadius, logoY + logoRadius, logoRadius).fill(COLORS.white);
+      doc.circle(MARGIN + logoRadius, logoY + logoRadius, logoRadius).clip();
+      doc.image(LOGO_PATH, MARGIN, logoY, { width: LOGO_SIZE, height: LOGO_SIZE });
+      doc.restore();
+
       doc
         .fillColor('#bfe0c8')
         .font('Helvetica-Bold')
         .fontSize(8.5)
-        .text('GSP MANAGEMENT INFORMATION SYSTEM', MARGIN, 22, { characterSpacing: 0.6 });
-      doc.fillColor(COLORS.white).font('Helvetica-Bold').fontSize(19).text(title, MARGIN, 38, { width: contentWidth });
-      doc.fillColor('#d7ead9').font('Helvetica').fontSize(10).text(preview.rangeLabel, MARGIN, 66);
+        .text('GSP MANAGEMENT INFORMATION SYSTEM', textX, 22, { characterSpacing: 0.6 });
+
+      // Titles carry their date range, so they can outrun the width the logo leaves;
+      // a wrapped title would land on the range line below it.
+      const TITLE_SIZE = 19;
+      doc.font('Helvetica-Bold').fontSize(TITLE_SIZE);
+      const titleSize = Math.min(TITLE_SIZE, (TITLE_SIZE * textWidth) / doc.widthOfString(title));
+      doc.fillColor(COLORS.white).fontSize(titleSize).text(title, textX, 38, { width: textWidth, lineBreak: false });
+
+      doc.fillColor('#d7ead9').font('Helvetica').fontSize(10).text(preview.rangeLabel, textX, 66);
       doc
         .fillColor('#bfe0c8')
         .fontSize(8)
         .text(
           `Generated ${new Date(preview.generatedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`,
-          MARGIN,
+          textX,
           66,
-          { width: contentWidth, align: 'right' },
+          { width: textWidth, align: 'right' },
         );
       doc.y = 118;
     }

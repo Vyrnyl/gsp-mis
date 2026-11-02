@@ -275,6 +275,14 @@ describe('report generators — currency cells', () => {
     expect(buffer.length).toBeGreaterThan(1000);
   });
 
+  // `apps/api/assets` is not touched by tsc, so a moved file or a wrong relative
+  // path would only surface as a failed download.
+  it('embeds the GSP logo in the PDF', async () => {
+    const buffer = await generatePdfBuffer('Financial Report', financialPreview as never);
+
+    expect(buffer.includes('/Subtype /Image')).toBe(true);
+  });
+
   it('keeps PHP amounts as typed numbers in Excel, not text', async () => {
     const buffer = await generateExcelBuffer('Financial Report', financialPreview as never);
     const workbook = new ExcelJS.Workbook();
