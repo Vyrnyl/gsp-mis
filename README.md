@@ -1,138 +1,175 @@
-# GSP Management Information System
+<p align="center">
+  <img src="apps/web/public/logo.jpg" alt="Girl Scouts of the Philippines logo" width="120" />
+</p>
 
-Web platform for the **Girl Scouts of the Philippines** — membership, events, attendance, badges, finance, reports, and analytics with role-based access for Administrators, the Executive Council, and Troop Leaders.
+<h1 align="center">GSP Management Information System</h1>
 
-> **Status: Phase 0 complete — next up is 1.1 Authentication.** The monorepo is scaffolded (`apps/web` Next.js, `apps/api` Express + Prisma 7) with the design system ported, the app shell navigable, and the backend spine live. 0.2 and 0.3 passed visual sign-off on 2026-07-22. The database is live on **Neon PostgreSQL** — the `init` migration is applied and seeded, and `GET /api/v1/health` reports `database: up`. Nothing is outstanding for Phase 0. Live detail in [context/progress.md](context/progress.md).
+<p align="center">
+  A web portal for running Girl Scouts of the Philippines council and troop operations online:<br />
+  membership, events, attendance, badges, finance, reports and analytics, all behind role-based access.
+</p>
+
+<p align="center">
+  <a href="https://gsp-mis-web.vercel.app">Live site</a> ·
+  <a href="context/user-guide.md">User guide</a> ·
+  <a href="#run-it-locally">Run it locally</a>
+</p>
+
+---
+
+## What it does
+
+The system replaces paper records and spreadsheets with one shared, secure portal. Each person signs in with a role, and the portal shows only what that role is allowed to see and do.
+
+| Module | What you can do there |
+| --- | --- |
+| **Dashboard** | See member counts, growth and distribution charts, recent activity, and your troop roster. The content changes with your role. |
+| **Membership Registry** | Register scouts and adult leaders, edit their records, renew memberships, archive and restore members. Expiring and expired memberships are flagged. |
+| **Pending Approvals** | Review new registrations and approve or reject them, with a reason. |
+| **Councils & Troops** | Manage councils, troops and their leaders, municipalities and schools, scout levels, and badge and activity categories. |
+| **Events & Attendance** | Schedule events on a calendar, choose which scout levels attend, register participants and mark who was present. |
+| **Activity Reports** | Troop leaders submit a report after an event; the council reviews it. |
+| **Badges** | Browse the badge catalog, record earned badges, verify them, and track each member's progress. |
+| **Announcements & Notifications** | Post council announcements and get in-app notifications about registrations, badges and events. |
+| **Financial Tracking** | Record payments and expenses, manage fee types, and see collections and balances. |
+| **Reports** | Generate Membership, Attendance, Badge, Financial, Activity and Executive reports, and download them as PDF with the GSP logo. |
+| **Analytics** | Break down population, membership, attendance, participation, badges, finances and troop performance by school, scout level, troop and activity. Includes a population benchmark and a Decisions tab that ranks what needs attention. |
+| **Settings** | Manage users and their access, edit system settings, and read the audit log. |
+| **My Profile** | Update your own details and password. Available to every role. |
+
+## Who uses it
+
+| Role | Who they are | What they can do |
+| --- | --- | --- |
+| **Administrator** | Council or system staff running the platform | Everything, including users, settings and finance |
+| **Executive Council** | Council leadership | Approve registrations, monitor activity, read finances, generate and export reports, view analytics, post announcements |
+| **Troop Leader** | The leader of one troop | Manage their own troop's members, attendance, badges and activity reports |
+| **Council Board** | Board members who need to see council data but not change it | View the Dashboard, Councils & Troops, Events and Analytics |
+
+Access is checked on the server for every request. Hiding a menu item is not what keeps a role out, so changing a URL or a request does not reveal another role's data. The full permission table is in the [user guide](context/user-guide.md#4-roles--permissions-rbac).
+
+### Getting an account
+
+Open the portal, choose **Sign Up**, and pick your role.
+
+- **Troop Leader, Executive Council and Council Board** accounts are created **inactive**. An Administrator has to activate them in **Settings → Users & Access** before you can log in. Until then, logging in shows "Invalid email or password". That is expected.
+- **Administrator** sign-up needs an admin secret key from the system owner.
+- After activation, an Administrator still has to link a Troop Leader or Executive Council account to its troop or council. Until that happens, troop and council data will be empty.
+
+Forgotten passwords are reset by email. The reset link expires after one hour and works once.
+
+The [user guide](context/user-guide.md) ([PDF](context/user-guide.pdf)) walks through every screen, role by role, and has a troubleshooting section.
+
+---
+
+## Run it locally
+
+### Requirements
+
+- **Node.js 20** or newer
+- A **PostgreSQL** database. A local one works, or a free [Neon](https://neon.tech) project.
+
+### 1. Install
 
 ```bash
+git clone https://github.com/Vyrnyl/gsp-mis.git
+cd gsp-mis
 npm install
-npm run dev        # web  → http://localhost:3000  (start at /gallery)
-npm run dev:api    # api  → http://localhost:4000/api/v1/health
 ```
 
-The API needs `apps/api/.env` — copy `apps/api/.env.example` and fill it in. It refuses to boot without every secret, by design.
-
----
-
-## How to work on this project
-
-You mostly just talk normally. The documentation and skills are plumbing — they load themselves.
-
-### What loads automatically
-
-- **`CLAUDE.md`** is read at the start of every Claude Code session. You never open it or mention it. It carries the project rules and settled decisions so nothing gets re-litigated.
-- **`context/*.md`** are read on demand by Claude or by a skill. You don't paste them into chat.
-
-### What you trigger
-
-Skills fire from plain English — no slash commands, no filenames:
-
-| Say something like…                                              | Runs            | What happens                                                                                |
-| ---------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------- |
-| "build the membership page" · "build 1.3" · "next feature"       | `build-feature` | Runs the 6-step Feature Loop on **one** feature; stops at the visual gate for your sign-off |
-| "I need a dropdown" · "make a stat card"                         | `add-component` | Checks the registry first, builds to design tokens, registers it after                      |
-| "save progress" · "where did we stop" · "catch me up"            | `checkpoint`    | Writes or reads `context/progress.md`                                                       |
-| "this page is blank" · "API returns 500" · "login isn't working" | `debug`         | Traces UI → service → route → controller → repository → Prisma                              |
-
----
-
-## A typical session
-
-**1. Start** — say _"catch me up."_
-Claude reads [context/progress.md](context/progress.md) and reports the current feature, its Feature Loop step, and any blockers.
-
-**2. Work** — say _"continue"_ or name a feature, e.g. _"build 1.3."_
-The build stops partway and **shows you the page with mock data**, then waits.
-
-> **This pause is the whole method.** Nothing gets wired to a backend until you confirm the UI looks right. If you're ever asked to approve something you can't see, that's a bug in the process — push back.
-
-**3. End** — say _"save progress."_
-The tracker and component registry are updated so the next session resumes cleanly.
-
----
-
-## The core rule
-
-**UI-first, mock-data-first.** Every feature is built as a full, visible page with mock data and verified by you _before any logic is written_. Then functionality is wired to that UI step by step.
-
-**There are no invisible backend phases.** If you can't see it on screen, it isn't done.
-
-The six steps — UI+Mock → Visual Verify → Contract → Wire Read → Wire Write → Test & Done — and the gate each must pass are defined in [context/build-plan.md](context/build-plan.md) §1.
-
-### Build one feature at a time — not a whole phase
-
-A phase is a grouping and a milestone, not a unit of work. Take **one feature** all the way through the loop to done, including its backend, then start the next.
-
-```
-❌ All Phase 1 UIs  →  then all Phase 1 backends
-✅ 1.1 done  →  1.2 done  →  1.3 done  →  …
-```
-
-Splitting by layer across a phase is the same inversion the method exists to prevent — just phase-sized. It also means reviewing several screens cold with no working data behind any of them, and learning a lesson in feature 1.1 five features too late.
-
-So say _"build 1.3"_ or _"next feature"_ — not _"build Phase 1."_ Use the phase boundary as a **checkpoint**: when every feature in it is done, verify the phase exit criteria before opening the next.
-
-_Phase 0 is the exception — it's scaffolding with no user-facing surface, so 0.1–0.5 run as a block._
-
----
-
-## Where to look things up
-
-| Question                                     | File                                                                                                                    |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| What am I building next?                     | [context/build-plan.md](context/build-plan.md)                                                                          |
-| What's actually done?                        | [context/progress.md](context/progress.md)                                                                              |
-| What color / class / token is this?          | [context/ui-rules.md](context/ui-rules.md)                                                                              |
-| Does this component already exist?           | [context/ui-registry.md](context/ui-registry.md)                                                                        |
-| What tables and models exist?                | [context/database-design.md](context/database-design.md)                                                                |
-| How are modules and APIs structured?         | [context/architecture.md](context/architecture.md)                                                                      |
-| What are the naming/code rules?              | [context/code-standards.md](context/code-standards.md)                                                                  |
-| What's the full scope and who are the users? | [context/project-overview.md](context/project-overview.md)                                                              |
-| How should a screen look?                    | Open `context/Gsp.html` in a browser — it's the **visual baseline, not a spec**; the build is expected to improve on it |
-
-Two of these are living documents that change as you build: **progress.md** (updated every session) and **ui-registry.md** (updated whenever a component is built).
-
----
-
-## Stack
-
-**Frontend** — Next.js 15 · TypeScript · Tailwind CSS 3.4 · react-icons · react-chartjs-2 · Vitest
-**Backend** — Node.js · Express · TypeScript · Prisma 7 (node-postgres adapter) · PostgreSQL (Neon) · Vitest + supertest
-**Auth** — JWT + refresh tokens; the BFF issues httpOnly cookies, the API stays stateless _(feature 1.1)_
-
-```
-apps/web/src/  app/            routes — (app)/ group wraps everything in the shell
-               shared/         components/{ui,layout} · hooks · design/tokens.ts · utils
-apps/api/src/  modules/<domain>/   controller · service · repository · routes · types · index
-               shared/         handlers/{async-handler,error-handler} · utils · constants
-               config/         env.ts (fails fast) · prisma.ts (singleton + driver adapter)
-apps/api/      prisma.config.ts    Migrate's datasource + seed command (Prisma 7)
-apps/api/prisma/  schema.prisma · seed.ts · migrations/
-```
-
----
-
-## Roadmap
-
-| Phase    | Scope                                                                           | Features |
-| -------- | ------------------------------------------------------------------------------- | -------- |
-| **0** ✅ | Foundation — tooling, design system, app shell, backend spine, DB schema + seed | 5        |
-| **1**    | Core — auth, role-based nav, membership, approval, dashboard, organization      | 6        |
-| **2**    | Activities — events, attendance, activity reports, badges, notifications        | 5        |
-| **3**    | Finance, reports (PDF/Excel), analytics, settings/admin, profile                | 5        |
-
-**21 features total.** Full detail in [context/build-plan.md](context/build-plan.md); live status in [context/progress.md](context/progress.md).
-
----
-
-## Getting started
+### 2. Configure the API
 
 ```bash
-npm install
-npm run dev        # web → http://localhost:3000  ·  component gallery at /gallery
-npm run dev:api    # api → http://localhost:4000/api/v1/health
+cp apps/api/.env.example apps/api/.env
 ```
 
-The database is already migrated and seeded on Neon — `apps/api/.env` just needs to point at it (copy `apps/api/.env.example` and fill in `DATABASE_URL` plus the JWT/cookie secrets; the API refuses to boot without them). If you're pointing at a fresh database instead, run `npm run db:migrate` then `npm run db:seed` first.
+Fill in `apps/api/.env`. The API checks these values when it starts and **will not boot** if any required value is missing or too short.
 
-Phase 0 is signed off. Say **"build 1.1"** to start Authentication — where the UI-first rhythm really begins.
+| Variable | What it is |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET`, `COOKIE_SECRET` | Three different random strings, 32 characters or more each |
+| `ADMIN_SIGNUP_KEY` | The secret someone must enter to sign up as an Administrator |
+| `CORS_ORIGINS`, `WEB_APP_URL` | The web app's address. Locally, `http://localhost:3000` |
+| Email settings (optional) | Gmail API, Mailtrap or SMTP. Leave them empty locally and emails are printed to the console instead of sent. |
+
+Generate a secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+Every option is explained in [apps/api/.env.example](apps/api/.env.example). The web app needs no configuration if the API runs on port 4000. To use another address, see [apps/web/.env.example](apps/web/.env.example).
+
+### 3. Set up the database
+
+```bash
+npm run db:migrate   # create the tables
+npm run db:seed      # load demo councils, troops, members, events and accounts
+```
+
+The seed creates one demo login for each role, such as `admin@gsp-catanduanes.ph`, `council@gsp-catanduanes.ph`, `leader.virac@gsp-catanduanes.ph` and `board@gsp-catanduanes.ph`. Set `SEED_PASSWORD` before seeding to choose their password. The default is in [apps/api/prisma/seed.ts](apps/api/prisma/seed.ts).
+
+### 4. Start it
+
+Run each command in its own terminal:
+
+```bash
+npm run dev:api   # API → http://localhost:4000/api/v1/health
+npm run dev       # web → http://localhost:3000
+```
+
+Open http://localhost:3000 and log in with a demo account.
+
+### Useful scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` / `npm run dev:api` | Start the web app / the API in watch mode |
+| `npm run build` | Build both apps |
+| `npm test` | Run the test suites for both apps |
+| `npm run typecheck` | Type-check both apps |
+| `npm run lint` · `npm run format` | Lint · format with Prettier |
+| `npm run db:migrate` · `npm run db:seed` · `npm run db:studio` | Apply migrations · seed demo data · browse the database |
+
+---
+
+## How it's built
+
+| Layer | Technology |
+| --- | --- |
+| Web app | Next.js 15, React, TypeScript, Tailwind CSS, react-chartjs-2, react-icons |
+| API | Node.js, Express, TypeScript, Prisma 7 |
+| Database | PostgreSQL, hosted on Neon |
+| Sign-in | JWT access and refresh tokens, kept in httpOnly cookies set by the web app's server layer. The API itself stays stateless. |
+| Tests | Vitest, with supertest for the API |
+| Hosting | Web on Vercel, API on Render ([render.yaml](render.yaml)) |
+
+```
+apps/
+  web/   Next.js app. Pages are in src/app/, the shared UI kit in src/shared/components/
+  api/   Express API. One folder per domain in src/modules/, schema and migrations in prisma/
+context/ Planning docs, the user guide, and the original static prototype
+```
+
+The browser only talks to the Next.js app. It forwards API calls to Express, which checks the user's role and permissions, applies business rules, and reads and writes PostgreSQL through Prisma. Every API response has the same shape: `{ success, data }` on success or `{ success, error }` on failure.
+
+### Deployment notes
+
+- **API (Render):** [render.yaml](render.yaml) builds the API, applies migrations, and starts it. Set `DIRECT_DATABASE_URL` to Neon's non-pooled address so migrations do not time out.
+- **Web (Vercel):** set `API_ORIGIN` to the deployed API's address.
+- `/api/v1/health` is a liveness check that never touches the database. A [GitHub Actions workflow](.github/workflows/keep-alive.yml) pings it every 10 minutes so Render's free plan does not put the API to sleep. Use `/api/v1/health/db` to check the database, and don't poll it, because each call wakes Neon.
+
+---
+
+## For contributors
+
+The planning docs in [context/](context/) describe how the project is built:
+
+- [build-plan.md](context/build-plan.md): the feature list and the build method
+- [progress.md](context/progress.md): what is done, plus a log of every session
+- [architecture.md](context/architecture.md) and [database-design.md](context/database-design.md): how the system fits together
+- [code-standards.md](context/code-standards.md), [ui-rules.md](context/ui-rules.md) and [ui-registry.md](context/ui-registry.md): conventions, design tokens and the component catalog
+- [CLAUDE.md](CLAUDE.md): the rules for AI-assisted development in this repo
+
+All 21 planned features are built. Each one is designed as a visible page with mock data, signed off visually, and only then connected to the API and database. Changes to finished features follow the same rule: change the screen first, then the logic behind it.
