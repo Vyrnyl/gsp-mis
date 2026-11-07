@@ -1,25 +1,30 @@
 'use client';
 
 import {
-  BarElement,
   CategoryScale,
   Chart as ChartJS,
   LinearScale,
+  LineElement,
+  PointElement,
   Tooltip,
   type ChartOptions,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
 import { palette } from '@/shared/design/tokens';
 
 import type { GrowthPoint } from '../types';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip);
 
-const CHART_OPTIONS: ChartOptions<'bar'> = {
+const CHART_OPTIONS: ChartOptions<'line'> = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
+    // Explicitly disabled — Analytics and Finance register ChartJS's `Legend` plugin
+    // globally (a shared registry, not per-chart), so after visiting either page it
+    // would otherwise switch on here too.
+    legend: { display: false },
     tooltip: { backgroundColor: palette.ink, padding: 8, cornerRadius: 6 },
   },
   scales: {
@@ -37,27 +42,28 @@ export interface MembershipGrowthChartProps {
 }
 
 /**
- * Bar chart — registry §4. Ports the prototype's `.bar-chart`/`.bar` CSS bars to
- * `react-chartjs-2` (settled decision #2), keeping the green fill. The prototype's
- * per-bar vertical gradient is simplified to a solid fill — a minor ChartJS-port
- * deviation, flagged at visual verify.
+ * Line chart — registry §4. Started as a port of the prototype's `.bar-chart` CSS bars;
+ * switched to a line on 2026-11-07 at the user's request, styled to match Analytics'
+ * `MembershipTrendChart` so the two Membership Growth charts read the same.
  */
 export function MembershipGrowthChart({ data }: MembershipGrowthChartProps) {
   const summary = data.map((point) => `${point.label} ${point.count}`).join(', ');
 
   return (
     <div style={{ height: 160 }} role="img" aria-label={`New registrations by month: ${summary}`}>
-      <Bar
+      <Line
         aria-hidden
         data={{
           labels: data.map((point) => point.label),
           datasets: [
             {
               data: data.map((point) => point.count),
-              backgroundColor: palette.green2,
-              hoverBackgroundColor: palette.green,
-              borderRadius: 6,
-              maxBarThickness: 40,
+              borderColor: palette.green2,
+              borderWidth: 2,
+              pointBackgroundColor: palette.green2,
+              pointHoverBackgroundColor: palette.green,
+              pointRadius: 4,
+              pointHoverRadius: 6,
             },
           ],
         }}

@@ -15,6 +15,10 @@ const CHART_OPTIONS: ChartOptions<'doughnut'> = {
   maintainAspectRatio: false,
   cutout: '68%',
   plugins: {
+    // Explicitly disabled — Analytics and Finance register ChartJS's `Legend` plugin
+    // globally, so after visiting either page it would draw inside this 120px canvas
+    // and crush the ring. The HTML legend beside the chart is the real one.
+    legend: { display: false },
     tooltip: { backgroundColor: palette.ink, padding: 8, cornerRadius: 6 },
   },
 };

@@ -14,7 +14,7 @@ export interface DashboardStatValue {
   value: number;
 }
 
-/** One bar in the membership-growth chart — a month label + new registrations. */
+/** One point in the membership-growth chart — a month label + new registrations. */
 export interface GrowthPoint {
   label: string;
   count: number;
